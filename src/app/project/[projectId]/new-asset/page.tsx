@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -50,6 +51,16 @@ export default function NewAssetPage() {
     }
     if (!project) return;
 
+    // Update project's lastAccessed time and status
+    const projectIndex = mockProjects.findIndex(p => p.id === project.id);
+    if (projectIndex !== -1) {
+      mockProjects[projectIndex] = {
+        ...mockProjects[projectIndex],
+        lastAccessed: new Date().toISOString(),
+        status: 'recent',
+      };
+    }
+    
     // Simulate saving asset
     const newAsset: Asset = {
       id: `asset_${Date.now()}`,

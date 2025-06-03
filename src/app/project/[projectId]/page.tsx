@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -49,7 +50,20 @@ export default function ProjectPage() {
       projectId: project.id,
       parentId: selectedFolder ? selectedFolder.id : null,
     };
-    setFolders(prev => [...prev, newFolder]);
+
+    // Update project's lastAccessed time and status
+    const projectIndex = mockProjects.findIndex(p => p.id === projectId);
+    if (projectIndex !== -1) {
+      mockProjects[projectIndex] = {
+        ...mockProjects[projectIndex],
+        lastAccessed: new Date().toISOString(),
+        status: 'recent',
+      };
+    }
+    
+    mockFolders.push(newFolder); // Add to global mockFolders
+    setFolders(prev => [...prev, newFolder]); // Update local state for UI
+
     setNewFolderName('');
     setIsNewFolderDialogOpen(false);
     setSelectedFolder(null); // Reset selected folder for adding to root next time or clear selection
