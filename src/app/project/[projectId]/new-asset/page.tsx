@@ -9,12 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, AlertTriangle, Video, VideoOff } from 'lucide-react';
 import type { Project, Asset, ProjectStatus } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type AssetCreationStep = 'name' | 'photos' | 'description';
 
@@ -39,23 +39,127 @@ export default function NewAssetPage() {
 
   const MAX_PHOTOS = 5;
 
+  // Camera related state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null); // null: not yet determined, true: granted, false: denied/error
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [showCameraPreview, setShowCameraPreview] = useState(false);
+  const [isCameraStarting, setIsCameraStarting] = useState(false);
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
+
+
   const loadProject = useCallback(() => {
     if (projectId) {
       const allProjects = LocalStorageService.getProjects();
       const foundProject = allProjects.find(p => p.id === projectId);
       setProject(foundProject || null);
       if (!foundProject) {
-        toast({ title: "Project Not Found", variant: "destructive" });
+        toast({ title: t('projectNotFound', "Project Not Found"), variant: "destructive" });
         router.push('/');
       }
     }
-  }, [projectId, router, toast]);
+  }, [projectId, router, toast, t]);
 
   useEffect(() => {
     loadProject();
   }, [loadProject]);
   
+  const startCameraStream = useCallback(async () => {
+    if (isCameraActive || isCameraStarting) return;
+    setIsCameraStarting(true);
+    setHasCameraPermission(null); // Reset while attempting
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(err => {
+          console.error("Error playing video stream:", err);
+          throw err; // Propagate error to catch block
+        });
+      }
+      setHasCameraPermission(true);
+      setIsCameraActive(true);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setHasCameraPermission(false);
+      setIsCameraActive(false);
+      let errorTitle = t('cameraErrorTitle', 'Camera Error');
+      let errorDesc = t('cameraErrorDesc', 'Could not access the camera.');
+      if ((error as Error).name === 'NotAllowedError' || (error as Error).name === 'PermissionDeniedError') {
+        errorTitle = t('cameraAccessDeniedTitle', 'Camera Access Denied');
+        errorDesc = t('cameraAccessDeniedDesc', 'Please enable camera permissions in your browser settings.');
+      } else if ((error as Error).name === 'NotFoundError' || (error as Error).name === 'DevicesNotFoundError') {
+         errorTitle = t('cameraNotFoundTitle', 'Camera Not Found');
+         errorDesc = t('cameraNotFoundDesc', 'No camera was found. Please ensure a camera is connected and enabled.');
+      }
+      toast({
+        variant: 'destructive',
+        title: errorTitle,
+        description: errorDesc,
+      });
+    } finally {
+      setIsCameraStarting(false);
+    }
+  }, [isCameraActive, isCameraStarting, toast, t]);
+
+  const stopCameraStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+    // Do not reset hasCameraPermission here, user might grant/deny then stop.
+    // setShowCameraPreview(false); // Let user decide to close preview section
+  }, []);
+
+  const handleCapturePhoto = useCallback(async () => {
+    if (!videoRef.current || !streamRef.current || photos.length >= MAX_PHOTOS || isCapturingPhoto) return;
+    setIsCapturingPhoto(true);
+
+    const video = videoRef.current;
+    const tempCanvas = canvasRef.current || document.createElement('canvas');
+    if (!canvasRef.current) { // If not using the persistent ref, ensure it's in the DOM for toBlob
+        tempCanvas.style.display = 'none';
+        document.body.appendChild(tempCanvas);
+    }
+    
+    tempCanvas.width = video.videoWidth;
+    tempCanvas.height = video.videoHeight;
+    const context = tempCanvas.getContext('2d');
+    context?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+
+    try {
+        const blob = await new Promise<Blob | null>((resolve) => tempCanvas.toBlob(resolve, 'image/jpeg', 0.9));
+        if (blob) {
+            const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+            setPhotos(prev => [...prev, file].slice(0, MAX_PHOTOS));
+            const newPreviewUrl = URL.createObjectURL(file);
+            setPhotoPreviews(prev => [...prev, newPreviewUrl].slice(0, MAX_PHOTOS));
+        } else {
+            throw new Error("Canvas toBlob returned null");
+        }
+    } catch (error) {
+        console.error("Error capturing photo: ", error);
+        toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('photoCaptureErrorDesc', "Could not capture photo."), variant: "destructive" });
+    } finally {
+        if (!canvasRef.current && tempCanvas.parentNode) { // Clean up temporary canvas if it was added
+            document.body.removeChild(tempCanvas);
+        }
+        setIsCapturingPhoto(false);
+    }
+  }, [photos.length, isCapturingPhoto, toast, t]);
+
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    stopCameraStream(); // Stop camera if active when uploading from gallery
+    setShowCameraPreview(false);
+
     if (event.target.files) {
       const newFiles = Array.from(event.target.files);
       if (photos.length + newFiles.length > MAX_PHOTOS) {
@@ -68,12 +172,16 @@ export default function NewAssetPage() {
       const combinedFiles = [...photos, ...newFiles].slice(0, MAX_PHOTOS); 
       setPhotos(combinedFiles);
       
-      // Revoke old object URLs before creating new ones to prevent memory leaks
-      // photoPreviews.forEach(url => URL.revokeObjectURL(url)); // Do this selectively on removal or unmount
-      
       const newPreviews = combinedFiles.map(file => URL.createObjectURL(file));
-      setPhotoPreviews(newPreviews); // This will overwrite, so old previews are implicitly "revoked" by not being used if files change
+      setPhotoPreviews(prevPreviews => {
+          // Revoke old previews that are being replaced if their count reduces or they change significantly
+          // This is a simple approach; a more complex diffing could be used for fine-grained control
+          prevPreviews.forEach(url => URL.revokeObjectURL(url)); 
+          return newPreviews;
+      });
     }
+    // Reset file input value to allow selecting the same file again
+    event.target.value = '';
   };
 
   const removePhoto = (indexToRemove: number) => {
@@ -91,18 +199,21 @@ export default function NewAssetPage() {
   };
 
   const handlePhotosSubmittedOrSkipped = () => {
+    stopCameraStream(); // Ensure camera is off when leaving modal
     setIsPhotoModalOpen(false);
+    setShowCameraPreview(false); // Hide preview section
     setCurrentStep('description');
   };
 
   const handleSaveAsset = (description: string, summary?: string) => {
     if (!project) {
-      toast({ title: "Project context lost", variant: "destructive" });
+      toast({ title: t('projectContextLost', "Project context lost"), variant: "destructive" });
       return;
     }
      if (!assetName.trim()) {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), variant: "destructive" });
-      setCurrentStep('name');
+      setCurrentStep('name'); // Go back to name step if empty
+      setIsPhotoModalOpen(false); // Close photo modal if it was open
       return;
     }
 
@@ -118,7 +229,7 @@ export default function NewAssetPage() {
       name: assetName,
       projectId: project.id,
       folderId: folderId,
-      photos: photoPreviews, // For mock data, these are fine. Real app: uploaded URLs.
+      photos: photoPreviews, 
       description: description,
       summary: summary,
       createdAt: new Date().toISOString(),
@@ -126,18 +237,29 @@ export default function NewAssetPage() {
     
     LocalStorageService.addAsset(newAsset); 
 
-    toast({ title: t('assetSavedTitle', "Asset Saved"), description: t('assetSavedDesc', `Asset "${assetName}" has been saved.`) });
+    toast({ title: t('assetSavedTitle', "Asset Saved"), description: t('assetSavedDesc', `Asset "${assetName}" has been saved.`, { assetName: assetName }) });
     router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
   };
 
+  // Cleanup camera and object URLs
   useEffect(() => {
     return () => {
+      stopCameraStream();
       photoPreviews.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [photoPreviews]);
+  }, [stopCameraStream, photoPreviews]);
+
+  // Ensure camera stops if modal is closed by external means (Esc, click outside)
+  useEffect(() => {
+    if (!isPhotoModalOpen) {
+        stopCameraStream();
+        setShowCameraPreview(false);
+    }
+  }, [isPhotoModalOpen, stopCameraStream]);
+
 
   if (!project) {
-    return <div className="container mx-auto p-4 text-center">Loading project context...</div>;
+    return <div className="container mx-auto p-4 text-center">{t('loadingProjectContext', 'Loading project context...')}</div>;
   }
 
   const renderStepContent = () => {
@@ -146,9 +268,9 @@ export default function NewAssetPage() {
         return (
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
-              <CardTitle className="text-2xl font-headline">{t('newAsset', 'Create New Asset')} for {project.name}</CardTitle>
-              {folderId && <CardDescription>{t('inFolder', 'In folder:')} {LocalStorageService.getFolders().find(f=>f.id === folderId)?.name || 'Unknown Folder'}</CardDescription>}
-              <CardDescription>Step 1 of 3: {t('enterAssetNamePrompt', 'Enter the asset name.')}</CardDescription>
+              <CardTitle className="text-2xl font-headline">{t('newAsset', 'Create New Asset')} {t('forProject', 'for')} {project.name}</CardTitle>
+              {folderId && <CardDescription>{t('inFolder', 'In folder:')} {LocalStorageService.getFolders().find(f=>f.id === folderId)?.name || t('unknownFolder', 'Unknown Folder')}</CardDescription>}
+              <CardDescription>{t('step1Of3', 'Step 1 of 3:')} {t('enterAssetNamePrompt', 'Enter the asset name.')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -173,7 +295,7 @@ export default function NewAssetPage() {
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
               <CardTitle className="text-2xl font-headline">{t('addDescriptionFor', 'Add Description for:')} <span className="text-primary">{assetName}</span></CardTitle>
-              <CardDescription>Step 3 of 3: {t('provideDetailsPrompt', 'Provide detailed information about the asset.')}</CardDescription>
+              <CardDescription>{t('step3Of3', 'Step 3 of 3:')} {t('provideDetailsPrompt', 'Provide detailed information about the asset.')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 {photoPreviews.length > 0 && (
@@ -182,7 +304,7 @@ export default function NewAssetPage() {
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                     {photoPreviews.map((src, index) => (
                         <div key={index} className="relative group">
-                          <img src={src} alt={`Preview ${index + 1}`} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
+                          <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
                           <Button 
                               variant="destructive" 
                               size="icon" 
@@ -197,7 +319,7 @@ export default function NewAssetPage() {
                     </div>
                 </div>
                 )}
-                 <Button variant="outline" size="sm" onClick={() => { setCurrentStep('name'); setIsPhotoModalOpen(true); }} className="mt-2">
+                 <Button variant="outline" size="sm" onClick={() => { setIsPhotoModalOpen(true); }} className="mt-2">
                     <Edit3 className="mr-2 h-4 w-4" /> {t('editPhotos', 'Add/Edit Photos')}
                  </Button>
               <AssetDescriptionInput 
@@ -218,14 +340,13 @@ export default function NewAssetPage() {
         <ArrowLeft className="mr-1 h-4 w-4" />
         {t('backTo', 'Back to')} {project.name}
       </Link>
-
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
       {renderStepContent()}
 
       <Dialog open={isPhotoModalOpen} onOpenChange={(isOpen) => {
-          if (!isOpen) { // If modal is closed by any means (X, Esc, outside click)
-            setIsPhotoModalOpen(false);
-            // If user was at name step and closed modal, move to description to allow skipping photos
-            if (currentStep === 'name' && assetName.trim()){
+          if (!isOpen) { 
+            handlePhotosSubmittedOrSkipped(); 
+            if (currentStep === 'name' && assetName.trim()){ // If closed from name step, move to desc
                  setCurrentStep('description');
             }
           } else {
@@ -234,22 +355,71 @@ export default function NewAssetPage() {
       }}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Step 2 of 3: {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
-            <DialogDescription>{t('takeOrUploadPhotosPrompt', `You can take new photos or upload from your gallery. Max ${MAX_PHOTOS} photos.`)}</DialogDescription>
+            <DialogTitle>{t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
+            <DialogDescription>{t('takeOrUploadPhotosPrompt', `You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.`, {MAX_PHOTOS: MAX_PHOTOS})}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => document.getElementById('camera-input-modal')?.click()} className="w-full sm:w-auto" disabled={photos.length >= MAX_PHOTOS}>
+            <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowCameraPreview(true); 
+                  if (!isCameraActive && hasCameraPermission !== false) { 
+                    startCameraStream(); 
+                  }
+                }} 
+                className="w-full sm:w-auto" 
+                disabled={photos.length >= MAX_PHOTOS}>
                 <Camera className="mr-2 h-4 w-4" /> {t('takePhotos', 'Take Photos')}
               </Button>
-              <input type="file" accept="image/*" capture="environment" id="camera-input-modal" className="hidden" onChange={handlePhotoUpload} />
               
-              <Button variant="outline" onClick={() => document.getElementById('gallery-input-modal')?.click()} className="w-full sm:w-auto" disabled={photos.length >= MAX_PHOTOS}>
+              <Button variant="outline" onClick={() => {
+                  stopCameraStream(); 
+                  setShowCameraPreview(false); 
+                  document.getElementById('gallery-input-modal')?.click()
+                }} className="w-full sm:w-auto" disabled={photos.length >= MAX_PHOTOS}>
                 <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
               <input type="file" accept="image/*" multiple id="gallery-input-modal" className="hidden" onChange={handlePhotoUpload} />
             </div>
-            {photos.length >= MAX_PHOTOS && (
+
+            {/* Camera Preview and Controls */}
+            {showCameraPreview && (
+              <div className="space-y-2 pt-4">
+                <div className="relative">
+                  <video ref={videoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay muted playsInline />
+                  {(!isCameraActive || (hasCameraPermission === false && videoRef.current?.srcObject === null)) && ( // Show overlay if not active or permission denied and stream not set
+                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/80 rounded-md p-4 text-center">
+                        {hasCameraPermission === false ? ( // Explicit denial or error
+                           <>
+                              <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
+                              <p className="font-semibold">{t('cameraAccessDeniedTitle', 'Camera Access Denied')}</p>
+                              <p className="text-sm text-muted-foreground">{t('cameraAccessDeniedDesc', 'Please enable camera permissions in your browser settings.')}</p>
+                           </>
+                        ): ( // Not active yet, or initial state, or user stopped camera
+                           <Button onClick={startCameraStream} variant="outline" size="lg" disabled={isCameraStarting}>
+                              <Video className="mr-2 h-5 w-5" /> {isCameraStarting ? t('startingCamera', 'Starting...') : t('startCamera', 'Start Camera')}
+                           </Button>
+                        )}
+                     </div>
+                  )}
+                </div>
+
+                {hasCameraPermission !== false && isCameraActive && ( // Show controls only if permission granted and camera is active
+                  <div className="flex gap-2 justify-center pt-2">
+                    <Button onClick={handleCapturePhoto} disabled={photos.length >= MAX_PHOTOS || isCapturingPhoto} className="flex-1">
+                      <Camera className="mr-2 h-4 w-4" /> 
+                      {isCapturingPhoto ? t('capturingPhoto', 'Capturing...') : t('capturePhoto', 'Capture Photo')} ({photos.length}/{MAX_PHOTOS})
+                    </Button>
+                    <Button onClick={stopCameraStream} variant="outline">
+                      <VideoOff className="mr-2 h-4 w-4" /> {t('stopCamera', 'Stop Camera')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {photos.length >= MAX_PHOTOS && !showCameraPreview && ( // Show only if camera preview is not active to avoid clutter
                  <Alert variant="default" className="border-yellow-500 text-yellow-700">
                     <AlertTriangle className="h-4 w-4 !text-yellow-600" />
                     <AlertDescription>
@@ -261,7 +431,7 @@ export default function NewAssetPage() {
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                 {photoPreviews.map((src, index) => (
                   <div key={index} className="relative group">
-                    <img src={src} alt={`Preview ${index + 1}`} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
+                    <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index+1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
                      <Button 
                         variant="destructive" 
                         size="icon" 
@@ -275,7 +445,7 @@ export default function NewAssetPage() {
                 ))}
               </div>
             )}
-             {photoPreviews.length === 0 && (
+             {photoPreviews.length === 0 && !showCameraPreview && (
                 <p className="text-sm text-muted-foreground text-center py-4">{t('noPhotosAddedYet', 'No photos added yet.')}</p>
              )}
           </div>
@@ -283,7 +453,7 @@ export default function NewAssetPage() {
             <Button variant="outline" onClick={handlePhotosSubmittedOrSkipped}>
               {photoPreviews.length > 0 ? t('nextStepDescription', 'Next: Description') : t('skipPhotosAndNext', 'Skip Photos & Next')}
             </Button>
-            <Button onClick={handlePhotosSubmittedOrSkipped} disabled={photos.length === 0 && photoPreviews.length === 0}>
+            <Button onClick={handlePhotosSubmittedOrSkipped} disabled={photos.length === 0 && photoPreviews.length === 0 && !isCameraActive /*Allow proceeding if camera is active even if no photos taken yet*/}>
               <Save className="mr-2 h-4 w-4" /> {t('savePhotosAndContinue', 'Save Photos & Continue')}
             </Button>
           </DialogFooter>
@@ -292,3 +462,5 @@ export default function NewAssetPage() {
     </div>
   );
 }
+
+    
