@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 export default function ProjectPage() {
@@ -37,6 +38,7 @@ export default function ProjectPage() {
 
   const { toast } = useToast();
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
 
   const loadProjectData = useCallback(() => {
     if (projectId) {
@@ -89,9 +91,7 @@ export default function ProjectPage() {
       id: `folder_${Date.now()}`,
       name: newFolderName,
       projectId: project.id,
-      // If openNewFolderDialog was called with a parent, selectedFolder is set before dialog opens.
-      // If called from root button, selectedFolder for dialog context should be null.
-      parentId: isNewFolderDialogOpen && selectedFolder ? selectedFolder.id : null, 
+      parentId: selectedFolder ? selectedFolder.id : null, 
     };
 
     LocalStorageService.addFolder(newFolder);
@@ -110,11 +110,13 @@ export default function ProjectPage() {
     toast({ title: t('folderCreated', 'Folder Created'), description: `Folder "${newFolder.name}" added.`});
   };
   
-  // parentFolder is the context for the new folder. null for root folder.
   const openNewFolderDialog = (parentFolderContext: FolderType | null) => {
-    setSelectedFolder(parentFolderContext); // Set context for where the dialog thinks it's adding.
-                                      // This will be used as parentId if dialog confirms.
-    setIsNewFolderDialogOpen(true);
+    // If called from general "Add New Folder" button (e.g. mobile FAB or desktop root button)
+    // and a folder is already selected in the tree, we assume the user wants to add inside that selected folder.
+    // If no folder is selected in the tree, parentFolderContext will be null (for root).
+    // This logic is now more centralized around `selectedFolder` state for the dialog's parent context.
+    setIsNewFolderDialogOpen(true); 
+    // The `handleCreateFolder` will use the `selectedFolder` state at the time of creation for parentId
   };
 
   const handleOpenEditFolderModal = (folderToEdit: FolderType) => {
@@ -135,9 +137,7 @@ export default function ProjectPage() {
     }
   };
 
-  // currentPathDisplay logic needs to handle selectedFolder being null for project root
   const projectDisplayName = project?.name || t('loadingProjectContext', 'Loading project context...');
-  const currentPathDisplay = selectedFolder ? selectedFolder.name : projectDisplayName;
   
   const displayedAssets = assets.filter(asset => 
     selectedFolder ? asset.folderId === selectedFolder.id : asset.folderId === null
@@ -150,7 +150,7 @@ export default function ProjectPage() {
   const newAssetLink = `/project/${project.id}/new-asset${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-24 md:pb-8"> {/* Added padding-bottom for mobile FAB */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <Link href="/" className="text-sm text-primary hover:underline flex items-center">
@@ -159,28 +159,35 @@ export default function ProjectPage() {
           <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
           <p className="text-muted-foreground text-sm sm:text-base line-clamp-2 sm:line-clamp-none">{project.description}</p>
         </div>
-        <Link href={newAssetLink} passHref legacyBehavior>
-          <Button className="w-full sm:w-auto">
-            <FilePlus className="mr-2 h-5 w-5" />
-            {t('newAsset', 'New Asset')}
-          </Button>
-        </Link>
+        {!isMobile && (
+          <Link href={newAssetLink} passHref legacyBehavior>
+            <Button className="w-full sm:w-auto">
+              <FilePlus className="mr-2 h-5 w-5" />
+              {t('newAsset', 'New Asset')}
+            </Button>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-end"> {/* Changed justify-between to justify-end */}
-            {/* <CardTitle>{t('folders', 'Folders')}</CardTitle> Removed CardTitle */}
-            <Button variant="default" size="lg" onClick={() => openNewFolderDialog(null)}> {/* Changed size to lg */}
-              <FolderPlus className="mr-2 h-4 w-4" /> {t('addNewFolder', 'Add New Folder')}
-            </Button>
+          <CardHeader className="flex flex-row items-center justify-end">
+            {!isMobile && (
+              <Button variant="default" size="lg" onClick={() => openNewFolderDialog(null)}> 
+                <FolderPlus className="mr-2 h-4 w-4" /> {t('addNewFolderToRoot', 'Add New Folder to Root')}
+              </Button>
+            )}
+            {isMobile && <div className="h-10"></div>} {/* Placeholder to maintain height on mobile if header is empty */}
           </CardHeader>
           <CardContent>
             <FolderTree 
               folders={folders} 
               projectId={project.id} 
               onSelectFolder={handleSelectFolder}
-              onAddSubfolder={(parentFolder) => openNewFolderDialog(parentFolder)}
+              onAddSubfolder={(parentFolder) => {
+                setSelectedFolder(parentFolder); // Set context for where the dialog will add.
+                openNewFolderDialog(parentFolder);
+              }}
               onEditFolder={handleOpenEditFolderModal}
               selectedFolderId={selectedFolder?.id || null}
             />
@@ -243,10 +250,35 @@ export default function ProjectPage() {
           </CardContent>
         </Card>
       </div>
-      <Dialog open={isNewFolderDialogOpen} onOpenChange={setIsNewFolderDialogOpen}>
+
+      {/* Mobile Bottom Action Bar */}
+      {isMobile && (
+        <div className="fixed bottom-0 left-0 right-0 p-3 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2">
+          <Button
+            onClick={() => openNewFolderDialog(selectedFolder)} // selectedFolder correctly targets current context
+            className="flex-1"
+            size="lg"
+          >
+            <FolderPlus className="mr-2 h-5 w-5" />
+            {t('addNewFolder', 'Add New Folder')}
+          </Button>
+          <Link href={newAssetLink} passHref legacyBehavior>
+            <Button className="flex-1" size="lg">
+              <FilePlus className="mr-2 h-5 w-5" />
+              {t('newAsset', 'New Asset')}
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      <Dialog open={isNewFolderDialogOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          setNewFolderName(''); // Reset field if dialog is closed by clicking outside or X
+        }
+        setIsNewFolderDialogOpen(isOpen);
+      }}>
         <DialogContent>
           <DialogHeader>
-            {/* The title of the dialog now reflects if it's a root folder or subfolder */}
             <DialogTitle>
                 {t('addNewFolder', 'Add New Folder')}{' '}
                 {selectedFolder ? `${t('inside', 'inside')} "${selectedFolder.name}"` : t('toProjectRoot', 'to project root')}
@@ -262,7 +294,7 @@ export default function ProjectPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(false)}>{t('cancel', 'Cancel')}</Button>
+            <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); }}>{t('cancel', 'Cancel')}</Button>
             <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>{t('confirm', 'Confirm')}</Button>
           </DialogFooter>
         </DialogContent>
