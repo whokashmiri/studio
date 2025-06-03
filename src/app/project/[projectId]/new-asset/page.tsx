@@ -25,13 +25,17 @@ export default function NewAssetPage() {
   
   const projectId = params.projectId as string;
   const folderId = searchParams.get('folderId') || null;
+  const assetIdToEdit = searchParams.get('assetId');
 
+  const [isEditMode, setIsEditMode] = useState(false);
   const [currentStep, setCurrentStep] = useState<AssetCreationStep>('name');
   const [project, setProject] = useState<Project | null>(null);
   const [assetName, setAssetName] = useState('');
+  const [assetDescription, setAssetDescription] = useState('');
+  const [assetSummary, setAssetSummary] = useState<string | undefined>(undefined);
   
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<File[]>([]); // For new File objects
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); // For URL.createObjectURL or existing URLs
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   
   const { toast } = useToast();
@@ -48,8 +52,7 @@ export default function NewAssetPage() {
   const [isCameraStarting, setIsCameraStarting] = useState(false);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
 
-
-  const loadProject = useCallback(() => {
+  const loadProjectAndAsset = useCallback(() => {
     if (projectId) {
       const allProjects = LocalStorageService.getProjects();
       const foundProject = allProjects.find(p => p.id === projectId);
@@ -57,13 +60,29 @@ export default function NewAssetPage() {
       if (!foundProject) {
         toast({ title: t('projectNotFound', "Project Not Found"), variant: "destructive" });
         router.push('/');
+        return;
+      }
+
+      if (assetIdToEdit) {
+        const foundAsset = LocalStorageService.getAssets().find(a => a.id === assetIdToEdit && a.projectId === projectId);
+        if (foundAsset) {
+          setIsEditMode(true);
+          setAssetName(foundAsset.name);
+          setAssetDescription(foundAsset.description);
+          setAssetSummary(foundAsset.summary);
+          setPhotoPreviews(foundAsset.photos || []); // Assume photos are stored as URLs/paths
+          // setCurrentStep('description'); // Skip to description step for editing
+        } else {
+          toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
+          router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
+        }
       }
     }
-  }, [projectId, router, toast, t]);
+  }, [projectId, assetIdToEdit, router, toast, t, folderId]);
 
   useEffect(() => {
-    loadProject();
-  }, [loadProject]);
+    loadProjectAndAsset();
+  }, [loadProjectAndAsset]);
   
   const startCameraStream = useCallback(async () => {
     if (isCameraActive || isCameraStarting) return;
@@ -117,7 +136,7 @@ export default function NewAssetPage() {
   }, []);
 
   const handleCapturePhoto = useCallback(async () => {
-    if (!videoRef.current || !streamRef.current || photos.length >= MAX_PHOTOS || isCapturingPhoto) return;
+    if (!videoRef.current || !streamRef.current || photoPreviews.length >= MAX_PHOTOS || isCapturingPhoto) return;
     setIsCapturingPhoto(true);
 
     const video = videoRef.current;
@@ -133,15 +152,10 @@ export default function NewAssetPage() {
     context?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
     try {
-        const blob = await new Promise<Blob | null>((resolve) => tempCanvas.toBlob(resolve, 'image/jpeg', 0.9));
-        if (blob) {
-            const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
-            setPhotos(prev => [...prev, file].slice(0, MAX_PHOTOS));
-            const newPreviewUrl = URL.createObjectURL(file);
-            setPhotoPreviews(prev => [...prev, newPreviewUrl].slice(0, MAX_PHOTOS));
-        } else {
-            throw new Error("Canvas toBlob returned null");
-        }
+        const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.9); // Capture as data URL
+        setPhotoPreviews(prev => [...prev, dataUrl].slice(0, MAX_PHOTOS));
+        // Note: We are storing DataURLs directly now for simplicity with localStorage.
+        // For File objects (if needed for upload to server), you'd convert blob to File as before.
     } catch (error) {
         console.error("Error capturing photo: ", error);
         toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('photoCaptureErrorDesc', "Could not capture photo."), variant: "destructive" });
@@ -151,7 +165,7 @@ export default function NewAssetPage() {
         }
         setIsCapturingPhoto(false);
     }
-  }, [photos.length, isCapturingPhoto, toast, t]);
+  }, [photoPreviews.length, isCapturingPhoto, toast, t]);
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     stopCameraStream(); 
@@ -159,28 +173,33 @@ export default function NewAssetPage() {
 
     if (event.target.files) {
       const newFiles = Array.from(event.target.files);
-      if (photos.length + newFiles.length > MAX_PHOTOS) {
+      if (photoPreviews.length + newFiles.length > MAX_PHOTOS) {
         toast({
           title: t('maxPhotosTitle', `Maximum ${MAX_PHOTOS} Photos`),
           description: t('maxPhotosDesc', `You can upload a maximum of ${MAX_PHOTOS} photos.`),
           variant: "destructive"
         });
       }
-      const combinedFiles = [...photos, ...newFiles].slice(0, MAX_PHOTOS); 
-      setPhotos(combinedFiles);
+      const filesToProcess = newFiles.slice(0, MAX_PHOTOS - photoPreviews.length);
       
-      const newPreviews = combinedFiles.map(file => URL.createObjectURL(file));
-      setPhotoPreviews(prevPreviews => {
-          prevPreviews.forEach(url => URL.revokeObjectURL(url)); 
-          return newPreviews;
+      filesToProcess.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (loadEvent) => {
+          if (loadEvent.target?.result) {
+            setPhotoPreviews(prev => [...prev, loadEvent.target!.result as string].slice(0, MAX_PHOTOS));
+          }
+        };
+        reader.readAsDataURL(file);
       });
     }
-    event.target.value = '';
+    event.target.value = ''; // Reset file input
   };
 
   const removePhoto = (indexToRemove: number) => {
-    URL.revokeObjectURL(photoPreviews[indexToRemove]);
-    setPhotos(prev => prev.filter((_, index) => index !== indexToRemove));
+    // If previews are Object URLs, revoke them. Data URLs don't need revoking.
+    // if (photoPreviews[indexToRemove].startsWith('blob:')) {
+    //   URL.revokeObjectURL(photoPreviews[indexToRemove]);
+    // }
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
@@ -199,7 +218,7 @@ export default function NewAssetPage() {
     setCurrentStep('description');
   };
 
-  const handleSaveAsset = (description: string, summary?: string) => {
+  const handleSaveAssetFlow = (descriptionFromInput: string, summaryFromInput?: string) => {
     if (!project) {
       toast({ title: t('projectContextLost', "Project context lost"), variant: "destructive" });
       return;
@@ -217,29 +236,34 @@ export default function NewAssetPage() {
       status: 'recent' as ProjectStatus,
     };
     LocalStorageService.updateProject(updatedProjectData);
-    setProject(updatedProjectData); // Update local project state
+    setProject(updatedProjectData);
     
-    const newAsset: Asset = {
-      id: `asset_${Date.now()}`,
+    const assetData: Asset = {
+      id: isEditMode && assetIdToEdit ? assetIdToEdit : `asset_${Date.now()}`,
       name: assetName,
       projectId: project.id,
       folderId: folderId,
       photos: photoPreviews, 
-      description: description,
-      summary: summary,
-      createdAt: new Date().toISOString(),
+      description: descriptionFromInput,
+      summary: summaryFromInput,
+      createdAt: isEditMode && assetIdToEdit ? LocalStorageService.getAssets().find(a=>a.id===assetIdToEdit)?.createdAt || new Date().toISOString() : new Date().toISOString(),
+      updatedAt: new Date().toISOString(), // Add/update timestamp
     };
     
-    LocalStorageService.addAsset(newAsset); 
-
-    toast({ title: t('assetSavedTitle', "Asset Saved"), description: t('assetSavedDesc', `Asset "${assetName}" has been saved.`, { assetName: assetName }) });
+    if (isEditMode) {
+      LocalStorageService.updateAsset(assetData);
+      toast({ title: t('assetUpdatedTitle', "Asset Updated"), description: t('assetUpdatedDesc', `Asset "${assetName}" has been updated.`, { assetName: assetName }) });
+    } else {
+      LocalStorageService.addAsset(assetData); 
+      toast({ title: t('assetSavedTitle', "Asset Saved"), description: t('assetSavedDesc', `Asset "${assetName}" has been saved.`, { assetName: assetName }) });
+    }
     router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
   };
 
   useEffect(() => {
     return () => {
       stopCameraStream();
-      photoPreviews.forEach(url => URL.revokeObjectURL(url));
+      // photoPreviews.forEach(url => { if (url.startsWith('blob:')) URL.revokeObjectURL(url); }); // Only revoke blob URLs
     };
   }, [stopCameraStream, photoPreviews]);
 
@@ -255,13 +279,16 @@ export default function NewAssetPage() {
     return <div className="container mx-auto p-4 text-center">{t('loadingProjectContext', 'Loading project context...')}</div>;
   }
 
+  const pageTitle = isEditMode ? t('editAssetTitle', "Edit Asset") : t('newAsset', 'Create New Asset');
+  const saveButtonText = isEditMode ? t('updateAssetButton', "Update Asset") : t('saveDescription', 'Save Description & Asset');
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 'name':
         return (
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl font-headline">{t('newAsset', 'Create New Asset')} {t('forProject', 'for')} {project.name}</CardTitle>
+              <CardTitle className="text-xl sm:text-2xl font-headline">{pageTitle} {t('forProject', 'for')} {project.name}</CardTitle>
               {folderId && <CardDescription>{t('inFolder', 'In folder:')} {LocalStorageService.getFolders().find(f=>f.id === folderId)?.name || t('unknownFolder', 'Unknown Folder')}</CardDescription>}
               <CardDescription>{t('step1Of3', 'Step 1 of 3:')} {t('enterAssetNamePrompt', 'Enter the asset name.')}</CardDescription>
             </CardHeader>
@@ -287,10 +314,26 @@ export default function NewAssetPage() {
         return (
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl font-headline">{t('addDescriptionFor', 'Add Description for:')} <span className="text-primary">{assetName}</span></CardTitle>
-              <CardDescription>{t('step3Of3', 'Step 3 of 3:')} {t('provideDetailsPrompt', 'Provide detailed information about the asset.')}</CardDescription>
+               <CardTitle className="text-xl sm:text-2xl font-headline">
+                {isEditMode ? t('editAssetDetailsTitle', 'Edit Details for:') : t('addDescriptionFor', 'Add Description for:')} <span className="text-primary">{assetName}</span>
+               </CardTitle>
+              <CardDescription>
+                {isEditMode ? t('updateDetailsPrompt', 'Update the details for this asset.') : `${t('step3Of3', 'Step 3 of 3:')} ${t('provideDetailsPrompt', 'Provide detailed information about the asset.')}`}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+                {/* Optionally allow editing name here too if desired for edit mode */}
+                {isEditMode && (
+                     <div className="space-y-2">
+                        <Label htmlFor="asset-name-edit">{t('assetName', 'Asset Name')}</Label>
+                        <Input
+                        id="asset-name-edit"
+                        value={assetName}
+                        onChange={(e) => setAssetName(e.target.value)}
+                        placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
+                        />
+                    </div>
+                )}
                 {photoPreviews.length > 0 && (
                 <div className="space-y-2">
                     <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length}/{MAX_PHOTOS})</Label>
@@ -317,7 +360,10 @@ export default function NewAssetPage() {
                  </Button>
               <AssetDescriptionInput 
                 assetName={assetName}
-                onSave={handleSaveAsset}
+                initialDescription={assetDescription}
+                initialSummary={assetSummary}
+                onSave={handleSaveAssetFlow}
+                saveButtonText={saveButtonText}
               />
             </CardContent>
           </Card>
@@ -327,20 +373,33 @@ export default function NewAssetPage() {
     }
   };
 
+  const backLinkHref = `/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`;
+  const backLinkText = `${t('backTo', 'Back to')} ${project.name}`;
+
+
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-      <Link href={`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`} className="text-sm text-primary hover:underline flex items-center mb-4">
+      <Link href={backLinkHref} className="text-sm text-primary hover:underline flex items-center mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
-        {t('backTo', 'Back to')} {project.name}
+        {backLinkText}
       </Link>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
-      {renderStepContent()}
+      
+      {/* If edit mode and current step is name, redirect to description, or handle directly */}
+      {isEditMode && currentStep === 'name' && assetName ? 
+        useEffect(() => { setCurrentStep('description'); }, []) && null : 
+        renderStepContent()
+      }
+      {!isEditMode && renderStepContent()}
+
 
       <Dialog open={isPhotoModalOpen} onOpenChange={(isOpen) => {
           if (!isOpen) { 
             handlePhotosSubmittedOrSkipped(); 
-            if (currentStep === 'name' && assetName.trim()){ 
+            if (currentStep === 'name' && assetName.trim() && !isEditMode){ 
                  setCurrentStep('description');
+            } else if (isEditMode && currentStep === 'name'){
+                 setCurrentStep('description'); // Ensure edit mode also moves to description
             }
           } else {
             setIsPhotoModalOpen(true);
@@ -348,7 +407,7 @@ export default function NewAssetPage() {
       }}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
+            <DialogTitle>{isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
             <DialogDescription>{t('takeOrUploadPhotosPrompt', `You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.`, {MAX_PHOTOS: MAX_PHOTOS})}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -362,7 +421,7 @@ export default function NewAssetPage() {
                   }
                 }} 
                 className="w-full sm:w-auto" 
-                disabled={photos.length >= MAX_PHOTOS}>
+                disabled={photoPreviews.length >= MAX_PHOTOS}>
                 <Camera className="mr-2 h-4 w-4" /> {t('takePhotos', 'Take Photos')}
               </Button>
               
@@ -370,7 +429,7 @@ export default function NewAssetPage() {
                   stopCameraStream(); 
                   setShowCameraPreview(false); 
                   document.getElementById('gallery-input-modal')?.click()
-                }} className="w-full sm:w-auto" disabled={photos.length >= MAX_PHOTOS}>
+                }} className="w-full sm:w-auto" disabled={photoPreviews.length >= MAX_PHOTOS}>
                 <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
               <input type="file" accept="image/*" multiple id="gallery-input-modal" className="hidden" onChange={handlePhotoUpload} />
@@ -399,9 +458,9 @@ export default function NewAssetPage() {
 
                 {hasCameraPermission !== false && isCameraActive && ( 
                   <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
-                    <Button onClick={handleCapturePhoto} disabled={photos.length >= MAX_PHOTOS || isCapturingPhoto} className="flex-1">
+                    <Button onClick={handleCapturePhoto} disabled={photoPreviews.length >= MAX_PHOTOS || isCapturingPhoto} className="flex-1">
                       <Camera className="mr-2 h-4 w-4" /> 
-                      {isCapturingPhoto ? t('capturingPhoto', 'Capturing...') : t('capturePhoto', 'Capture Photo')} ({photos.length}/{MAX_PHOTOS})
+                      {isCapturingPhoto ? t('capturingPhoto', 'Capturing...') : t('capturePhoto', 'Capture Photo')} ({photoPreviews.length}/{MAX_PHOTOS})
                     </Button>
                     <Button onClick={stopCameraStream} variant="outline" className="sm:flex-none">
                       <VideoOff className="mr-2 h-4 w-4" /> {t('stopCamera', 'Stop Camera')}
@@ -411,7 +470,7 @@ export default function NewAssetPage() {
               </div>
             )}
 
-            {photos.length >= MAX_PHOTOS && !showCameraPreview && ( 
+            {photoPreviews.length >= MAX_PHOTOS && !showCameraPreview && ( 
                  <Alert variant="default" className="border-yellow-500 text-yellow-700">
                     <AlertTriangle className="h-4 w-4 !text-yellow-600" />
                     <AlertDescription>
@@ -442,12 +501,12 @@ export default function NewAssetPage() {
              )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-            <Button variant="outline" onClick={handlePhotosSubmittedOrSkipped} className="w-full sm:w-auto">
-              {photoPreviews.length > 0 ? t('nextStepDescription', 'Next: Description') : t('skipPhotosAndNext', 'Skip Photos & Next')}
-            </Button>
-            <Button onClick={handlePhotosSubmittedOrSkipped} disabled={photos.length === 0 && photoPreviews.length === 0 && !isCameraActive} className="w-full sm:w-auto">
-              <Save className="mr-2 h-4 w-4" /> {t('savePhotosAndContinue', 'Save Photos & Continue')}
-            </Button>
+             <Button variant="outline" onClick={handlePhotosSubmittedOrSkipped} className="w-full sm:w-auto">
+                {photoPreviews.length > 0 || isEditMode ? t('confirmPhotosAndContinue', 'Confirm Photos & Continue') : t('skipPhotosAndNext', 'Skip Photos & Next')}
+             </Button>
+             <Button onClick={handlePhotosSubmittedOrSkipped} disabled={photoPreviews.length === 0 && !isEditMode} className="w-full sm:w-auto"> {/* Allow continue if editing even with 0 photos */}
+                <Save className="mr-2 h-4 w-4" /> {isEditMode ? t('saveChangesAndContinue', 'Save Changes & Continue') : t('savePhotosAndContinue', 'Save Photos & Continue')}
+             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -73,7 +73,6 @@ export function updateProject(updatedProject: Project): void {
     projects[projectIndex] = updatedProject;
     saveProjects(projects);
   } else {
-    // If project not found, add it. This can be useful if it was somehow deleted or not yet added.
     console.warn(`Project with id ${updatedProject.id} not found for update, adding it instead.`);
     addProject(updatedProject);
   }
@@ -92,6 +91,17 @@ export function addFolder(newFolder: Folder): void {
   saveFolders([...folders, newFolder]);
 }
 
+export function updateFolder(updatedFolder: Folder): void {
+  let folders = getFolders();
+  const folderIndex = folders.findIndex(f => f.id === updatedFolder.id);
+  if (folderIndex !== -1) {
+    folders[folderIndex] = updatedFolder;
+    saveFolders(folders);
+  } else {
+    console.warn(`Folder with id ${updatedFolder.id} not found for update.`);
+  }
+}
+
 
 // Assets
 export function getAssets(): Asset[] {
@@ -103,4 +113,16 @@ export function saveAssets(assets: Asset[]): void {
 export function addAsset(newAsset: Asset): void {
   const assets = getAssets();
   saveAssets([...assets, newAsset]);
+}
+
+export function updateAsset(updatedAsset: Asset): void {
+  let assets = getAssets();
+  const assetIndex = assets.findIndex(a => a.id === updatedAsset.id);
+  if (assetIndex !== -1) {
+    assets[assetIndex] = updatedAsset;
+    saveAssets(assets);
+  } else {
+    console.warn(`Asset with id ${updatedAsset.id} not found for update, adding it instead.`);
+    addAsset(updatedAsset);
+  }
 }

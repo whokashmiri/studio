@@ -11,9 +11,10 @@ import { Home, FolderPlus, FilePlus, Trash2, Edit, Image as ImageIcon } from 'lu
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { EditFolderModal } from '@/components/modals/edit-folder-modal';
 
 
 export default function ProjectPage() {
@@ -27,8 +28,13 @@ export default function ProjectPage() {
   const [folders, setFolders] = useState<FolderType[]>([]);
   const [assets, setAssets] = useState<AssetType[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
+  
   const [newFolderName, setNewFolderName] = useState('');
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
+  
+  const [editingFolder, setEditingFolder] = useState<FolderType | null>(null);
+  const [isEditFolderModalOpen, setIsEditFolderModalOpen] = useState(false);
+
   const { toast } = useToast();
   const { t } = useLanguage();
 
@@ -51,26 +57,24 @@ export default function ProjectPage() {
         }
 
       } else {
-        toast({ title: "Project not found", variant: "destructive" });
+        toast({ title: t('projectNotFound', "Project not found"), variant: "destructive" });
         router.push('/'); 
       }
     }
-  }, [projectId, router, toast, currentUrlFolderId]);
+  }, [projectId, router, toast, t, currentUrlFolderId]);
 
   useEffect(() => {
     loadProjectData();
   }, [loadProjectData]);
 
-  // Update URL when selectedFolder changes
   useEffect(() => {
     if (project) {
       const currentPath = `/project/${project.id}${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
-      if (window.location.pathname + window.location.search !== currentPath) {
+      if (typeof window !== 'undefined' && window.location.pathname + window.location.search !== currentPath) {
          router.replace(currentPath, { scroll: false });
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFolder, project?.id, router]);
+  }, [selectedFolder, project, router]);
 
 
   const handleSelectFolder = (folder: FolderType | null) => {
@@ -88,7 +92,7 @@ export default function ProjectPage() {
     };
 
     LocalStorageService.addFolder(newFolder);
-    setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId));
+    setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); // Refresh folders
     
     const updatedProjectData = {
       ...project,
@@ -96,7 +100,7 @@ export default function ProjectPage() {
       status: 'recent' as ProjectStatus,
     };
     LocalStorageService.updateProject(updatedProjectData);
-    setProject(updatedProjectData); // Update local project state if needed for other UI elements
+    setProject(updatedProjectData); 
     
     setNewFolderName('');
     setIsNewFolderDialogOpen(false);
@@ -106,6 +110,25 @@ export default function ProjectPage() {
   const openNewFolderDialog = (parentFolder: FolderType | null) => {
     setSelectedFolder(parentFolder); 
     setIsNewFolderDialogOpen(true);
+  };
+
+  const handleOpenEditFolderModal = (folderToEdit: FolderType) => {
+    setEditingFolder(folderToEdit);
+    setIsEditFolderModalOpen(true);
+  };
+
+  const handleFolderUpdated = (updatedFolder: FolderType) => {
+    setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); // Refresh folders
+    // Update project's lastAccessed time
+    if (project) {
+      const updatedProjectData = {
+        ...project,
+        lastAccessed: new Date().toISOString(),
+        status: 'recent' as ProjectStatus,
+      };
+      LocalStorageService.updateProject(updatedProjectData);
+      setProject(updatedProjectData);
+    }
   };
 
 
@@ -140,7 +163,7 @@ export default function ProjectPage() {
         <Card className="md:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{t('folders', 'Folders')}</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => openNewFolderDialog(null)}>
+            <Button variant="outline" size="sm" onClick={() => openNewFolderDialog(null)} title={t('addRootFolderTitle', 'Add folder to project root')}>
               <FolderPlus className="h-4 w-4" />
             </Button>
           </CardHeader>
@@ -150,6 +173,7 @@ export default function ProjectPage() {
               projectId={project.id} 
               onSelectFolder={handleSelectFolder}
               onAddSubfolder={(parentFolder) => openNewFolderDialog(parentFolder)}
+              onEditFolder={handleOpenEditFolderModal}
               selectedFolderId={selectedFolder?.id || null}
             />
           </CardContent>
@@ -165,22 +189,24 @@ export default function ProjectPage() {
               <ul className="space-y-3">
                 {displayedAssets.map(asset => (
                   <li key={asset.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50">
-                    <div className="flex items-center min-w-0"> {/* Added min-w-0 for text truncation */}
+                    <div className="flex items-center min-w-0">
                       {asset.photos && asset.photos.length > 0 ? (
                         <img src={asset.photos[0]} alt={asset.name} data-ai-hint="asset thumbnail" className="h-10 w-10 rounded-md object-cover mr-3 shrink-0" />
                       ) : (
                         <ImageIcon className="h-10 w-10 rounded-md text-muted-foreground bg-muted p-2 mr-3 shrink-0" />
                       )}
-                      <div className="flex-1 truncate"> {/* Added flex-1 and truncate */}
+                      <div className="flex-1 truncate"> 
                         <p className="font-medium truncate">{asset.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{asset.summary || asset.description}</p>
                       </div>
                     </div>
-                    <div className="flex gap-1 shrink-0 ml-2"> {/* Added shrink-0 and ml-2 */}
-                       <Button variant="ghost" size="icon" className="h-8 w-8">
-                         <Edit className="h-4 w-4" />
-                       </Button>
-                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                    <div className="flex gap-1 shrink-0 ml-2">
+                       <Link href={`/project/${project.id}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`} passHref legacyBehavior>
+                         <Button variant="ghost" size="icon" className="h-8 w-8" title={t('editAssetTitle', 'Edit Asset')}>
+                           <Edit className="h-4 w-4" />
+                         </Button>
+                       </Link>
+                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title={t('deleteAssetTitle', 'Delete Asset')}>
                          <Trash2 className="h-4 w-4" />
                        </Button>
                     </div>
@@ -196,7 +222,7 @@ export default function ProjectPage() {
       <Dialog open={isNewFolderDialogOpen} onOpenChange={setIsNewFolderDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('addNewFolder', 'Add New Folder')} {selectedFolder ? `${t('inside', 'inside')} ${selectedFolder.name}`: `${t('to', 'to')} ${project.name}`}</DialogTitle>
+            <DialogTitle>{t('addNewFolder', 'Add New Folder')} {selectedFolder ? `${t('inside', 'inside')} ${selectedFolder.name}`: `${t('toProjectRoot', 'to project root')}`}</DialogTitle>
           </DialogHeader>
           <div>
             <Label htmlFor="new-folder-name">{t('folderName', 'Folder Name')}</Label>
@@ -213,6 +239,18 @@ export default function ProjectPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {editingFolder && (
+        <EditFolderModal
+          isOpen={isEditFolderModalOpen}
+          onClose={() => {
+            setIsEditFolderModalOpen(false);
+            setEditingFolder(null);
+          }}
+          folder={editingFolder}
+          onFolderUpdated={handleFolderUpdated}
+        />
+      )}
     </div>
   );
 }

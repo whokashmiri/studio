@@ -1,3 +1,4 @@
+
 "use client";
 import type { ChangeEvent } from 'react';
 import { useState, useEffect, useRef } from 'react';
@@ -14,19 +15,35 @@ import { useLanguage } from '@/contexts/language-context';
 
 interface AssetDescriptionInputProps {
   initialDescription?: string;
+  initialSummary?: string;
   onSave: (description: string, summary?: string) => void;
   assetName?: string; 
+  saveButtonText?: string;
 }
 
-export function AssetDescriptionInput({ initialDescription = '', onSave, assetName }: AssetDescriptionInputProps) {
+export function AssetDescriptionInput({ 
+    initialDescription = '', 
+    initialSummary,
+    onSave, 
+    assetName,
+    saveButtonText 
+}: AssetDescriptionInputProps) {
   const [description, setDescription] = useState(initialDescription);
   const [isListening, setIsListening] = useState(false);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  const [summary, setSummary] = useState<string | undefined>(undefined);
+  const [summary, setSummary] = useState<string | undefined>(initialSummary);
   const [speechRecognitionAvailable, setSpeechRecognitionAvailable] = useState(false);
   const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
   const { toast } = useToast();
   const { language, t } = useLanguage();
+
+  useEffect(() => {
+    setDescription(initialDescription);
+  }, [initialDescription]);
+
+  useEffect(() => {
+    setSummary(initialSummary);
+  }, [initialSummary]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -60,7 +77,6 @@ export function AssetDescriptionInput({ initialDescription = '', onSave, assetNa
     }
   }, [toast, language]);
   
-  // Update recognition language if app language changes
   useEffect(() => {
     if (speechRecognitionRef.current) {
       speechRecognitionRef.current.lang = language === 'ar' ? 'ar-SA' : 'en-US';
@@ -117,7 +133,7 @@ export function AssetDescriptionInput({ initialDescription = '', onSave, assetNa
   };
 
   const handleSave = () => {
-    if (!assetName && !description.trim()) {
+    if (!assetName && !description.trim()) { // Check assetName which is now part of the parent form
          toast({ title: "Missing Information", description: "Please provide an asset name or description.", variant: "destructive" });
          return;
     }
@@ -125,7 +141,7 @@ export function AssetDescriptionInput({ initialDescription = '', onSave, assetNa
   };
 
   return (
-    <div className="w-full space-y-4"> {/* Removed Card to make it embeddable */}
+    <div className="w-full space-y-4">
       <div className="space-y-2">
         <Label htmlFor="asset-description" className="text-base font-medium">{t('description', 'Description')}</Label>
         <Textarea
@@ -174,7 +190,7 @@ export function AssetDescriptionInput({ initialDescription = '', onSave, assetNa
       <div className="flex justify-end pt-4">
          <Button onClick={handleSave} size="lg">
            <Send className="mr-2 h-4 w-4" />
-           {t('saveDescription', 'Save Description & Asset')}
+           {saveButtonText || t('saveDescription', 'Save Description & Asset')}
          </Button>
       </div>
     </div>
