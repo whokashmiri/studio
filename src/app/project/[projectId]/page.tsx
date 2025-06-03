@@ -53,7 +53,7 @@ export default function ProjectPage() {
           const folderFromUrl = allFolders.find(f => f.id === currentUrlFolderId && f.projectId === projectId);
           setSelectedFolder(folderFromUrl || null);
         } else {
-          setSelectedFolder(null);
+          setSelectedFolder(null); // Default to project root if no folderId in URL
         }
 
       } else {
@@ -68,6 +68,7 @@ export default function ProjectPage() {
   }, [loadProjectData]);
 
   useEffect(() => {
+    // This effect syncs URL with selectedFolder state
     if (project) {
       const currentPath = `/project/${project.id}${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
       if (typeof window !== 'undefined' && window.location.pathname + window.location.search !== currentPath) {
@@ -88,11 +89,13 @@ export default function ProjectPage() {
       id: `folder_${Date.now()}`,
       name: newFolderName,
       projectId: project.id,
-      parentId: selectedFolder ? selectedFolder.id : null, 
+      // If openNewFolderDialog was called with a parent, selectedFolder is set before dialog opens.
+      // If called from root button, selectedFolder for dialog context should be null.
+      parentId: isNewFolderDialogOpen && selectedFolder ? selectedFolder.id : null, 
     };
 
     LocalStorageService.addFolder(newFolder);
-    setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); // Refresh folders
+    setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); 
     
     const updatedProjectData = {
       ...project,
@@ -107,8 +110,10 @@ export default function ProjectPage() {
     toast({ title: t('folderCreated', 'Folder Created'), description: `Folder "${newFolder.name}" added.`});
   };
   
-  const openNewFolderDialog = (parentFolder: FolderType | null) => {
-    setSelectedFolder(parentFolder); 
+  // parentFolder is the context for the new folder. null for root folder.
+  const openNewFolderDialog = (parentFolderContext: FolderType | null) => {
+    setSelectedFolder(parentFolderContext); // Set context for where the dialog thinks it's adding.
+                                      // This will be used as parentId if dialog confirms.
     setIsNewFolderDialogOpen(true);
   };
 
@@ -118,8 +123,7 @@ export default function ProjectPage() {
   };
 
   const handleFolderUpdated = (updatedFolder: FolderType) => {
-    setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); // Refresh folders
-    // Update project's lastAccessed time
+    setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); 
     if (project) {
       const updatedProjectData = {
         ...project,
@@ -131,15 +135,19 @@ export default function ProjectPage() {
     }
   };
 
-
-  const currentPathDisplay = selectedFolder ? selectedFolder.name : (project?.name || 'Project Root');
+  // currentPathDisplay logic needs to handle selectedFolder being null for project root
+  const projectDisplayName = project?.name || t('loadingProjectContext', 'Loading project context...');
+  const currentPathDisplay = selectedFolder ? selectedFolder.name : projectDisplayName;
+  
   const displayedAssets = assets.filter(asset => 
     selectedFolder ? asset.folderId === selectedFolder.id : asset.folderId === null
   );
 
   if (!project) {
-    return <div className="container mx-auto p-4 text-center">Loading project details...</div>;
+    return <div className="container mx-auto p-4 text-center">{t('loadingProjectContext', 'Loading project context...')}</div>;
   }
+
+  const newAssetLink = `/project/${project.id}/new-asset${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -151,7 +159,7 @@ export default function ProjectPage() {
           <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
           <p className="text-muted-foreground text-sm sm:text-base line-clamp-2 sm:line-clamp-none">{project.description}</p>
         </div>
-        <Link href={`/project/${project.id}/new-asset${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`} passHref legacyBehavior>
+        <Link href={newAssetLink} passHref legacyBehavior>
           <Button className="w-full sm:w-auto">
             <FilePlus className="mr-2 h-5 w-5" />
             {t('newAsset', 'New Asset')}
@@ -163,8 +171,9 @@ export default function ProjectPage() {
         <Card className="md:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{t('folders', 'Folders')}</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => openNewFolderDialog(null)} title={t('addRootFolderTitle', 'Add folder to project root')}>
-              <FolderPlus className="h-4 w-4" />
+            {/* This button now explicitly adds a root folder */}
+            <Button variant="default" size="default" onClick={() => openNewFolderDialog(null)}>
+              <FolderPlus className="mr-2 h-4 w-4" /> {t('addNewFolder', 'Add New Folder')}
             </Button>
           </CardHeader>
           <CardContent>
@@ -172,16 +181,32 @@ export default function ProjectPage() {
               folders={folders} 
               projectId={project.id} 
               onSelectFolder={handleSelectFolder}
-              onAddSubfolder={(parentFolder) => openNewFolderDialog(parentFolder)}
+              onAddSubfolder={(parentFolder) => openNewFolderDialog(parentFolder)} // Correctly passes context
               onEditFolder={handleOpenEditFolderModal}
               selectedFolderId={selectedFolder?.id || null}
             />
+             {folders.filter(f => f.projectId === projectId).length === 0 && (
+                <p className="text-xs text-muted-foreground p-2 text-center pt-4">{t('noFoldersInProject', 'No folders in this project yet. Click "Add New Folder" to create one.')}</p>
+             )}
           </CardContent>
         </Card>
 
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>{t('assetsIn', 'Assets in')} <span className="text-primary">{currentPathDisplay}</span></CardTitle>
+            <CardTitle>
+              {t('assetsIn', 'Assets in')}{' '}
+              {selectedFolder ? (
+                <span className="text-primary">{selectedFolder.name}</span>
+              ) : (
+                <span 
+                  className="text-primary cursor-pointer hover:underline" 
+                  onClick={() => handleSelectFolder(null)}
+                  title={t('viewRootAssetsTitle', 'View assets in project root')}
+                >
+                  {project.name} ({t('projectRoot', 'Project Root')})
+                </span>
+              )}
+            </CardTitle>
             <CardDescription>{t('manageAssetsPrompt', 'Manage assets within the selected folder or project root.')}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -222,7 +247,11 @@ export default function ProjectPage() {
       <Dialog open={isNewFolderDialogOpen} onOpenChange={setIsNewFolderDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('addNewFolder', 'Add New Folder')} {selectedFolder ? `${t('inside', 'inside')} ${selectedFolder.name}`: `${t('toProjectRoot', 'to project root')}`}</DialogTitle>
+            {/* The title of the dialog now reflects if it's a root folder or subfolder */}
+            <DialogTitle>
+                {t('addNewFolder', 'Add New Folder')}{' '}
+                {selectedFolder ? `${t('inside', 'inside')} "${selectedFolder.name}"` : t('toProjectRoot', 'to project root')}
+            </DialogTitle>
           </DialogHeader>
           <div>
             <Label htmlFor="new-folder-name">{t('folderName', 'Folder Name')}</Label>
@@ -254,3 +283,4 @@ export default function ProjectPage() {
     </div>
   );
 }
+

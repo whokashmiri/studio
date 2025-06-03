@@ -138,6 +138,8 @@ const translations: Record<Language, Record<string, string>> = {
     editFolderDesc: "Update the name for your folder.",
     updateFolderButton: "Update Folder",
     editAssetPhotosTitle: "Edit Photos for",
+    viewRootAssetsTitle: "View assets in project root",
+    noFoldersInProject: "No folders in this project yet. Click \"Add New Folder\" to create one.",
 
   },
   ar: {
@@ -264,6 +266,8 @@ const translations: Record<Language, Record<string, string>> = {
     editFolderDesc: "قم بتحديث اسم المجلد الخاص بك.",
     updateFolderButton: "تحديث المجلد",
     editAssetPhotosTitle: "تعديل صور لـ",
+    viewRootAssetsTitle: "عرض الأصول في جذر المشروع",
+    noFoldersInProject: "لا توجد مجلدات في هذا المشروع بعد. انقر فوق \"إضافة مجلد جديد\" لإنشاء واحد.",
   },
 };
 
@@ -303,3 +307,4 @@ export function useLanguage() {
   }
   return context;
 }
+

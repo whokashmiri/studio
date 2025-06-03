@@ -30,19 +30,18 @@ function FolderItem({ folder, folders, projectId, onSelectFolder, onAddSubfolder
 
   useEffect(() => {
     if (selectedFolderId) {
-      // This logic might need refinement for deep auto-opening.
-      // For now, direct selection or parent selection highlighting is key.
       const tracePathToSelected = (currentFolderId: string | null): boolean => {
         if (!currentFolderId) return false;
         if (currentFolderId === folder.id) return true;
         const currentF = folders.find(f => f.id === currentFolderId);
         return tracePathToSelected(currentF?.parentId || null);
       };
-      if (tracePathToSelected(selectedFolderId) && folder.id !== selectedFolderId) {
-        // setIsOpen(true); // Can cause many folders to open, consider UX
+      if (tracePathToSelected(selectedFolderId) && folder.id !== selectedFolderId && childFolders.length > 0) {
+        // Consider if auto-opening is desired. It can be aggressive.
+        // setIsOpen(true); 
       }
     }
-  }, [selectedFolderId, folder.id, folders]);
+  }, [selectedFolderId, folder.id, folders, childFolders.length]);
 
 
   return (
@@ -113,24 +112,12 @@ export function FolderTree({ folders, projectId, onSelectFolder, onAddSubfolder,
   const rootFolders = folders.filter(f => f.parentId === parentId && f.projectId === projectId);
   const { t } = useLanguage();
 
+  if (rootFolders.length === 0 && level === 0 && (folders.filter(f => f.projectId === projectId).length === 0) ) {
+     return <p className="text-xs text-muted-foreground p-2 text-center">{t('noTopLevelFolders', 'No top-level folders created yet.')}</p>;
+  }
+
   return (
     <ul className="space-y-0">
-      <li style={{ paddingLeft: `${level * 1.25}rem` }} className="my-0.5">
-        <div 
-          className={cn(
-            "flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted cursor-pointer group",
-            selectedFolderId === null && "bg-primary/10 text-primary ring-1 ring-primary/50"
-          )}
-          onClick={() => onSelectFolder(null)} 
-        >
-          <div className="flex items-center flex-grow truncate">
-            <span className="w-4 mr-1 shrink-0"></span> 
-            <FolderIcon className={cn("h-5 w-5 mr-2 shrink-0", selectedFolderId === null ? "text-primary" : "text-muted-foreground group-hover:text-primary/80")} />
-            <span className="text-sm truncate italic">{t('projectRoot', 'Project Root')}</span>
-          </div>
-        </div>
-      </li>
-
       {rootFolders.map(folder => (
         <FolderItem
           key={folder.id}
@@ -144,9 +131,7 @@ export function FolderTree({ folders, projectId, onSelectFolder, onAddSubfolder,
           selectedFolderId={selectedFolderId}
         />
       ))}
-      {rootFolders.length === 0 && level === 0 && (
-         <p className="text-xs text-muted-foreground p-2 text-center">{t('noTopLevelFolders', 'No top-level folders created yet.')}</p>
-      )}
     </ul>
   );
 }
+
