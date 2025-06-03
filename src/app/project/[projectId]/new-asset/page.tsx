@@ -403,7 +403,7 @@ export default function NewAssetPage() {
             <DialogTitle className="text-xl sm:text-2xl font-headline">{isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
             <DialogDescription>{t('takeOrUploadPhotosPrompt', `You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.`, {MAX_PHOTOS: MAX_PHOTOS})}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[calc(80vh-12rem)] overflow-y-auto"> {/* Adjusted for scrollability */}
             <div className="flex flex-col sm:flex-row gap-2">
             <Button 
                 variant="outline" 
@@ -464,7 +464,7 @@ export default function NewAssetPage() {
             )}
 
             {photoPreviews.length >= MAX_PHOTOS && !showCameraPreview && ( 
-                 <Alert variant="default" className="border-yellow-500 text-yellow-700">
+                 <Alert variant="default" className="border-yellow-500 text-yellow-700"> {/* Consider a less intrusive variant if default is too strong */}
                     <AlertTriangle className="h-4 w-4 !text-yellow-600" />
                     <AlertDescription>
                        {t('maxPhotosReached', `You have reached the maximum of ${MAX_PHOTOS} photos.`)}
@@ -493,7 +493,7 @@ export default function NewAssetPage() {
                 <p className="text-sm text-muted-foreground text-center py-4">{t('noPhotosAddedYet', 'No photos added yet.')}</p>
              )}
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 pt-4 border-t"> {/* Added pt-4 and border-t */}
              <Button variant="outline" onClick={handlePhotosSubmittedOrSkipped} className="w-full sm:w-auto">
                 {photoPreviews.length > 0 || isEditMode ? t('confirmPhotosAndContinue', 'Confirm Photos & Continue') : t('skipPhotosAndNext', 'Skip Photos & Next')}
              </Button>

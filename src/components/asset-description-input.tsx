@@ -61,8 +61,8 @@ export function AssetDescriptionInput({
         setIsListening(false);
       };
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error('Speech recognition error', event.error);
-        let errorMessage = event.error;
+        console.error('Speech recognition error', event.error, event.message);
+        let errorMessage = event.message || event.error;
         if (event.error === 'no-speech') errorMessage = 'No speech detected. Please try again.';
         else if (event.error === 'audio-capture') errorMessage = 'Audio capture failed. Check microphone permissions.';
         else if (event.error === 'not-allowed') errorMessage = 'Microphone access denied. Please allow microphone access.';
@@ -100,9 +100,9 @@ export function AssetDescriptionInput({
       try {
         speechRecognitionRef.current.start();
         setIsListening(true);
-      } catch (e) {
+      } catch (e: any) {
         console.error("Error starting speech recognition:", e);
-        toast({ title: 'Could not start speech recognition', description: 'Please ensure microphone permissions are granted.', variant: 'destructive' });
+        toast({ title: 'Could not start speech recognition', description: e.message || 'Please ensure microphone permissions are granted.', variant: 'destructive' });
         setIsListening(false);
       }
     }
@@ -118,22 +118,33 @@ export function AssetDescriptionInput({
     try {
       const input: SummarizeAssetDescriptionInput = { assetDescription: description };
       const result = await summarizeAssetDescription(input);
-      if (result.summary) {
+      if (result && result.summary) {
         setSummary(result.summary);
         toast({ title: 'Summary Generated', description: 'AI summary created successfully.' });
       } else {
-        toast({ title: 'Summarization Failed', description: 'Could not generate summary.', variant: 'destructive' });
+        console.error('Summarization result issue:', result);
+        toast({ title: 'Summarization Failed', description: 'Could not generate summary or summary was empty.', variant: 'destructive' });
       }
-    } catch (error) {
-      console.error('Error summarizing:', error);
-      toast({ title: 'Summarization Error', description: 'An unexpected error occurred while generating the summary.', variant: 'destructive' });
+    } catch (error: any) {
+      console.error('Error summarizing asset description:', error);
+      let detailedMessage = 'An unexpected error occurred while generating the summary.';
+      if (error.message) {
+        detailedMessage = error.message;
+      } else if (typeof error === 'string') {
+        detailedMessage = error;
+      }
+      toast({ 
+        title: 'Summarization Error', 
+        description: detailedMessage, 
+        variant: 'destructive' 
+      });
     } finally {
       setIsLoadingSummary(false);
     }
   };
 
   const handleSave = () => {
-    if (!assetName && !description.trim()) { // Check assetName which is now part of the parent form
+    if (!assetName && !description.trim()) { 
          toast({ title: "Missing Information", description: "Please provide an asset name or description.", variant: "destructive" });
          return;
     }
@@ -196,3 +207,4 @@ export function AssetDescriptionInput({
     </div>
   );
 }
+
