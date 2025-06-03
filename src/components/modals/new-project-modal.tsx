@@ -1,3 +1,4 @@
+
 "use client";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -37,12 +38,14 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
 
+    const now = new Date().toISOString();
     const newProject: Project = {
       id: `proj_${Date.now()}`, // Simple unique ID
       name: projectName,
       companyId: companyId,
-      status: 'new', // Default status
-      createdAt: new Date().toISOString(),
+      status: 'recent', // Set status to 'recent'
+      createdAt: now,
+      lastAccessed: now, // Set lastAccessed time
       description: `Newly created project: ${projectName}`,
     };
 
