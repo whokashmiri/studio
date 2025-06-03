@@ -169,10 +169,9 @@ export default function ProjectPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>{t('folders', 'Folders')}</CardTitle>
-            {/* This button now explicitly adds a root folder */}
-            <Button variant="default" size="default" onClick={() => openNewFolderDialog(null)}>
+          <CardHeader className="flex flex-row items-center justify-end"> {/* Changed justify-between to justify-end */}
+            {/* <CardTitle>{t('folders', 'Folders')}</CardTitle> Removed CardTitle */}
+            <Button variant="default" size="lg" onClick={() => openNewFolderDialog(null)}> {/* Changed size to lg */}
               <FolderPlus className="mr-2 h-4 w-4" /> {t('addNewFolder', 'Add New Folder')}
             </Button>
           </CardHeader>
@@ -181,7 +180,7 @@ export default function ProjectPage() {
               folders={folders} 
               projectId={project.id} 
               onSelectFolder={handleSelectFolder}
-              onAddSubfolder={(parentFolder) => openNewFolderDialog(parentFolder)} // Correctly passes context
+              onAddSubfolder={(parentFolder) => openNewFolderDialog(parentFolder)}
               onEditFolder={handleOpenEditFolderModal}
               selectedFolderId={selectedFolder?.id || null}
             />
