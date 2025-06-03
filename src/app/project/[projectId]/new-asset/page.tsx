@@ -383,7 +383,8 @@ export default function NewAssetPage() {
       </Link>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       
-      {renderStepContent()}
+       {renderStepContent()}
+
 
       <Dialog open={isPhotoModalOpen} onOpenChange={(isOpen) => {
           if (!isOpen) { 
