@@ -24,7 +24,7 @@ export function CompanySelector({ onSelectCompany }: CompanySelectorProps) {
     <div className="max-w-2xl mx-auto">
       <Card className="shadow-lg">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-headline">{t('selectCompany', 'Select a Company')}</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl font-headline">{t('selectCompany', 'Select a Company')}</CardTitle>
           <CardDescription>Choose the company you are inspecting for today.</CardDescription>
         </CardHeader>
         <CardContent>

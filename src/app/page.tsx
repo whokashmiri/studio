@@ -1,3 +1,4 @@
+
 "use client";
 import { useState } from 'react';
 import { CompanySelector } from '@/components/company-selector';
@@ -19,8 +20,8 @@ export default function HomePage() {
   if (!user) {
     return (
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
-        <h1 className="text-3xl font-bold mb-4 font-headline">Welcome to Asset Inspector Pro</h1>
-        <p className="text-lg text-muted-foreground mb-8">Please log in to manage your inspections.</p>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 font-headline">Welcome to Asset Inspector Pro</h1>
+        <p className="text-md sm:text-lg text-muted-foreground mb-8">Please log in to manage your inspections.</p>
         <Button size="lg" onClick={handleDemoLogin}>
           <LogIn className="mr-2 h-5 w-5" /> Demo Login
         </Button>

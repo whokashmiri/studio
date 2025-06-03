@@ -1,3 +1,4 @@
+
 "use client";
 import { AssetDescriptionInput } from '@/components/asset-description-input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,8 +13,8 @@ export default function AssetDescriptionDemoPage() {
     toast({
       title: "Description Saved (Demo)",
       description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white font-code">
+        <pre className="mt-2 w-full max-w-[340px] overflow-x-auto rounded-md bg-slate-950 p-4">
+          <code className="text-white font-code text-xs">
             {JSON.stringify({ description, summary }, null, 2)}
           </code>
         </pre>
@@ -25,7 +26,7 @@ export default function AssetDescriptionDemoPage() {
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 flex justify-center items-start min-h-screen">
       <Card className="w-full max-w-2xl mt-8">
         <CardHeader>
-          <CardTitle className="text-2xl font-headline">Asset Description Input Demo</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl font-headline">Asset Description Input Demo</CardTitle>
           <CardDescription>
             Test the component for typing, speech-to-text, and AI summarization.
             The "Save" action here will log to console and show a toast.

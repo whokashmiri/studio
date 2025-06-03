@@ -84,29 +84,27 @@ export default function ProjectPage() {
       id: `folder_${Date.now()}`,
       name: newFolderName,
       projectId: project.id,
-      parentId: selectedFolder ? selectedFolder.id : null, // Use the folder that was active when dialog opened
+      parentId: selectedFolder ? selectedFolder.id : null, 
     };
 
     LocalStorageService.addFolder(newFolder);
+    setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId));
     
-    // Update project's lastAccessed time and status
-    const updatedProject = {
+    const updatedProjectData = {
       ...project,
       lastAccessed: new Date().toISOString(),
       status: 'recent' as ProjectStatus,
     };
-    LocalStorageService.updateProject(updatedProject);
+    LocalStorageService.updateProject(updatedProjectData);
+    setProject(updatedProjectData); // Update local project state if needed for other UI elements
     
-    setFolders(prev => [...prev, newFolder]); // Update local state for UI
-
     setNewFolderName('');
     setIsNewFolderDialogOpen(false);
-    // Don't reset selectedFolder here, let user decide next action
     toast({ title: t('folderCreated', 'Folder Created'), description: `Folder "${newFolder.name}" added.`});
   };
   
   const openNewFolderDialog = (parentFolder: FolderType | null) => {
-    setSelectedFolder(parentFolder); // Set context for where new folder will be created
+    setSelectedFolder(parentFolder); 
     setIsNewFolderDialogOpen(true);
   };
 
@@ -122,16 +120,16 @@ export default function ProjectPage() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <Link href="/" className="text-sm text-primary hover:underline flex items-center">
             <Home className="mr-1 h-4 w-4" /> {t('allProjects', 'All Projects')}
           </Link>
-          <h1 className="text-3xl font-bold font-headline mt-1">{project.name}</h1>
-          <p className="text-muted-foreground">{project.description}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
+          <p className="text-muted-foreground text-sm sm:text-base line-clamp-2 sm:line-clamp-none">{project.description}</p>
         </div>
         <Link href={`/project/${project.id}/new-asset${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`} passHref legacyBehavior>
-          <Button>
+          <Button className="w-full sm:w-auto">
             <FilePlus className="mr-2 h-5 w-5" />
             {t('newAsset', 'New Asset')}
           </Button>
@@ -142,7 +140,7 @@ export default function ProjectPage() {
         <Card className="md:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{t('folders', 'Folders')}</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => openNewFolderDialog(null)}> {/* Always add to root from this button */}
+            <Button variant="outline" size="sm" onClick={() => openNewFolderDialog(null)}>
               <FolderPlus className="h-4 w-4" />
             </Button>
           </CardHeader>
@@ -167,18 +165,18 @@ export default function ProjectPage() {
               <ul className="space-y-3">
                 {displayedAssets.map(asset => (
                   <li key={asset.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50">
-                    <div className="flex items-center">
+                    <div className="flex items-center min-w-0"> {/* Added min-w-0 for text truncation */}
                       {asset.photos && asset.photos.length > 0 ? (
-                        <img src={asset.photos[0]} alt={asset.name} data-ai-hint="asset thumbnail" className="h-10 w-10 rounded-md object-cover mr-3" />
+                        <img src={asset.photos[0]} alt={asset.name} data-ai-hint="asset thumbnail" className="h-10 w-10 rounded-md object-cover mr-3 shrink-0" />
                       ) : (
-                        <ImageIcon className="h-10 w-10 rounded-md text-muted-foreground bg-muted p-2 mr-3" />
+                        <ImageIcon className="h-10 w-10 rounded-md text-muted-foreground bg-muted p-2 mr-3 shrink-0" />
                       )}
-                      <div>
-                        <p className="font-medium">{asset.name}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">{asset.summary || asset.description}</p>
+                      <div className="flex-1 truncate"> {/* Added flex-1 and truncate */}
+                        <p className="font-medium truncate">{asset.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{asset.summary || asset.description}</p>
                       </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 shrink-0 ml-2"> {/* Added shrink-0 and ml-2 */}
                        <Button variant="ghost" size="icon" className="h-8 w-8">
                          <Edit className="h-4 w-4" />
                        </Button>

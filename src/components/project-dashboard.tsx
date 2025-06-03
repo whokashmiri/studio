@@ -23,22 +23,30 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
 
   useEffect(() => {
     setProjects(LocalStorageService.getProjects());
-  }, [company.id]); // Reload projects if company changes, or when component mounts
+  }, [company.id]); 
 
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
       if (p.companyId !== company.id) return false;
       if (activeTab === 'favorite') return p.isFavorite === true;
       return p.status === activeTab;
+    }).sort((a, b) => {
+      // Sort by lastAccessed descending for 'recent' tab
+      if (activeTab === 'recent' && a.lastAccessed && b.lastAccessed) {
+        return new Date(b.lastAccessed).getTime() - new Date(a.lastAccessed).getTime();
+      }
+      // Sort by createdAt descending for 'new' tab
+      if (activeTab === 'new' && a.createdAt && b.createdAt) {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      // Default sort by name for other tabs or if dates are missing
+      return (a.name || '').localeCompare(b.name || '');
     });
   }, [projects, company.id, activeTab]);
   
   const handleProjectCreated = (newProject: Project) => {
-    // The modal already saves to localStorage, so we just need to update local state
     setProjects(prevProjects => [...prevProjects, newProject]);
-     // Switch to recent tab and ensure the project list is updated
     setActiveTab('recent'); 
-    // Re-fetch to ensure UI consistency if other operations might occur
     setProjects(LocalStorageService.getProjects());
   };
   
@@ -57,7 +65,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
             <ArrowLeft className="mr-2 h-4 w-4" />
             {t('selectCompany', 'Select a Company')}
           </Button>
-          <h1 className="text-2xl font-bold font-headline">
+          <h1 className="text-xl sm:text-2xl font-bold font-headline">
             {t('selectedCompany', 'Selected Company')}: <span className="text-primary">{company.name}</span>
           </h1>
         </div>
@@ -75,7 +83,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
         {tabItems.map(item => (
           <TabsContent key={item.value} value={item.value} className="mt-6">
             {filteredProjects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredProjects.map((project) => (
                   <ProjectCard key={project.id} project={project} />
                 ))}
