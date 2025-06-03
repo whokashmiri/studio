@@ -1,9 +1,12 @@
+
 "use client";
-import { mockCompanies, type Company } from '@/data/mock-data';
+import type { Company } from '@/data/mock-data';
+import * as LocalStorageService from '@/lib/local-storage-service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
+import { useEffect, useState } from 'react';
 
 interface CompanySelectorProps {
   onSelectCompany: (company: Company) => void;
@@ -11,6 +14,12 @@ interface CompanySelectorProps {
 
 export function CompanySelector({ onSelectCompany }: CompanySelectorProps) {
   const { t } = useLanguage();
+  const [companies, setCompanies] = useState<Company[]>([]);
+
+  useEffect(() => {
+    setCompanies(LocalStorageService.getCompanies());
+  }, []);
+
   return (
     <div className="max-w-2xl mx-auto">
       <Card className="shadow-lg">
@@ -19,20 +28,24 @@ export function CompanySelector({ onSelectCompany }: CompanySelectorProps) {
           <CardDescription>Choose the company you are inspecting for today.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4">
-            {mockCompanies.map((company) => (
-              <Button
-                key={company.id}
-                variant="outline"
-                size="lg"
-                className="w-full justify-start text-left h-auto py-3 px-4 hover:bg-accent hover:text-accent-foreground"
-                onClick={() => onSelectCompany(company)}
-              >
-                <Building className="mr-3 h-6 w-6 text-primary" />
-                <span className="text-base font-medium">{company.name}</span>
-              </Button>
-            ))}
-          </div>
+          {companies.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4">
+              {companies.map((company) => (
+                <Button
+                  key={company.id}
+                  variant="outline"
+                  size="lg"
+                  className="w-full justify-start text-left h-auto py-3 px-4 hover:bg-accent hover:text-accent-foreground"
+                  onClick={() => onSelectCompany(company)}
+                >
+                  <Building className="mr-3 h-6 w-6 text-primary" />
+                  <span className="text-base font-medium">{company.name}</span>
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground">{t('noCompaniesAvailable', 'No companies available. Please check the data source.')}</p>
+          )}
         </CardContent>
       </Card>
     </div>

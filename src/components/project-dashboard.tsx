@@ -1,10 +1,11 @@
+
 "use client";
 import { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { NewProjectModal } from '@/components/modals/new-project-modal';
-import { mockProjects, type Company, type Project, type ProjectStatus } from '@/data/mock-data';
+import type { Company, Project, ProjectStatus } from '@/data/mock-data';
+import * as LocalStorageService from '@/lib/local-storage-service';
 import { FolderPlus, CheckCircle, Star, Clock, Sparkles, ArrowLeft } from 'lucide-react';
 import { ProjectCard } from './project-card';
 import { useLanguage } from '@/contexts/language-context';
@@ -16,11 +17,14 @@ interface ProjectDashboardProps {
 
 export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [activeTab, setActiveTab] = useState<ProjectStatus>('recent');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [activeTab, setActiveTab] = useState<ProjectStatus | 'favorite'>('recent');
   const { t } = useLanguage();
 
-  // Filter projects based on company and status
+  useEffect(() => {
+    setProjects(LocalStorageService.getProjects());
+  }, [company.id]); // Reload projects if company changes, or when component mounts
+
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
       if (p.companyId !== company.id) return false;
@@ -30,15 +34,15 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
   }, [projects, company.id, activeTab]);
   
   const handleProjectCreated = (newProject: Project) => {
+    // The modal already saves to localStorage, so we just need to update local state
     setProjects(prevProjects => [...prevProjects, newProject]);
+     // Switch to recent tab and ensure the project list is updated
+    setActiveTab('recent'); 
+    // Re-fetch to ensure UI consistency if other operations might occur
+    setProjects(LocalStorageService.getProjects());
   };
-
-  // Effect to reset tab if projects for current tab become empty after a project status change (not fully implemented here)
-  useEffect(() => {
-    // This is a placeholder for more complex logic if projects can change status dynamically
-  }, [filteredProjects.length, activeTab]);
-
-  const tabItems: { value: ProjectStatus; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
+  
+  const tabItems: { value: ProjectStatus | 'favorite'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
     { value: 'recent', labelKey: 'recent', defaultLabel: 'Recent', icon: Clock },
     { value: 'favorite', labelKey: 'favorite', defaultLabel: 'Favorite', icon: Star },
     { value: 'new', labelKey: 'new', defaultLabel: 'New', icon: Sparkles },
@@ -59,7 +63,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ProjectStatus)}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ProjectStatus | 'favorite')}>
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto sm:h-10">
           {tabItems.map(item => (
             <TabsTrigger key={item.value} value={item.value} className="text-xs sm:text-sm py-2 sm:py-1.5">

@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Project } from '@/data/mock-data';
+import type { Project, ProjectStatus } from '@/data/mock-data';
+import * as LocalStorageService from '@/lib/local-storage-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 
@@ -35,24 +36,28 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     }
 
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Simulate API call if needed, though localStorage is synchronous
+    // await new Promise(resolve => setTimeout(resolve, 1000)); // Removed for faster UX with localStorage
 
     const now = new Date().toISOString();
     const newProject: Project = {
-      id: `proj_${Date.now()}`, // Simple unique ID
+      id: `proj_${Date.now()}`,
       name: projectName,
       companyId: companyId,
-      status: 'recent', // Set status to 'recent'
+      status: 'recent' as ProjectStatus,
       createdAt: now,
-      lastAccessed: now, // Set lastAccessed time
+      lastAccessed: now,
       description: `Newly created project: ${projectName}`,
+      isFavorite: false,
     };
 
-    onProjectCreated(newProject);
+    LocalStorageService.addProject(newProject);
+    
+    onProjectCreated(newProject); // Callback to update parent state
     setIsLoading(false);
     setProjectName('');
-    onClose();
+    onClose(); // Close modal
+    
     toast({
       title: "Project Created",
       description: `Project "${newProject.name}" has been successfully created.`,
@@ -62,7 +67,12 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        onClose();
+        setProjectName(''); // Reset field if dialog is closed
+      }
+    }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="font-headline">{t('createNewProject', 'Create New Project')}</DialogTitle>
@@ -86,11 +96,11 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          <Button variant="outline" onClick={() => { onClose(); setProjectName('');}} disabled={isLoading}>
             {t('cancel', 'Cancel')}
           </Button>
           <Button onClick={handleSave} disabled={isLoading || !projectName.trim()}>
-            {isLoading ? "Saving..." : t('save', 'Save')}
+            {isLoading ? t('saving', 'Saving...') : t('save', 'Save')}
           </Button>
         </DialogFooter>
       </DialogContent>
