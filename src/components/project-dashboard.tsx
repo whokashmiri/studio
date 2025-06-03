@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { NewProjectModal } from '@/components/modals/new-project-modal';
+import { EditProjectModal } from '@/components/modals/edit-project-modal'; // Added import
 import type { Company, Project, ProjectStatus } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { FolderPlus, CheckCircle, Star, Clock, Sparkles, ArrowLeft } from 'lucide-react';
@@ -16,7 +17,9 @@ interface ProjectDashboardProps {
 }
 
 export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false); // State for edit modal
+  const [editingProject, setEditingProject] = useState<Project | null>(null); // State for project being edited
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeTab, setActiveTab] = useState<ProjectStatus | 'favorite'>('recent');
   const { t } = useLanguage();
@@ -31,23 +34,30 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
       if (activeTab === 'favorite') return p.isFavorite === true;
       return p.status === activeTab;
     }).sort((a, b) => {
-      // Sort by lastAccessed descending for 'recent' tab
       if (activeTab === 'recent' && a.lastAccessed && b.lastAccessed) {
         return new Date(b.lastAccessed).getTime() - new Date(a.lastAccessed).getTime();
       }
-      // Sort by createdAt descending for 'new' tab
       if (activeTab === 'new' && a.createdAt && b.createdAt) {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
-      // Default sort by name for other tabs or if dates are missing
       return (a.name || '').localeCompare(b.name || '');
     });
   }, [projects, company.id, activeTab]);
   
   const handleProjectCreated = (newProject: Project) => {
-    setProjects(prevProjects => [...prevProjects, newProject]);
+    setProjects(LocalStorageService.getProjects()); // Reload all projects
     setActiveTab('recent'); 
-    setProjects(LocalStorageService.getProjects());
+  };
+
+  const handleOpenEditModal = (project: Project) => {
+    setEditingProject(project);
+    setIsEditModalOpen(true);
+  };
+
+  const handleProjectUpdated = (updatedProject: Project) => {
+    setProjects(LocalStorageService.getProjects()); // Reload all projects
+    // Optionally, you could try to keep the active tab or re-evaluate based on changes
+    // For simplicity, just reloading all projects is fine here
   };
   
   const tabItems: { value: ProjectStatus | 'favorite'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
@@ -85,7 +95,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
             {filteredProjects.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
+                  <ProjectCard key={project.id} project={project} onEditProject={handleOpenEditModal} />
                 ))}
               </div>
             ) : (
@@ -98,18 +108,29 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
       </Tabs>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t md:static md:bg-transparent md:p-0 md:border-none md:flex md:justify-end">
-        <Button size="lg" onClick={() => setIsModalOpen(true)} className="w-full md:w-auto shadow-lg md:shadow-none">
+        <Button size="lg" onClick={() => setIsNewModalOpen(true)} className="w-full md:w-auto shadow-lg md:shadow-none">
           <FolderPlus className="mr-2 h-5 w-5" />
           {t('createNewProject', 'Create New Project')}
         </Button>
       </div>
 
       <NewProjectModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isNewModalOpen}
+        onClose={() => setIsNewModalOpen(false)}
         onProjectCreated={handleProjectCreated}
         companyId={company.id}
       />
+      {editingProject && (
+        <EditProjectModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingProject(null);
+          }}
+          project={editingProject}
+          onProjectUpdated={handleProjectUpdated}
+        />
+      )}
     </div>
   );
 }
