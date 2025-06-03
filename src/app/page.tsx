@@ -1,16 +1,50 @@
 
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CompanySelector } from '@/components/company-selector';
 import { ProjectDashboard } from '@/components/project-dashboard';
 import type { Company } from '@/data/mock-data';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { LogIn } from 'lucide-react';
+import * as LocalStorageService from '@/lib/local-storage-service';
+
+const SELECTED_COMPANY_ID_KEY = 'assetInspectorPro_selectedCompanyId_session'; // Use sessionStorage
 
 export default function HomePage() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-  const { user, login } = useAuth(); // Assuming login is a simple function for demo
+  const { user, login } = useAuth(); 
+
+  // Effect to load selected company from sessionStorage on initial load
+  useEffect(() => {
+    if (user && typeof window !== 'undefined') { // Ensure user is logged in and window is available
+      const storedCompanyId = sessionStorage.getItem(SELECTED_COMPANY_ID_KEY);
+      if (storedCompanyId) {
+        const companies = LocalStorageService.getCompanies(); // Assumes this is safe to call client-side
+        const company = companies.find(c => c.id === storedCompanyId);
+        if (company) {
+          setSelectedCompany(company);
+        } else {
+          // Stored company ID is invalid, clear it
+          sessionStorage.removeItem(SELECTED_COMPANY_ID_KEY);
+        }
+      }
+    }
+  }, [user]); // Rerun if user logs in/out
+
+  const handleSelectCompany = (company: Company) => {
+    setSelectedCompany(company);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(SELECTED_COMPANY_ID_KEY, company.id);
+    }
+  };
+
+  const handleClearCompany = () => {
+    setSelectedCompany(null);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(SELECTED_COMPANY_ID_KEY);
+    }
+  };
 
   // Mock login function if user is null
   const handleDemoLogin = () => {
@@ -32,13 +66,14 @@ export default function HomePage() {
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
       {!selectedCompany ? (
-        <CompanySelector onSelectCompany={setSelectedCompany} />
+        <CompanySelector onSelectCompany={handleSelectCompany} />
       ) : (
         <ProjectDashboard
           company={selectedCompany}
-          onClearCompany={() => setSelectedCompany(null)}
+          onClearCompany={handleClearCompany} // Use the new handler
         />
       )}
     </div>
   );
 }
+
