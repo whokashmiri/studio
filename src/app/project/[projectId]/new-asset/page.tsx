@@ -70,8 +70,7 @@ export default function NewAssetPage() {
           setAssetName(foundAsset.name);
           setAssetDescription(foundAsset.description);
           setAssetSummary(foundAsset.summary);
-          setPhotoPreviews(foundAsset.photos || []); // Assume photos are stored as URLs/paths
-          // setCurrentStep('description'); // Skip to description step for editing
+          setPhotoPreviews(foundAsset.photos || []); 
         } else {
           toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
           router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
@@ -83,6 +82,13 @@ export default function NewAssetPage() {
   useEffect(() => {
     loadProjectAndAsset();
   }, [loadProjectAndAsset]);
+
+  // Effect to automatically move to description step in edit mode if asset name is present
+  useEffect(() => {
+    if (isEditMode && assetName && currentStep === 'name') {
+      setCurrentStep('description');
+    }
+  }, [isEditMode, assetName, currentStep]);
   
   const startCameraStream = useCallback(async () => {
     if (isCameraActive || isCameraStarting) return;
@@ -152,10 +158,8 @@ export default function NewAssetPage() {
     context?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
     try {
-        const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.9); // Capture as data URL
+        const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.9); 
         setPhotoPreviews(prev => [...prev, dataUrl].slice(0, MAX_PHOTOS));
-        // Note: We are storing DataURLs directly now for simplicity with localStorage.
-        // For File objects (if needed for upload to server), you'd convert blob to File as before.
     } catch (error) {
         console.error("Error capturing photo: ", error);
         toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('photoCaptureErrorDesc', "Could not capture photo."), variant: "destructive" });
@@ -192,14 +196,10 @@ export default function NewAssetPage() {
         reader.readAsDataURL(file);
       });
     }
-    event.target.value = ''; // Reset file input
+    event.target.value = ''; 
   };
 
   const removePhoto = (indexToRemove: number) => {
-    // If previews are Object URLs, revoke them. Data URLs don't need revoking.
-    // if (photoPreviews[indexToRemove].startsWith('blob:')) {
-    //   URL.revokeObjectURL(photoPreviews[indexToRemove]);
-    // }
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
@@ -247,7 +247,7 @@ export default function NewAssetPage() {
       description: descriptionFromInput,
       summary: summaryFromInput,
       createdAt: isEditMode && assetIdToEdit ? LocalStorageService.getAssets().find(a=>a.id===assetIdToEdit)?.createdAt || new Date().toISOString() : new Date().toISOString(),
-      updatedAt: new Date().toISOString(), // Add/update timestamp
+      updatedAt: new Date().toISOString(), 
     };
     
     if (isEditMode) {
@@ -263,9 +263,8 @@ export default function NewAssetPage() {
   useEffect(() => {
     return () => {
       stopCameraStream();
-      // photoPreviews.forEach(url => { if (url.startsWith('blob:')) URL.revokeObjectURL(url); }); // Only revoke blob URLs
     };
-  }, [stopCameraStream, photoPreviews]);
+  }, [stopCameraStream]);
 
   useEffect(() => {
     if (!isPhotoModalOpen) {
@@ -322,7 +321,6 @@ export default function NewAssetPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                {/* Optionally allow editing name here too if desired for edit mode */}
                 {isEditMode && (
                      <div className="space-y-2">
                         <Label htmlFor="asset-name-edit">{t('assetName', 'Asset Name')}</Label>
@@ -385,13 +383,7 @@ export default function NewAssetPage() {
       </Link>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       
-      {/* If edit mode and current step is name, redirect to description, or handle directly */}
-      {isEditMode && currentStep === 'name' && assetName ? 
-        useEffect(() => { setCurrentStep('description'); }, []) && null : 
-        renderStepContent()
-      }
-      {!isEditMode && renderStepContent()}
-
+      {renderStepContent()}
 
       <Dialog open={isPhotoModalOpen} onOpenChange={(isOpen) => {
           if (!isOpen) { 
@@ -399,7 +391,7 @@ export default function NewAssetPage() {
             if (currentStep === 'name' && assetName.trim() && !isEditMode){ 
                  setCurrentStep('description');
             } else if (isEditMode && currentStep === 'name'){
-                 setCurrentStep('description'); // Ensure edit mode also moves to description
+                 setCurrentStep('description'); 
             }
           } else {
             setIsPhotoModalOpen(true);
@@ -407,7 +399,7 @@ export default function NewAssetPage() {
       }}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
+            <DialogTitle className="text-xl sm:text-2xl font-headline">{isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
             <DialogDescription>{t('takeOrUploadPhotosPrompt', `You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.`, {MAX_PHOTOS: MAX_PHOTOS})}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -513,3 +505,5 @@ export default function NewAssetPage() {
     </div>
   );
 }
+
+    
