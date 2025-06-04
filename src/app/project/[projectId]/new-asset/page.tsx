@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3 } from 'lucide-react';
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus } from 'lucide-react';
 import type { Project, Asset, ProjectStatus } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { useToast } from '@/hooks/use-toast';
@@ -33,14 +35,20 @@ export default function NewAssetPage() {
   const [assetDescription, setAssetDescription] = useState('');
   const [assetSummary, setAssetSummary] = useState<string | undefined>(undefined);
   
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
-  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); // Main batch of photos for the asset
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false); // For reviewing the main batch
   
+  const [isCustomCameraOpen, setIsCustomCameraOpen] = useState(false);
+  const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null); // For gallery uploads
+
   const { toast } = useToast();
   const { t } = useLanguage();
-
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
 
 
   const loadProjectAndAsset = useCallback(() => {
@@ -79,11 +87,51 @@ export default function NewAssetPage() {
       setCurrentStep('description');
     }
   }, [isEditMode, assetName, currentStep]);
-  
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Effect for custom camera stream
+  useEffect(() => {
+    let streamInstance: MediaStream | null = null;
+
+    const getCameraStream = async () => {
+      if (isCustomCameraOpen) {
+        try {
+          streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          setMediaStream(streamInstance);
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = streamInstance;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: t('cameraAccessDeniedTitle', 'Camera Access Denied'),
+            description: t('cameraAccessDeniedDesc', 'Please enable camera permissions in your browser settings to use this app.'),
+          });
+          setIsCustomCameraOpen(false); // Close camera view if permission denied
+        }
+      }
+    };
+
+    getCameraStream();
+
+    return () => { // Cleanup function
+      if (streamInstance) {
+        streamInstance.getTracks().forEach(track => track.stop());
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      setMediaStream(null);
+    };
+  }, [isCustomCameraOpen, toast, t]);
+
+
+  const handleGalleryPhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const newFiles = Array.from(event.target.files);
+      const currentPhotoCount = photoPreviews.length;
       
       newFiles.forEach(file => {
         const reader = new FileReader();
@@ -98,7 +146,41 @@ export default function NewAssetPage() {
     event.target.value = ''; 
   };
 
-  const removePhotoFromPreviews = (indexToRemove: number) => {
+  const handleCapturePhotoFromStream = () => {
+    if (videoRef.current && canvasRef.current && hasCameraPermission) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        const photoDataUrl = canvas.toDataURL('image/jpeg'); // Use JPEG for smaller size
+        setCapturedPhotosInSession(prev => [...prev, photoDataUrl]);
+      } else {
+         toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
+      }
+    } else {
+      toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('cameraNotReadyError', "Camera not ready or permission denied."), variant: "destructive" });
+    }
+  };
+
+  const removePhotoFromSession = (indexToRemove: number) => {
+    setCapturedPhotosInSession(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleAddSessionPhotosToBatch = () => {
+    setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession]);
+    setCapturedPhotosInSession([]);
+    setIsCustomCameraOpen(false);
+  };
+
+  const handleCancelCustomCamera = () => {
+    setCapturedPhotosInSession([]);
+    setIsCustomCameraOpen(false);
+  };
+  
+  const removePhotoFromPreviews = (indexToRemove: number) => { // Used in main batch (photoModal and description step)
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
@@ -107,12 +189,12 @@ export default function NewAssetPage() {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
       return;
     }
-    setIsPhotoModalOpen(true);
+    setIsPhotoModalOpen(true); // Open the main batch review modal
   };
 
-  const handlePhotosSubmittedOrSkipped = () => {
+  const handlePhotosSubmittedOrSkipped = () => { // From main batch review modal
     setIsPhotoModalOpen(false);
-    if (currentStep === 'name' && assetName.trim()){ // Ensure we progress if name is set
+    if (currentStep === 'name' && assetName.trim()){ 
         setCurrentStep('description');
     }
   };
@@ -190,7 +272,7 @@ export default function NewAssetPage() {
             </CardContent>
             <CardFooter className="flex justify-end">
               <Button onClick={handleNameSubmit}>
-                {t('nextAddPhotos', 'Next: Add Photos')} <ArrowRight className="ml-2 h-4 w-4" />
+                {t('nextAddManagePhotos', 'Next: Add/Manage Photos')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
           </Card>
@@ -263,6 +345,7 @@ export default function NewAssetPage() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <canvas ref={canvasRef} className="hidden"></canvas> {/* Hidden canvas for capturing frames */}
       <Link href={backLinkHref} className="text-sm text-primary hover:underline flex items-center mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         {backLinkText}
@@ -270,6 +353,7 @@ export default function NewAssetPage() {
       
        {renderStepContent()}
 
+      {/* Main Photo Batch Review Modal */}
       <Dialog open={isPhotoModalOpen} onOpenChange={(isOpen) => {
           if (!isOpen) {
             if (currentStep === 'name' && assetName.trim()) {
@@ -280,28 +364,19 @@ export default function NewAssetPage() {
       }}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-xl sm:text-2xl font-headline">{isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
-            <DialogDescription>{t('takeOrUploadPhotosPromptNoLimit', "You can take new photos using your device camera or upload from your gallery.")}</DialogDescription>
+            <DialogTitle className="text-xl sm:text-2xl font-headline">
+                {isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3ManagePhotos', 'Step 2 of 3: Manage Photos for')} "{assetName}"
+            </DialogTitle>
+            <DialogDescription>{t('manageAssetPhotosDesc', "Take new photos with the custom camera, upload from gallery, or remove existing photos.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4 flex-grow overflow-y-auto">
             <div className="flex flex-col sm:flex-row gap-2">
-            <Button 
+              <Button 
                 variant="outline" 
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={() => setIsCustomCameraOpen(true)}
                 className="w-full sm:w-auto">
-                <Camera className="mr-2 h-4 w-4" /> {t('takePhotos', 'Take Photos')}
+                <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
               </Button>
-              <input 
-                type="file" 
-                accept="image/*" 
-                capture="environment" 
-                id="camera-input-modal" 
-                ref={cameraInputRef}
-                className="hidden" 
-                onChange={handlePhotoUpload} 
-                multiple
-              />
-              
               <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto">
                 <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
@@ -312,29 +387,31 @@ export default function NewAssetPage() {
                 id="gallery-input-modal" 
                 ref={galleryInputRef}
                 className="hidden" 
-                onChange={handlePhotoUpload} 
+                onChange={handleGalleryPhotoUpload} 
               />
             </div>
 
             <div className="space-y-2 mt-4">
-              <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
+              <Label>{t('currentPhotoBatch', 'Current Photo Batch')} ({photoPreviews.length})</Label>
               {photoPreviews.length > 0 ? (
-                <div className="grid grid-cols-6 gap-1.5">
-                  {photoPreviews.map((src, index) => (
-                    <div key={`batch-${index}-${src.substring(0,20)}`} className="relative group">
-                      <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
-                       <Button 
-                          variant="destructive" 
-                          size="icon" 
-                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                          onClick={() => removePhotoFromPreviews(index)}
-                          title={t('removePhotoTitle', "Remove photo")}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                    </div>
-                  ))}
-                </div>
+                <ScrollArea className="max-h-[300px] pr-3">
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {photoPreviews.map((src, index) => (
+                      <div key={`batch-${index}-${src.substring(0,20)}`} className="relative group">
+                        <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
+                         <Button 
+                            variant="destructive" 
+                            size="icon" 
+                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                            onClick={() => removePhotoFromPreviews(index)}
+                            title={t('removePhotoTitle', "Remove photo")}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">{t('noPhotosInBatch', 'No photos in the current batch yet.')}</p>
               )}
@@ -342,12 +419,80 @@ export default function NewAssetPage() {
           </div>
           <DialogFooter className="flex flex-row justify-end space-x-2 pt-4 border-t">
              <Button variant="outline" onClick={handlePhotosSubmittedOrSkipped} className="flex-1 sm:flex-auto">
-                {photoPreviews.length > 0 || isEditMode ? t('confirmPhotosAndContinue', 'Confirm Photos & Continue') : t('skipPhotosAndNext', 'Skip Photos & Next')}
-             </Button>
-             <Button onClick={handlePhotosSubmittedOrSkipped} className="flex-1 sm:flex-auto">
-                <Save className="mr-2 h-4 w-4" /> {isEditMode ? t('saveChangesAndContinue', 'Save Changes & Continue') : (photoPreviews.length > 0 ? t('savePhotosAndContinue', 'Save Photos & Continue') : t('nextStepDescription', 'Next: Description'))}
+                {currentStep === 'name' ? t('confirmAndContinueToDesc', 'Confirm & Continue to Description') : t('doneWithPhotos', 'Done with Photos')}
              </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Camera UI Dialog */}
+      <Dialog open={isCustomCameraOpen} onOpenChange={setIsCustomCameraOpen}>
+        <DialogContent className="p-0 m-0 w-full h-full max-w-full max-h-full sm:w-[calc(100%-2rem)] sm:h-[calc(100%-2rem)] sm:max-w-4xl sm:max-h-[90vh] sm:rounded-lg overflow-hidden flex flex-col bg-black text-white">
+          <div className="relative flex-grow w-full h-full flex items-center justify-center">
+            {hasCameraPermission === false && (
+              <Alert variant="destructive" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 max-w-md z-20">
+                <AlertTitle>{t('cameraAccessDeniedTitle', 'Camera Access Denied')}</AlertTitle>
+                <AlertDescription>{t('cameraAccessDeniedEnableSettings', 'Please enable camera permissions in your browser settings and refresh.')}</AlertDescription>
+              </Alert>
+            )}
+             {hasCameraPermission === null && (
+                 <div className="flex flex-col items-center text-center p-4 z-10">
+                    <CircleDotDashed className="w-16 h-16 animate-spin mb-4 text-gray-400" />
+                    <p className="text-lg text-gray-300">{t('initializingCamera', 'Initializing Camera...')}</p>
+                    <p className="text-sm text-gray-500">{t('allowCameraAccessPrompt', 'Please allow camera access when prompted.')}</p>
+                 </div>
+             )}
+            <video 
+              ref={videoRef} 
+              className={`w-full h-full object-cover ${hasCameraPermission ? 'opacity-100' : 'opacity-30'}`} 
+              autoPlay 
+              muted 
+              playsInline 
+            />
+            {/* Shutter button and session controls */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-black bg-opacity-50 z-10">
+              {capturedPhotosInSession.length > 0 && (
+                <ScrollArea className="w-full mb-3 max-h-24 whitespace-nowrap">
+                  <div className="flex space-x-2 pb-2">
+                    {capturedPhotosInSession.map((src, index) => (
+                      <div key={`session-preview-${index}`} className="relative h-16 w-16 shrink-0">
+                        <img src={src} alt={t('sessionPhotoPreviewAlt', `Session Preview ${index + 1}`, {number: index + 1})} data-ai-hint="session photo" className="h-full w-full object-cover rounded-md" />
+                        <Button 
+                          variant="destructive" 
+                          size="icon" 
+                          className="absolute -top-1 -right-1 h-5 w-5"
+                          onClick={() => removePhotoFromSession(index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+              <div className="flex items-center justify-around">
+                <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/20">
+                  {t('cancel', 'Cancel')}
+                </Button>
+                <Button 
+                  onClick={handleCapturePhotoFromStream} 
+                  disabled={!hasCameraPermission || mediaStream === null}
+                  className="w-16 h-16 rounded-full bg-white text-black hover:bg-gray-200 focus:ring-4 focus:ring-white/50 flex items-center justify-center p-0"
+                  aria-label={t('capturePhoto', 'Capture Photo')}
+                >
+                  <Camera className="w-8 h-8" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  onClick={handleAddSessionPhotosToBatch} 
+                  disabled={capturedPhotosInSession.length === 0}
+                  className="text-white hover:bg-white/20"
+                >
+                   {t('doneWithSession', 'Done')} ({capturedPhotosInSession.length})
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
