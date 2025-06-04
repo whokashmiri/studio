@@ -88,7 +88,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-0"> {/* Added padding-bottom for mobile FAB */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <Button variant="outline" size="sm" onClick={onClearCompany} className="mb-2 sm:mb-0">
@@ -113,7 +113,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
         {tabItems.map(item => (
           <TabsContent key={item.value} value={item.value} className="mt-6">
             {filteredProjects.length > 0 ? (
-              <ScrollArea className="max-h-[60vh] pr-3">
+              <ScrollArea className="h-[calc(100vh-20rem)] sm:h-[calc(100vh-18rem)] md:h-[60vh] pr-3"> {/* Adjusted height for mobile */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {filteredProjects.map((project) => (
                     <ProjectCard 
