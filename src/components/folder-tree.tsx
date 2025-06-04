@@ -1,137 +1,142 @@
 
 "use client";
 import type { Folder } from '@/data/mock-data';
-import { ChevronRight, Folder as FolderIcon, FolderPlus, Edit3 } from 'lucide-react';
+import { Folder as FolderIcon, MoreVertical, Edit3, FolderPlus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language-context';
+import * as LocalStorageService from '@/lib/local-storage-service';
+import { useToast } from '@/hooks/use-toast';
 
-interface FolderTreeProps {
-  folders: Folder[];
-  projectId: string;
-  onSelectFolder: (folder: Folder | null) => void; 
+interface FolderGridProps {
+  foldersToDisplay: Folder[];
+  onSelectFolder: (folder: Folder) => void;
   onAddSubfolder: (parentFolder: Folder) => void;
   onEditFolder: (folder: Folder) => void;
-  parentId?: string | null;
-  level?: number;
-  selectedFolderId?: string | null;
+  onDeleteFolder: (folder: Folder) => void; // Added for completeness, though not explicitly requested for this step
+  projectId: string;
 }
 
-interface FolderItemProps extends Omit<FolderTreeProps, 'parentId' | 'level'> {
-  folder: Folder;
-  level: number;
-}
-
-function FolderItem({ folder, folders, projectId, onSelectFolder, onAddSubfolder, onEditFolder, level = 0, selectedFolderId }: FolderItemProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function FolderGrid({
+  foldersToDisplay,
+  onSelectFolder,
+  onAddSubfolder,
+  onEditFolder,
+  onDeleteFolder, // Placeholder for now
+  projectId,
+}: FolderGridProps) {
   const { t } = useLanguage();
-  const childFolders = folders.filter(f => f.parentId === folder.id && f.projectId === projectId);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    if (selectedFolderId) {
-      const tracePathToSelected = (currentFolderId: string | null): boolean => {
-        if (!currentFolderId) return false;
-        if (currentFolderId === folder.id) return true;
-        const currentF = folders.find(f => f.id === currentFolderId);
-        return tracePathToSelected(currentF?.parentId || null);
-      };
-      if (tracePathToSelected(selectedFolderId) && folder.id !== selectedFolderId && childFolders.length > 0) {
-        // Consider if auto-opening is desired. It can be aggressive.
-        // setIsOpen(true); 
+
+  // Basic delete handler, can be expanded with confirmation dialog
+  const handleDeleteClick = (e: React.MouseEvent, folder: Folder) => {
+    e.stopPropagation(); // Prevent card click
+     // Basic confirmation, ideally use an AlertDialog
+    if (confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${folder.name}" and all its contents? This action cannot be undone.`, { folderName: folder.name }))) {
+      // Check if folder has children folders or assets
+      const childFolders = LocalStorageService.getFolders().filter(f => f.parentId === folder.id);
+      const childAssets = LocalStorageService.getAssets().filter(a => a.folderId === folder.id);
+
+      if (childFolders.length > 0 || childAssets.length > 0) {
+        toast({
+          title: t('folderNotEmptyTitle', 'Folder Not Empty'),
+          description: t('folderNotEmptyDesc', 'Cannot delete folder. Please delete all subfolders and assets first.'),
+          variant: 'destructive',
+        });
+        return;
       }
+      
+      LocalStorageService.deleteFolder(folder.id); // Assumes deleteFolder exists in service
+      onDeleteFolder(folder); // Callback to update parent state
+      toast({
+        title: t('folderDeletedTitle', 'Folder Deleted'),
+        description: t('folderDeletedDesc', `Folder "${folder.name}" has been deleted.`, { folderName: folder.name }),
+      });
     }
-  }, [selectedFolderId, folder.id, folders, childFolders.length]);
+  };
 
 
-  return (
-    <li style={{ paddingLeft: `${level * 1.25}rem` }} className="my-0.5">
-      <div 
-        className={cn(
-            "flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted cursor-pointer group",
-            selectedFolderId === folder.id && "bg-primary/10 text-primary ring-1 ring-primary/50"
-        )}
-        onClick={() => { onSelectFolder(folder); if (childFolders.length > 0) setIsOpen(!isOpen); }}
-      >
-        <div className="flex items-center flex-grow truncate min-w-0">
-          {childFolders.length > 0 ? (
-            <ChevronRight 
-              className={cn("h-4 w-4 mr-1 transform transition-transform shrink-0", isOpen && "rotate-90")} 
-              onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen);}}
-            />
-          ) : (
-             <span className="w-4 mr-1 shrink-0"></span> 
-          )}
-          <FolderIcon className={cn("h-6 w-6 mr-2 shrink-0", selectedFolderId === folder.id ? "text-primary" : "text-muted-foreground group-hover:text-primary/80")} /> 
-          <span className="text-sm truncate" title={folder.name}>{folder.name}</span>
-        </div>
-        <div className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity focus-within:opacity-100">
-            <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-6 w-6"
-                onClick={(e) => { e.stopPropagation(); onEditFolder(folder); }}
-                title={t('editFolderTitle', 'Edit folder {folderName}', {folderName: folder.name})}
-            >
-                <Edit3 className="h-3.5 w-3.5" />
-            </Button>
-            <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-6 w-6"
-                onClick={(e) => { e.stopPropagation(); onAddSubfolder(folder); }}
-                title={t('addSubfolderTitle', 'Add subfolder to {folderName}', {folderName: folder.name})}
-            >
-                <FolderPlus className="h-4 w-4" />
-            </Button>
-        </div>
+  if (foldersToDisplay.length === 0) {
+    return (
+      <div className="py-8 text-center">
+        <FolderIcon className="mx-auto h-16 w-16 text-muted-foreground/50" />
+        <p className="mt-4 text-muted-foreground">
+          {t('noFoldersInCurrentView', 'This folder is empty.')}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {t('useButtonToAddSubfolderPrompt', 'You can add a subfolder using the button above or the context menu on a parent folder.')}
+        </p>
       </div>
-      {isOpen && childFolders.length > 0 && (
-        <ul className="mt-0.5">
-          {childFolders.map(child => (
-            <FolderItem
-              key={child.id}
-              folder={child}
-              folders={folders}
-              projectId={projectId}
-              onSelectFolder={onSelectFolder}
-              onAddSubfolder={onAddSubfolder}
-              onEditFolder={onEditFolder}
-              level={level + 1}
-              selectedFolderId={selectedFolderId}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
-  );
-}
-
-
-export function FolderTree({ folders, projectId, onSelectFolder, onAddSubfolder, onEditFolder, parentId = null, level = 0, selectedFolderId }: FolderTreeProps) {
-  const rootFolders = folders.filter(f => f.parentId === parentId && f.projectId === projectId);
-  const { t } = useLanguage();
-
-  if (rootFolders.length === 0 && level === 0 && (folders.filter(f => f.projectId === projectId).length === 0) ) {
-     return <p className="text-xs text-muted-foreground p-2 text-center">{t('noTopLevelFolders', 'No top-level folders created yet.')}</p>;
+    );
   }
 
   return (
-    <ul className="space-y-0">
-      {rootFolders.map(folder => (
-        <FolderItem
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {foldersToDisplay.map((folder) => (
+        <Card
           key={folder.id}
-          folder={folder}
-          folders={folders}
-          projectId={projectId}
-          onSelectFolder={onSelectFolder}
-          onAddSubfolder={onAddSubfolder}
-          onEditFolder={onEditFolder}
-          level={level}
-          selectedFolderId={selectedFolderId}
-        />
+          className="hover:shadow-md transition-shadow cursor-pointer group"
+          onClick={() => onSelectFolder(folder)}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4">
+            <div className="flex items-center truncate">
+              <FolderIcon className="h-10 w-10 mr-3 text-primary flex-shrink-0" />
+              <CardTitle className="text-lg font-medium truncate" title={folder.name}>
+                {folder.name}
+              </CardTitle>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-50 group-hover:opacity-100 focus:opacity-100"
+                  onClick={(e) => e.stopPropagation()} // Prevent card click
+                >
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">{t('folderActions', 'Folder actions')}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onSelectFolder(folder); }}>
+                  {t('openFolder', 'Open')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onAddSubfolder(folder); }}>
+                  <FolderPlus className="mr-2 h-4 w-4" />
+                  {t('addSubfolderToCurrent', 'Add subfolder here')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditFolder(folder); }}>
+                  <Edit3 className="mr-2 h-4 w-4" />
+                  {t('editFolder', 'Edit folder')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={(e) => handleDeleteClick(e, folder)}
+                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {t('deleteFolder', 'Delete folder')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {/* Can add more details here like item count or last modified later */}
+            <p className="text-xs text-muted-foreground">
+              {/* Placeholder for sub-item count or other info */}
+            </p>
+          </CardContent>
+        </Card>
       ))}
-    </ul>
+    </div>
   );
 }
-

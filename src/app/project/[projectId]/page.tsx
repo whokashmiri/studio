@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { FolderTree } from '@/components/folder-tree';
+import { FolderGrid } from '@/components/folder-tree'; // Updated import
 import type { Project, Folder as FolderType, Asset as AssetType, ProjectStatus } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { Home, FolderPlus, FilePlus } from 'lucide-react';
@@ -26,9 +26,7 @@ export default function ProjectPage() {
   const currentUrlFolderId = searchParams.get('folderId');
 
   const [project, setProject] = useState<Project | null>(null);
-  const [folders, setFolders] = useState<FolderType[]>([]);
-  // Assets state is no longer needed here as they are not directly displayed on this page anymore
-  // const [assets, setAssets] = useState<AssetType[]>([]);
+  const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
   
   const [newFolderName, setNewFolderName] = useState('');
@@ -41,9 +39,9 @@ export default function ProjectPage() {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
 
-  const getFolderPath = useCallback((folderId: string | null, currentProject: Project, allFolders: FolderType[]): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
+  const getFolderPath = useCallback((folderId: string | null, currentProject: Project | null, allFolders: FolderType[]): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
     const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
-    if (!currentProject) return path; // Guard against currentProject being null
+    if (!currentProject) return path;
 
     let current: FolderType | undefined | null = folderId ? allFolders.find(f => f.id === folderId && f.projectId === currentProject.id) : null;
   
@@ -60,15 +58,11 @@ export default function ProjectPage() {
       const foundProject = LocalStorageService.getProjects().find(p => p.id === projectId);
       setProject(foundProject || null);
       if (foundProject) {
-        const allFolders = LocalStorageService.getFolders();
-        setFolders(allFolders.filter(f => f.projectId === projectId));
+        const allFoldersFromStorage = LocalStorageService.getFolders();
+        setAllProjectFolders(allFoldersFromStorage.filter(f => f.projectId === projectId));
         
-        // No longer loading all assets for this page directly
-        // const allAssets = LocalStorageService.getAssets();
-        // setAssets(allAssets.filter(a => a.projectId === projectId));
-
         if (currentUrlFolderId) {
-          const folderFromUrl = allFolders.find(f => f.id === currentUrlFolderId && f.projectId === projectId);
+          const folderFromUrl = allFoldersFromStorage.find(f => f.id === currentUrlFolderId && f.projectId === projectId);
           setSelectedFolder(folderFromUrl || null);
         } else {
           setSelectedFolder(null); 
@@ -110,12 +104,15 @@ export default function ProjectPage() {
       id: `folder_${Date.now()}`,
       name: newFolderName,
       projectId: project.id,
-      parentId: selectedFolder ? selectedFolder.id : null, // parentId is based on the context when dialog opened
+      // Parent ID is determined by `selectedFolder` state when dialog was opened.
+      // If `newFolderParentContext` (see openNewFolderDialog) is null, parentId is null (root).
+      // Else, parentId is `newFolderParentContext.id`.
+      parentId: newFolderParentContext ? newFolderParentContext.id : null,
     };
 
     LocalStorageService.addFolder(newFolder);
-    setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); 
-    setSelectedFolder(newFolder); // Automatically navigate into the new folder
+    setAllProjectFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); 
+    setSelectedFolder(newFolder); 
     
     const updatedProjectData = {
       ...project,
@@ -127,22 +124,14 @@ export default function ProjectPage() {
     
     setNewFolderName('');
     setIsNewFolderDialogOpen(false);
+    setNewFolderParentContext(null); // Reset context
     toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created and selected.`, {folderName: newFolder.name})});
   };
   
-  // `parentFolderForNew` determines the context for the new folder dialog
-  // null means create at root, otherwise create as subfolder of `parentFolderForNew`
-  const openNewFolderDialog = (parentFolderForNew: FolderType | null) => {
-     // We set selectedFolder to parentFolderForNew so the dialog knows the parent context
-     // However, this `selectedFolder` is temporary for dialog context, real selection happens after creation.
-     // To avoid confusion, the dialog's parent context is passed explicitly or derived inside handleCreateFolder
-     // For simplicity, the current selectedFolder state variable determines the parent for the new folder dialog.
-     // If creating a root folder, selectedFolder should be null *before* calling this.
-    if (parentFolderForNew === null) { // Explicitly creating a root folder
-        setSelectedFolder(null); 
-    } else {
-        setSelectedFolder(parentFolderForNew); // Creating a subfolder, set context
-    }
+  const [newFolderParentContext, setNewFolderParentContext] = useState<FolderType | null>(null);
+
+  const openNewFolderDialog = (parentContextForNewDialog: FolderType | null) => {
+    setNewFolderParentContext(parentContextForNewDialog); // Store the parent context for when "Confirm" is clicked
     setIsNewFolderDialogOpen(true); 
   };
 
@@ -150,9 +139,18 @@ export default function ProjectPage() {
     setEditingFolder(folderToEdit);
     setIsEditFolderModalOpen(true);
   };
+  
+  const handleFolderDeleted = (deletedFolder: FolderType) => {
+    setAllProjectFolders(currentFolders => currentFolders.filter(f => f.id !== deletedFolder.id));
+    // If the deleted folder was selected, navigate up or to root
+    if (selectedFolder && selectedFolder.id === deletedFolder.id) {
+      const parentFolder = deletedFolder.parentId ? allProjectFolders.find(f => f.id === deletedFolder.parentId) : null;
+      setSelectedFolder(parentFolder || null);
+    }
+  };
 
   const handleFolderUpdated = (updatedFolder: FolderType) => {
-    setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); 
+    setAllProjectFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); 
     if (selectedFolder && selectedFolder.id === updatedFolder.id) {
       setSelectedFolder(updatedFolder); 
     }
@@ -167,11 +165,18 @@ export default function ProjectPage() {
     }
   };
   
-  const canCreateAsset = !!selectedFolder; // Asset creation requires a folder to be selected
+  const canCreateAsset = !!selectedFolder; 
   const newAssetHref = canCreateAsset ? `/project/${project.id}/new-asset?folderId=${selectedFolder!.id}` : '#';
   
-  const breadcrumbItems = project ? getFolderPath(selectedFolder?.id || null, project, folders) : [];
+  const breadcrumbItems = project ? getFolderPath(selectedFolder?.id || null, project, allProjectFolders) : [];
 
+  const foldersToDisplay = allProjectFolders.filter(f => {
+    if (selectedFolder) {
+      return f.parentId === selectedFolder.id;
+    } else {
+      return f.parentId === null; // Root folders
+    }
+  });
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-24 md:pb-8">
@@ -215,7 +220,7 @@ export default function ProjectPage() {
                         if (item.type === 'project') {
                             handleSelectFolder(null);
                         } else if (item.id) {
-                            const folderToSelect = folders.find(f => f.id === item.id);
+                            const folderToSelect = allProjectFolders.find(f => f.id === item.id);
                             if (folderToSelect) handleSelectFolder(folderToSelect);
                         }
                         }}
@@ -228,31 +233,35 @@ export default function ProjectPage() {
                 ))}
                 </CardTitle>
                 {!isMobile && (
-                    <Button variant="default" size="lg" onClick={() => openNewFolderDialog(null)} title={t('addRootFolderTitle', 'Add folder to project root')}>
-                        <FolderPlus className="mr-2 h-4 w-4" /> {t('addNewFolderToRoot', 'Add Folder to Root')}
+                    <Button variant="default" size="lg" onClick={() => openNewFolderDialog(selectedFolder)} title={selectedFolder ? t('addSubfolderTitle', 'Add subfolder to {folderName}', {folderName: selectedFolder.name}) : t('addRootFolderTitle', 'Add folder to project root')}>
+                        <FolderPlus className="mr-2 h-4 w-4" /> {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addNewFolderToRoot', 'Add Folder to Root')}
                     </Button>
                 )}
             </div>
-            {!selectedFolder && <CardDescription>{t('selectOrCreateFolderPrompt', 'Select a folder below, or add a new folder to the project root.')}</CardDescription>}
-            {selectedFolder && <CardDescription>{t('manageFolderContentsPrompt', 'Manage contents of "{folderName}", or add a subfolder.', { folderName: selectedFolder.name})}</CardDescription>}
+            {selectedFolder ? 
+                <CardDescription>{t('contentsOfFolder', 'Contents of "{folderName}"', {folderName: selectedFolder.name})}</CardDescription> 
+                : 
+                <CardDescription>{t('projectRootContents', 'Project Root - Folders')}</CardDescription>
+            }
         </CardHeader>
         <CardContent>
-        <FolderTree 
-            folders={folders} 
-            projectId={project.id} 
+        <FolderGrid
+            foldersToDisplay={foldersToDisplay}
             onSelectFolder={handleSelectFolder}
-            onAddSubfolder={(parentFolder) => {
-            openNewFolderDialog(parentFolder);
-            }}
+            onAddSubfolder={(parentFolder) => openNewFolderDialog(parentFolder)}
             onEditFolder={handleOpenEditFolderModal}
-            selectedFolderId={selectedFolder?.id || null}
+            onDeleteFolder={handleFolderDeleted}
+            projectId={project.id}
         />
-        {folders.filter(f => f.projectId === projectId).length === 0 && (
+        {allProjectFolders.length === 0 && ( // This checks if there are ANY folders in the project at all
             <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">{t('noFoldersInProjectStart', 'This project has no folders yet.')}</p>
                 {isMobile ? (
                      <p className="text-sm text-muted-foreground">{t('useFabToAddFolderMobile', 'Use the "Add New Folder" button below to get started.')}</p>
                 ) : (
+                    // The button in the header now serves this purpose. We can refine this message.
+                    // Or, if selectedFolder is null and foldersToDisplay is empty (meaning root is empty)
+                    // this area will show FolderGrid's "This folder is empty." message.
                     <Button variant="outline" onClick={() => openNewFolderDialog(null)}>
                         <FolderPlus className="mr-2 h-4 w-4" /> {t('createNewFolderInRootButton', 'Create First Folder in Project Root')}
                     </Button>
@@ -265,12 +274,12 @@ export default function ProjectPage() {
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 p-3 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2">
           <Button
-            onClick={() => openNewFolderDialog(selectedFolder)} // Pass current selectedFolder as parent context for new folder
+            onClick={() => openNewFolderDialog(selectedFolder)} 
             className="flex-1"
             size="lg"
           >
             <FolderPlus className="mr-2 h-5 w-5" />
-            {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addNewFolderToRoot', 'Add New Folder to Root')}
+            {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addNewFolderToRoot', 'Add Folder to Root')}
           </Button>
           <Link href={newAssetHref} passHref legacyBehavior>
             <Button
@@ -295,14 +304,14 @@ export default function ProjectPage() {
       <Dialog open={isNewFolderDialogOpen} onOpenChange={(isOpen) => {
         if (!isOpen) {
           setNewFolderName(''); 
+          setNewFolderParentContext(null); // Reset context if dialog is closed
         }
         setIsNewFolderDialogOpen(isOpen);
       }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-                {/* The 'selectedFolder' state at the time of dialog opening determines the parent */}
-                {selectedFolder ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: selectedFolder.name }) : t('addNewFolderToRoot', 'Add New Folder to Root')}
+                {newFolderParentContext ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: newFolderParentContext.name }) : t('addNewFolderToRoot', 'Add New Folder to Root')}
             </DialogTitle>
           </DialogHeader>
           <div>
@@ -315,7 +324,7 @@ export default function ProjectPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); }}>{t('cancel', 'Cancel')}</Button>
+            <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); setNewFolderParentContext(null); }}>{t('cancel', 'Cancel')}</Button>
             <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>{t('confirm', 'Confirm')}</Button>
           </DialogFooter>
         </DialogContent>
@@ -335,4 +344,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-

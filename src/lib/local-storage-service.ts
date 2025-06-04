@@ -102,6 +102,34 @@ export function updateFolder(updatedFolder: Folder): void {
   }
 }
 
+export function deleteFolder(folderId: string): void {
+  let folders = getFolders();
+  // Also delete subfolders and assets associated with this folder
+  // This requires recursive deletion or careful filtering.
+  // For simplicity, this example only deletes the specified folder.
+  // A more robust solution would handle cascading deletes.
+  const foldersToDelete = [folderId];
+  let currentFolders = getFolders();
+  let currentAssets = getAssets();
+
+  // Find all subfolders recursively (simple iterative approach)
+  const queue = [folderId];
+  while (queue.length > 0) {
+    const currentParentId = queue.shift();
+    const children = currentFolders.filter(f => f.parentId === currentParentId);
+    children.forEach(child => {
+      foldersToDelete.push(child.id);
+      queue.push(child.id);
+    });
+  }
+
+  const updatedFolders = currentFolders.filter(f => !foldersToDelete.includes(f.id));
+  const updatedAssets = currentAssets.filter(a => !foldersToDelete.includes(a.folderId!));
+  
+  saveFolders(updatedFolders);
+  saveAssets(updatedAssets); // Ensure assets within deleted folders are also removed
+}
+
 
 // Assets
 export function getAssets(): Asset[] {
@@ -125,4 +153,10 @@ export function updateAsset(updatedAsset: Asset): void {
     console.warn(`Asset with id ${updatedAsset.id} not found for update, adding it instead.`);
     addAsset(updatedAsset);
   }
+}
+
+export function deleteAsset(assetId: string): void {
+  let assets = getAssets();
+  const updatedAssets = assets.filter(a => a.id !== assetId);
+  saveAssets(updatedAssets);
 }

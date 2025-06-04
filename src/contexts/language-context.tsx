@@ -46,7 +46,7 @@ const translations: Record<Language, Record<string, string>> = {
     folderCreatedNavigatedDesc: "Folder \"{folderName}\" created and selected.",
     allProjects: "All Projects",
     assetsIn: "Assets in",
-    assetsInPath: "Path: ", // Changed from "Assets in: "
+    assetsInPath: "Path: ", 
     manageAssetsPrompt: "Manage assets within the selected folder or project root.",
     noAssetsInLocation: "No assets found in this location.",
     inside: "inside",
@@ -109,7 +109,6 @@ const translations: Record<Language, Record<string, string>> = {
     noDescriptionAvailable: "No description available.",
     created: "Created",
     accessed: "Accessed",
-    // openProject: "Open Project", // Removed
     editProjectTitle: "Edit Project",
     editProjectDesc: "Update the details for your project.",
     projectDescription: "Project Description",
@@ -157,6 +156,20 @@ const translations: Record<Language, Record<string, string>> = {
     clickToNavigateTo: "Click to navigate to {name}",
     selectOrCreateFolderPrompt: "Select a folder below, or add a new folder to the project root.",
     manageFolderContentsPrompt: "Manage contents of \"{folderName}\", or add a subfolder.",
+    contentsOfFolder: "Contents of \"{folderName}\"",
+    projectRootContents: "Project Root - Folders",
+    folderActions: "Folder actions",
+    openFolder: "Open",
+    editFolder: "Edit folder",
+    deleteFolder: "Delete folder",
+    deleteFolderConfirmation: "Are you sure you want to delete \"{folderName}\" and all its contents? This action cannot be undone.",
+    folderNotEmptyTitle: "Folder Not Empty",
+    folderNotEmptyDesc: "Cannot delete folder. Please delete all subfolders and assets first.",
+    folderDeletedTitle: "Folder Deleted",
+    folderDeletedDesc: "Folder \"{folderName}\" has been deleted.",
+    noFoldersInCurrentView: "This folder is empty.",
+    useButtonToAddSubfolderPrompt: "You can add a subfolder using the button above or the context menu on a parent folder.",
+    addSubfolderToCurrent: "Add subfolder here",
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -190,7 +203,7 @@ const translations: Record<Language, Record<string, string>> = {
     folderCreatedNavigatedDesc: "تم إنشاء المجلد \"{folderName}\" واختياره.",
     allProjects: "كل المشاريع",
     assetsIn: "الأصول في",
-    assetsInPath: "المسار: ", // Changed from "الأصول في: "
+    assetsInPath: "المسار: ", 
     manageAssetsPrompt: "إدارة الأصول داخل المجلد المحدد أو جذر المشروع.",
     noAssetsInLocation: "لا توجد أصول في هذا الموقع.",
     inside: "داخل",
@@ -253,7 +266,6 @@ const translations: Record<Language, Record<string, string>> = {
     noDescriptionAvailable: "لا يوجد وصف متاح.",
     created: "تم الإنشاء",
     accessed: "تم الوصول",
-    // openProject: "فتح المشروع", // Removed
     editProjectTitle: "تعديل المشروع",
     editProjectDesc: "قم بتحديث تفاصيل مشروعك.",
     projectDescription: "وصف المشروع",
@@ -301,6 +313,20 @@ const translations: Record<Language, Record<string, string>> = {
     clickToNavigateTo: "انقر للانتقال إلى {name}",
     selectOrCreateFolderPrompt: "حدد مجلدًا أدناه، أو أضف مجلدًا جديدًا إلى جذر المشروع.",
     manageFolderContentsPrompt: "إدارة محتويات \"{folderName}\"، أو إضافة مجلد فرعي.",
+    contentsOfFolder: "محتويات \"{folderName}\"",
+    projectRootContents: "جذر المشروع - المجلدات",
+    folderActions: "إجراءات المجلد",
+    openFolder: "فتح",
+    editFolder: "تعديل المجلد",
+    deleteFolder: "حذف المجلد",
+    deleteFolderConfirmation: "هل أنت متأكد أنك تريد حذف \"{folderName}\" وجميع محتوياته؟ لا يمكن التراجع عن هذا الإجراء.",
+    folderNotEmptyTitle: "المجلد ليس فارغًا",
+    folderNotEmptyDesc: "لا يمكن حذف المجلد. يرجى حذف جميع المجلدات الفرعية والأصول أولاً.",
+    folderDeletedTitle: "تم حذف المجلد",
+    folderDeletedDesc: "تم حذف المجلد \"{folderName}\".",
+    noFoldersInCurrentView: "هذا المجلد فارغ.",
+    useButtonToAddSubfolderPrompt: "يمكنك إضافة مجلد فرعي باستخدام الزر أعلاه أو قائمة السياق في المجلد الأصل.",
+    addSubfolderToCurrent: "إضافة مجلد فرعي هنا",
   },
 };
 
@@ -340,4 +366,3 @@ export function useLanguage() {
   }
   return context;
 }
-
