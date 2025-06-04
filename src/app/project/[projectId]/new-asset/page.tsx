@@ -51,9 +51,7 @@ export default function NewAssetPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null); 
-  // const cameraInputRef = useRef<HTMLInputElement>(null); // No longer needed for custom camera
 
-  // Speech Recognition State
   const [isListening, setIsListening] = useState(false);
   const [speechRecognitionAvailable, setSpeechRecognitionAvailable] = useState(false);
   const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
@@ -92,7 +90,7 @@ export default function NewAssetPage() {
           setAssetTextDescription(foundAsset.textDescription || '');
           setAssetSummary(foundAsset.summary);
           setPhotoPreviews(foundAsset.photos || []); 
-          setCurrentStep('descriptions_and_summary'); // Skip to details if editing
+          setCurrentStep('descriptions_and_summary'); 
         } else {
           toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
           router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
@@ -140,7 +138,6 @@ export default function NewAssetPage() {
     };
   }, [isCustomCameraOpen, toast, t]);
 
-  // Speech Recognition Effect
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       setSpeechRecognitionAvailable(true);
@@ -193,8 +190,8 @@ export default function NewAssetPage() {
           }
           filesProcessed++;
           if (filesProcessed === newFiles.length) {
-            setPhotoPreviews(prev => [...prev, ...newPhotoUrls]);
-            if (!isPhotoModalOpen) setIsPhotoModalOpen(true); // Open modal if not already
+            setPhotoPreviews(prev => [...prev, ...newPhotoUrls].slice(0, 10)); 
+            if (!isPhotoModalOpen) setIsPhotoModalOpen(true);
           }
         };
         reader.readAsDataURL(file);
@@ -227,11 +224,11 @@ export default function NewAssetPage() {
   };
 
   const handleAddSessionPhotosToBatch = () => {
-    setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession]);
+    setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
     if (!isPhotoModalOpen && photoPreviews.length + capturedPhotosInSession.length > 0) {
-      setIsPhotoModalOpen(true); // Ensure main photo modal is open to see combined batch
+      setIsPhotoModalOpen(true);
     }
   };
 
@@ -254,7 +251,7 @@ export default function NewAssetPage() {
       return;
     }
     setCurrentStep('descriptions_and_summary');
-    setIsPhotoModalOpen(false); // Close photo modal if open
+    setIsPhotoModalOpen(false);
   };
 
   const toggleListening = () => {
@@ -315,7 +312,7 @@ export default function NewAssetPage() {
       setCurrentStep('photos_and_name'); 
       return;
     }
-    if (photoPreviews.length === 0 && !isEditMode) { // Allow editing without photos if they were never added
+    if (photoPreviews.length === 0 && !isEditMode) { // Allow editing asset details without changing photos
       toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
       setCurrentStep('photos_and_name');
       return;
@@ -397,18 +394,18 @@ export default function NewAssetPage() {
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between items-center">
                       <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                      <Button variant="outline" size="sm" onClick={()={() => setIsPhotoModalOpen(true)}}>
+                      <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)}>
                          <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
                       </Button>
                     </div>
                     <div className="grid grid-cols-6 gap-1.5">
-                      {photoPreviews.slice(0, 6).map((src, index) => ( // Show first 6 as quick preview
+                      {photoPreviews.slice(0, 6).map((src, index) => ( 
                           <div key={`main-preview-${index}-${src.substring(0,20)}`} className="relative group">
                             <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
                           </div>
                       ))}
                     </div>
-                    {photoPreviews.length > 6 && <p className="text-xs text-muted-foreground text-center mt-1">{t('morePhotosInModal', `+${photoPreviews.length - 6} more. Click "Manage Photos" to see all.`)}</p>}
+                    {photoPreviews.length > 6 && <p className="text-xs text-muted-foreground text-center mt-1">{t('morePhotosInModal', `+${photoPreviews.length - 6} more. Click "Manage Photos" to see all.`, {count: photoPreviews.length - 6})}</p>}
                   </div>
                 )}
               </div>
@@ -454,7 +451,7 @@ export default function NewAssetPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                       <Button variant="outline" size="sm" onClick={() => { setIsPhotoModalOpen(true); }}>
+                       <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)}>
                           <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
                        </Button>
                     </div>
@@ -468,7 +465,6 @@ export default function NewAssetPage() {
                   </div>
                 )}
                 
-                {/* Voice Description Section */}
                 <div className="space-y-2">
                   <Label htmlFor="asset-voice-description">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
                   {speechRecognitionAvailable ? (
@@ -495,7 +491,6 @@ export default function NewAssetPage() {
                   )}
                 </div>
 
-                {/* Text Description Section */}
                 <div className="space-y-2">
                   <Label htmlFor="asset-text-description">{t('textDescriptionLabel', 'Written Description')}</Label>
                   <Textarea
@@ -508,7 +503,6 @@ export default function NewAssetPage() {
                   />
                 </div>
 
-                {/* AI Summary Section */}
                 <div className="space-y-2">
                    <Button 
                     onClick={handleGenerateSummary} 
@@ -569,19 +563,19 @@ export default function NewAssetPage() {
             <div className="flex flex-col sm:flex-row gap-2">
               <Button 
                 variant="outline" 
-                onClick={() => { setIsCustomCameraOpen(true); setIsPhotoModalOpen(false); }} // Close this modal to open camera
+                onClick={() => { setIsCustomCameraOpen(true); setIsPhotoModalOpen(false); }} 
                 className="w-full sm:w-auto">
                 <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
               </Button>
               <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto">
                 <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
-               <input // Keep a gallery input specific to the modal if needed
+               <input 
                   type="file"
                   accept="image/*"
                   multiple
                   id="gallery-input-modal" 
-                  ref={galleryInputRef}
+                  ref={galleryInputRef} 
                   className="hidden"
                   onChange={handlePhotoUploadFromGallery}
                 />
@@ -590,7 +584,7 @@ export default function NewAssetPage() {
             <div className="space-y-2 mt-4">
               <Label>{t('currentPhotoBatch', 'Current Photo Batch')} ({photoPreviews.length})</Label>
               {photoPreviews.length > 0 ? (
-                <ScrollArea className="h-[300px] pr-3"> {/* Ensure height is constrained */}
+                <ScrollArea className="h-[300px] pr-3">
                   <div className="grid grid-cols-6 gap-1.5">
                     {photoPreviews.map((src, index) => (
                       <div key={`batch-${index}-${src.substring(0,20)}`} className="relative group">
@@ -622,10 +616,14 @@ export default function NewAssetPage() {
       </Dialog>
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
-          if (!isOpen && !isPhotoModalOpen && photoPreviews.length > 0) {
-            // If custom camera closes and main photo modal isn't already open,
-            // and we have photos, open the main photo modal.
-            setIsPhotoModalOpen(true);
+          if (!isOpen && !isPhotoModalOpen && photoPreviews.length > 0 && capturedPhotosInSession.length === 0) {
+            // If custom camera closes, no new photos were added from session, 
+            // and main modal isn't open, but we *do* have existing previews,
+            // then re-open the main modal to show the existing previews.
+            // This handles the case where user opens custom camera from main modal, cancels, and should return to main modal.
+            // Also if user opens custom camera from main page (step 1), captures, adds to batch (now in photoPreviews),
+            // then re-opens custom camera and cancels, they should go to the main photo modal.
+            if (photoPreviews.length > 0) setIsPhotoModalOpen(true);
           }
           setIsCustomCameraOpen(isOpen);
         }}>
@@ -702,3 +700,4 @@ export default function NewAssetPage() {
     </div>
   );
 }
+
