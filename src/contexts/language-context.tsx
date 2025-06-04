@@ -64,7 +64,8 @@ const translations: Record<Language, Record<string, string>> = {
     editPhotos: "Add/Edit Photos",
     removePhotoTitle: "Remove photo",
     addPhotosFor: "Add Photos for",
-    takeOrUploadPhotosPrompt: "You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.",
+    takeOrUploadPhotosPrompt: "You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.", // Kept for reference, will be replaced
+    takeOrUploadPhotosPromptNoLimit: "You can take new photos using your device camera or upload from your gallery.",
     noPhotosAddedYet: "No photos added yet.",
     nextStepDescription: "Next: Description",
     skipPhotosAndNext: "Skip Photos & Next",
@@ -73,9 +74,9 @@ const translations: Record<Language, Record<string, string>> = {
     enterAssetNamePrompt: "Enter the asset name.",
     assetNamePlaceholder: "e.g., Main Entrance Column",
     inFolder: "In folder:",
-    maxPhotosTitle: "Maximum {MAX_PHOTOS} Photos",
-    maxPhotosDesc: "You can upload a maximum of {MAX_PHOTOS} photos.",
-    maxPhotosReached: "You have reached the maximum of {MAX_PHOTOS} photos.",
+    maxPhotosTitle: "Maximum {MAX_PHOTOS} Photos", // To be removed or deprecated
+    maxPhotosDesc: "You can upload a maximum of {MAX_PHOTOS} photos.", // To be removed or deprecated
+    maxPhotosReached: "You have reached the maximum of {MAX_PHOTOS} photos.", // To be removed or deprecated
     noCompaniesAvailable: "No companies available. Please check the data source.",
     useSpeech: "Use Speech",
     listening: "Listening...",
@@ -92,11 +93,11 @@ const translations: Record<Language, Record<string, string>> = {
     cameraNotFoundDesc: "No camera was found. Please ensure a camera is connected and enabled.",
     photoCaptureErrorTitle: "Photo Capture Error",
     photoCaptureErrorDesc: "Could not capture photo.",
-    startCamera: "Start Camera",
-    startingCamera: "Starting...",
-    capturePhoto: "Capture Photo",
-    capturingPhoto: "Capturing...",
-    stopCamera: "Stop Camera",
+    startCamera: "Start Camera", // Deprecated with removal of in-app preview
+    startingCamera: "Starting...", // Deprecated
+    capturePhoto: "Capture Photo", // Deprecated
+    capturingPhoto: "Capturing...", // Deprecated
+    stopCamera: "Stop Camera", // Deprecated
     projectNotFound: "Project Not Found",
     loadingProjectContext: "Loading project context...",
     step1Of3: "Step 1 of 3:",
@@ -163,13 +164,16 @@ const translations: Record<Language, Record<string, string>> = {
     selectFolder: "Select Folder", 
     editFolder: "Edit folder",
     deleteFolder: "Delete folder",
-    deleteFolderConfirmation: "Are you sure you want to delete \"{folderName}\" and all its contents? This action cannot be undone.",
+    deleteFolderConfirmation: "Are you sure you want to delete \"{folderName}\"? This action cannot be undone.",
     folderNotEmptyTitle: "Folder Not Empty",
     folderNotEmptyDesc: "Cannot delete folder. Please delete all subfolders and assets first.",
     folderDeletedTitle: "Folder Deleted",
     folderDeletedDesc: "Folder \"{folderName}\" has been deleted.",
     folderIsEmpty: "This folder is empty.",
     addSubfolderToCurrent: "Add subfolder here", 
+    expandFolder: "Expand folder",
+    collapseFolder: "Collapse folder",
+    viewAssetsInFolder: "View assets in {folderName}",
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -222,6 +226,7 @@ const translations: Record<Language, Record<string, string>> = {
     removePhotoTitle: "إزالة الصورة",
     addPhotosFor: "إضافة صور لـ",
     takeOrUploadPhotosPrompt: "يمكنك التقاط صور جديدة أو التحميل من معرض الصور الخاص بك. الحد الأقصى {MAX_PHOTOS} صور.",
+    takeOrUploadPhotosPromptNoLimit: "يمكنك التقاط صور جديدة باستخدام كاميرا جهازك أو التحميل من معرض الصور الخاص بك.",
     noPhotosAddedYet: "لم تتم إضافة أي صور بعد.",
     nextStepDescription: "التالي: الوصف",
     skipPhotosAndNext: "تخطي الصور والتالي",
@@ -320,13 +325,16 @@ const translations: Record<Language, Record<string, string>> = {
     selectFolder: "تحديد المجلد", 
     editFolder: "تعديل المجلد",
     deleteFolder: "حذف المجلد",
-    deleteFolderConfirmation: "هل أنت متأكد أنك تريد حذف \"{folderName}\" وجميع محتوياته؟ لا يمكن التراجع عن هذا الإجراء.",
+    deleteFolderConfirmation: "هل أنت متأكد أنك تريد حذف \"{folderName}\"؟ لا يمكن التراجع عن هذا الإجراء.",
     folderNotEmptyTitle: "المجلد ليس فارغًا",
     folderNotEmptyDesc: "لا يمكن حذف المجلد. يرجى حذف جميع المجلدات الفرعية والأصول أولاً.",
     folderDeletedTitle: "تم حذف المجلد",
     folderDeletedDesc: "تم حذف المجلد \"{folderName}\".",
     folderIsEmpty: "هذا المجلد فارغ.",
     addSubfolderToCurrent: "إضافة مجلد فرعي هنا",
+    expandFolder: "توسيع المجلد",
+    collapseFolder: "طي المجلد",
+    viewAssetsInFolder: "عرض الأصول في {folderName}",
   },
 };
 
@@ -367,3 +375,4 @@ export function useLanguage() {
   return context;
 }
     
+

@@ -9,12 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, AlertTriangle, Video, VideoOff } from 'lucide-react';
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3 } from 'lucide-react';
 import type { Project, Asset, ProjectStatus } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type AssetCreationStep = 'name' | 'photos' | 'description';
 
@@ -34,23 +33,15 @@ export default function NewAssetPage() {
   const [assetDescription, setAssetDescription] = useState('');
   const [assetSummary, setAssetSummary] = useState<string | undefined>(undefined);
   
-  const [photos, setPhotos] = useState<File[]>([]); 
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); 
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   
   const { toast } = useToast();
   const { t } = useLanguage();
 
-  const MAX_PHOTOS = 5;
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null); 
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [showCameraPreview, setShowCameraPreview] = useState(false);
-  const [isCameraStarting, setIsCameraStarting] = useState(false);
-  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
 
   const loadProjectAndAsset = useCallback(() => {
     if (projectId) {
@@ -89,107 +80,16 @@ export default function NewAssetPage() {
     }
   }, [isEditMode, assetName, currentStep]);
   
-  const startCameraStream = useCallback(async () => {
-    if (isCameraActive || isCameraStarting) return;
-    setIsCameraStarting(true);
-    setHasCameraPermission(null); 
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(err => {
-          console.error("Error playing video stream:", err);
-          throw err; 
-        });
-      }
-      setHasCameraPermission(true);
-      setIsCameraActive(true);
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
-      setIsCameraActive(false);
-      let errorTitle = t('cameraErrorTitle', 'Camera Error');
-      let errorDesc = t('cameraErrorDesc', 'Could not access the camera.');
-      if ((error as Error).name === 'NotAllowedError' || (error as Error).name === 'PermissionDeniedError') {
-        errorTitle = t('cameraAccessDeniedTitle', 'Camera Access Denied');
-        errorDesc = t('cameraAccessDeniedDesc', 'Please enable camera permissions in your browser settings.');
-      } else if ((error as Error).name === 'NotFoundError' || (error as Error).name === 'DevicesNotFoundError') {
-         errorTitle = t('cameraNotFoundTitle', 'Camera Not Found');
-         errorDesc = t('cameraNotFoundDesc', 'No camera was found. Please ensure a camera is connected and enabled.');
-      }
-      toast({
-        variant: 'destructive',
-        title: errorTitle,
-        description: errorDesc,
-      });
-    } finally {
-      setIsCameraStarting(false);
-    }
-  }, [isCameraActive, isCameraStarting, toast, t]);
-
-  const stopCameraStream = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setIsCameraActive(false);
-  }, []);
-
-  const handleCapturePhoto = useCallback(async () => {
-    if (!videoRef.current || !streamRef.current || photoPreviews.length >= MAX_PHOTOS || isCapturingPhoto) return;
-    setIsCapturingPhoto(true);
-
-    const video = videoRef.current;
-    const tempCanvas = canvasRef.current || document.createElement('canvas');
-    if (!canvasRef.current) { 
-        tempCanvas.style.display = 'none';
-        document.body.appendChild(tempCanvas);
-    }
-    
-    tempCanvas.width = video.videoWidth;
-    tempCanvas.height = video.videoHeight;
-    const context = tempCanvas.getContext('2d');
-    context?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-
-    try {
-        const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.9); 
-        setPhotoPreviews(prev => [...prev, dataUrl].slice(0, MAX_PHOTOS));
-    } catch (error) {
-        console.error("Error capturing photo: ", error);
-        toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('photoCaptureErrorDesc', "Could not capture photo."), variant: "destructive" });
-    } finally {
-        if (!canvasRef.current && tempCanvas.parentNode) { 
-            document.body.removeChild(tempCanvas);
-        }
-        setIsCapturingPhoto(false);
-    }
-  }, [photoPreviews.length, isCapturingPhoto, toast, t]);
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    stopCameraStream(); 
-    setShowCameraPreview(false);
-
     if (event.target.files) {
       const newFiles = Array.from(event.target.files);
-      if (photoPreviews.length + newFiles.length > MAX_PHOTOS) {
-        toast({
-          title: t('maxPhotosTitle', `Maximum ${MAX_PHOTOS} Photos`),
-          description: t('maxPhotosDesc', `You can upload a maximum of ${MAX_PHOTOS} photos.`),
-          variant: "destructive"
-        });
-      }
-      const filesToProcess = newFiles.slice(0, MAX_PHOTOS - photoPreviews.length);
       
-      filesToProcess.forEach(file => {
+      newFiles.forEach(file => {
         const reader = new FileReader();
         reader.onload = (loadEvent) => {
           if (loadEvent.target?.result) {
-            setPhotoPreviews(prev => [...prev, loadEvent.target!.result as string].slice(0, MAX_PHOTOS));
+            setPhotoPreviews(prev => [...prev, loadEvent.target!.result as string]);
           }
         };
         reader.readAsDataURL(file);
@@ -211,9 +111,7 @@ export default function NewAssetPage() {
   };
 
   const handlePhotosSubmittedOrSkipped = () => {
-    stopCameraStream(); 
     setIsPhotoModalOpen(false);
-    setShowCameraPreview(false); 
     setCurrentStep('description');
   };
 
@@ -258,19 +156,6 @@ export default function NewAssetPage() {
     }
     router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
   };
-
-  useEffect(() => {
-    return () => {
-      stopCameraStream();
-    };
-  }, [stopCameraStream]);
-
-  useEffect(() => {
-    if (!isPhotoModalOpen) {
-        stopCameraStream();
-        setShowCameraPreview(false);
-    }
-  }, [isPhotoModalOpen, stopCameraStream]);
 
 
   if (!project) {
@@ -333,7 +218,7 @@ export default function NewAssetPage() {
                 )}
                 {photoPreviews.length > 0 && (
                 <div className="space-y-2">
-                    <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length}/{MAX_PHOTOS})</Label>
+                    <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                     {photoPreviews.map((src, index) => (
                         <div key={index} className="relative group">
@@ -380,10 +265,8 @@ export default function NewAssetPage() {
         <ArrowLeft className="mr-1 h-4 w-4" />
         {backLinkText}
       </Link>
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
       
        {renderStepContent()}
-
 
       <Dialog open={isPhotoModalOpen} onOpenChange={(isOpen) => {
           if (!isOpen) { 
@@ -400,76 +283,41 @@ export default function NewAssetPage() {
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-headline">{isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
-            <DialogDescription>{t('takeOrUploadPhotosPrompt', `You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.`, {MAX_PHOTOS: MAX_PHOTOS})}</DialogDescription>
+            <DialogDescription>{t('takeOrUploadPhotosPromptNoLimit', "You can take new photos using your device camera or upload from your gallery.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4 flex-grow overflow-y-auto">
             <div className="flex flex-col sm:flex-row gap-2">
             <Button 
                 variant="outline" 
-                onClick={() => {
-                  setShowCameraPreview(true); 
-                  if (!isCameraActive && hasCameraPermission !== false) { 
-                    startCameraStream(); 
-                  }
-                }} 
-                className="w-full sm:w-auto" 
-                disabled={photoPreviews.length >= MAX_PHOTOS}>
+                onClick={() => cameraInputRef.current?.click()}
+                className="w-full sm:w-auto">
                 <Camera className="mr-2 h-4 w-4" /> {t('takePhotos', 'Take Photos')}
               </Button>
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment" 
+                id="camera-input-modal" 
+                ref={cameraInputRef}
+                className="hidden" 
+                onChange={handlePhotoUpload} 
+                multiple
+              />
               
-              <Button variant="outline" onClick={() => {
-                  stopCameraStream(); 
-                  setShowCameraPreview(false); 
-                  document.getElementById('gallery-input-modal')?.click()
-                }} className="w-full sm:w-auto" disabled={photoPreviews.length >= MAX_PHOTOS}>
+              <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto">
                 <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
-              <input type="file" accept="image/*" multiple id="gallery-input-modal" className="hidden" onChange={handlePhotoUpload} />
+              <input 
+                type="file" 
+                accept="image/*" 
+                multiple 
+                id="gallery-input-modal" 
+                ref={galleryInputRef}
+                className="hidden" 
+                onChange={handlePhotoUpload} 
+              />
             </div>
 
-            {showCameraPreview && (
-              <div className="space-y-2 pt-4">
-                <div className="relative">
-                  <video ref={videoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay muted playsInline />
-                  {(!isCameraActive || (hasCameraPermission === false && videoRef.current?.srcObject === null)) && ( 
-                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/80 rounded-md p-4 text-center">
-                        {hasCameraPermission === false ? ( 
-                           <>
-                              <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
-                              <p className="font-semibold">{t('cameraAccessDeniedTitle', 'Camera Access Denied')}</p>
-                              <p className="text-sm text-muted-foreground">{t('cameraAccessDeniedDesc', 'Please enable camera permissions in your browser settings.')}</p>
-                           </>
-                        ): ( 
-                           <Button onClick={startCameraStream} variant="outline" size="lg" disabled={isCameraStarting}>
-                              <Video className="mr-2 h-5 w-5" /> {isCameraStarting ? t('startingCamera', 'Starting...') : t('startCamera', 'Start Camera')}
-                           </Button>
-                        )}
-                     </div>
-                  )}
-                </div>
-
-                {hasCameraPermission !== false && isCameraActive && ( 
-                  <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
-                    <Button onClick={handleCapturePhoto} disabled={photoPreviews.length >= MAX_PHOTOS || isCapturingPhoto} className="flex-1">
-                      <Camera className="mr-2 h-4 w-4" /> 
-                      {isCapturingPhoto ? t('capturingPhoto', 'Capturing...') : t('capturePhoto', 'Capture Photo')} ({photoPreviews.length}/{MAX_PHOTOS})
-                    </Button>
-                    <Button onClick={stopCameraStream} variant="outline" className="sm:flex-none">
-                      <VideoOff className="mr-2 h-4 w-4" /> {t('stopCamera', 'Stop Camera')}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {photoPreviews.length >= MAX_PHOTOS && !showCameraPreview && ( 
-                 <Alert variant="default" className="border-yellow-500 text-yellow-700">
-                    <AlertTriangle className="h-4 w-4 !text-yellow-600" />
-                    <AlertDescription>
-                       {t('maxPhotosReached', `You have reached the maximum of ${MAX_PHOTOS} photos.`)}
-                    </AlertDescription>
-                </Alert>
-            )}
             {photoPreviews.length > 0 && (
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                 {photoPreviews.map((src, index) => (
@@ -488,7 +336,7 @@ export default function NewAssetPage() {
                 ))}
               </div>
             )}
-             {photoPreviews.length === 0 && !showCameraPreview && (
+             {photoPreviews.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">{t('noPhotosAddedYet', 'No photos added yet.')}</p>
              )}
           </div>
