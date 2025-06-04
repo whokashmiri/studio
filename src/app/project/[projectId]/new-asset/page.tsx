@@ -397,7 +397,7 @@ export default function NewAssetPage() {
             setIsPhotoModalOpen(true);
           }
       }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-headline">{isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
             <DialogDescription>{t('takeOrUploadPhotosPrompt', `You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.`, {MAX_PHOTOS: MAX_PHOTOS})}</DialogDescription>
@@ -492,11 +492,11 @@ export default function NewAssetPage() {
                 <p className="text-sm text-muted-foreground text-center py-4">{t('noPhotosAddedYet', 'No photos added yet.')}</p>
              )}
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 pt-4 border-t">
-             <Button variant="outline" onClick={handlePhotosSubmittedOrSkipped} className="w-full sm:w-auto">
+          <DialogFooter className="flex flex-row justify-end space-x-2 pt-4 border-t">
+             <Button variant="outline" onClick={handlePhotosSubmittedOrSkipped} className="flex-1 sm:flex-auto">
                 {photoPreviews.length > 0 || isEditMode ? t('confirmPhotosAndContinue', 'Confirm Photos & Continue') : t('skipPhotosAndNext', 'Skip Photos & Next')}
              </Button>
-             <Button onClick={handlePhotosSubmittedOrSkipped} disabled={photoPreviews.length === 0 && !isEditMode} className="w-full sm:w-auto">
+             <Button onClick={handlePhotosSubmittedOrSkipped} disabled={photoPreviews.length === 0 && !isEditMode} className="flex-1 sm:flex-auto">
                 <Save className="mr-2 h-4 w-4" /> {isEditMode ? t('saveChangesAndContinue', 'Save Changes & Continue') : t('savePhotosAndContinue', 'Save Photos & Continue')}
              </Button>
           </DialogFooter>
@@ -505,3 +505,4 @@ export default function NewAssetPage() {
     </div>
   );
 }
+

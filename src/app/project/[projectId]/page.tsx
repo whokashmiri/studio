@@ -301,7 +301,7 @@ export default function ProjectPage() {
         }
         setIsNewFolderDialogOpen(isOpen);
       }}>
-        <DialogContent className="max-h-[90vh] flex flex-col">
+        <DialogContent className="max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
                 {newFolderParentContext ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: newFolderParentContext.name }) : t('addNewFolderToRoot', 'Add New Folder to Root')}
@@ -316,7 +316,7 @@ export default function ProjectPage() {
               placeholder={t('folderNamePlaceholder', "e.g., Inspection Area 1")}
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex flex-row justify-end space-x-2">
             <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); setNewFolderParentContext(null); }}>{t('cancel', 'Cancel')}</Button>
             <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>{t('confirm', 'Confirm')}</Button>
           </DialogFooter>
@@ -337,3 +337,4 @@ export default function ProjectPage() {
     </div>
   );
 }
+

@@ -76,7 +76,7 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
         onClose();
       }
     }}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-headline">{t('editProjectTitle', 'Edit Project')}</DialogTitle>
           <DialogDescription>
@@ -121,7 +121,7 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
             </Label>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex flex-row justify-end space-x-2">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             {t('cancel', 'Cancel')}
           </Button>
@@ -133,3 +133,4 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
     </Dialog>
   );
 }
+

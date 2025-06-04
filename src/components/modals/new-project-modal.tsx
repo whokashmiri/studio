@@ -70,7 +70,7 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
         setProjectName(''); 
       }
     }}>
-      <DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[425px] max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-headline">{t('createNewProject', 'Create New Project')}</DialogTitle>
           <DialogDescription>
@@ -92,7 +92,7 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
             />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex flex-row justify-end space-x-2">
           <Button variant="outline" onClick={() => { onClose(); setProjectName('');}} disabled={isLoading}>
             {t('cancel', 'Cancel')}
           </Button>
@@ -104,3 +104,4 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     </Dialog>
   );
 }
+
