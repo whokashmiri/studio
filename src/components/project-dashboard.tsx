@@ -96,8 +96,8 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
             <ArrowLeft className="mr-2 h-4 w-4" />
             {t('selectCompany', 'Select a Company')}
           </Button>
-          <h1 className="text-xl sm:text-2xl font-bold font-headline">
-            {t('selectedCompany', 'Selected Company')}: <span className="text-primary">{company.name}</span>
+          <h1 className="text-xl sm:text-2xl font-bold font-headline text-primary">
+            {company.name}
           </h1>
         </div>
       </div>

@@ -17,7 +17,7 @@ const translations: Record<Language, Record<string, string>> = {
   en: {
     appName: "Asset Inspector Pro",
     selectCompany: "Select a Company",
-    selectedCompany: "Selected Company",
+    // selectedCompany: "Selected Company",
     done: "Done",
     favorite: "Favorite",
     recent: "Recent",
@@ -149,7 +149,7 @@ const translations: Record<Language, Record<string, string>> = {
   ar: {
     appName: "مفتش الأصول برو",
     selectCompany: "اختر شركة",
-    selectedCompany: "الشركة المختارة",
+    // selectedCompany: "الشركة المختارة",
     done: "مكتمل",
     favorite: "مفضل",
     recent: "الأخيرة",
