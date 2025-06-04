@@ -84,13 +84,15 @@ export default function ProjectPage() {
   }, [loadProjectData]);
 
   useEffect(() => {
-    if (project) {
-      const currentPath = `/project/${project.id}${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
-      if (typeof window !== 'undefined' && window.location.pathname + window.location.search !== currentPath) {
-         router.replace(currentPath, { scroll: false });
+    if (project && typeof window !== 'undefined') {
+      const currentPathFromState = `/project/${project.id}${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
+      const currentBrowserPath = window.location.pathname + window.location.search;
+
+      if (currentBrowserPath !== currentPathFromState) {
+         router.replace(currentPathFromState, { scroll: false });
       }
     }
-  }, [selectedFolder, project, router]);
+  }, [selectedFolder, project, router, currentUrlFolderId]);
 
 
   if (!project) {
@@ -233,12 +235,12 @@ export default function ProjectPage() {
                     </React.Fragment>
                 ))}
                 </CardTitle>
-                {!isMobile && !selectedFolder && ( // Show only if at root
+                {!isMobile && !selectedFolder && ( 
                     <Button variant="default" size="lg" onClick={() => openNewFolderDialog(null)} title={t('addRootFolderTitle', 'Add folder to project root')}>
                         <FolderPlus className="mr-2 h-4 w-4" /> {t('addRootFolderTitle', 'Add Folder to Project Root')}
                     </Button>
                 )}
-                 {!isMobile && selectedFolder && ( // Show only if inside a folder
+                 {!isMobile && selectedFolder && ( 
                     <Button variant="default" size="lg" onClick={() => openNewFolderDialog(selectedFolder)} title={t('addNewSubfolder', 'Add New Subfolder')}>
                         <FolderPlus className="mr-2 h-4 w-4" /> {t('addNewSubfolder', 'Add New Subfolder')}
                     </Button>
@@ -254,20 +256,31 @@ export default function ProjectPage() {
         <FolderTreeDisplay
             foldersToDisplay={foldersToDisplayInGrid}
             projectId={project.id}
-            currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
             onSelectFolder={handleSelectFolder}
             onAddSubfolder={openNewFolderDialog} 
             onEditFolder={handleOpenEditFolderModal}
             onDeleteFolder={handleFolderDeleted}
+            currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
         />
-        {foldersToDisplayInGrid.length === 0 && allProjectFolders.length === 0 && !selectedFolder && ( 
+        {foldersToDisplayInGrid.length === 0 && allProjectFolders.filter(f => f.parentId === (selectedFolder ? selectedFolder.id : null )).length === 0 && ( 
             <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">{t('noFoldersInProjectStart', 'This project has no folders yet.')}</p>
-                {isMobile ? (
+                <p className="text-muted-foreground mb-4">
+                  {selectedFolder ? t('folderIsEmpty', 'This folder is empty.') : t('noFoldersInProjectStart', 'This project has no folders yet.')}
+                </p>
+                {isMobile && !selectedFolder && (
                      <p className="text-sm text-muted-foreground">{t('useFabToAddFolderMobile', 'Use the "Add New Folder" button below to get started.')}</p>
-                ) : (
+                )}
+                {!isMobile && !selectedFolder && (
                     <Button variant="outline" onClick={() => openNewFolderDialog(null)}>
                         <FolderPlus className="mr-2 h-4 w-4" /> {t('createNewFolderInRootButton', 'Create First Folder in Project Root')}
+                    </Button>
+                )}
+                 {isMobile && selectedFolder && (
+                     <p className="text-sm text-muted-foreground">{t('useFabToAddFolderMobile', 'Use the "Add New Folder" button below to get started.')}</p>
+                )}
+                {!isMobile && selectedFolder && (
+                    <Button variant="outline" onClick={() => openNewFolderDialog(selectedFolder)}>
+                        <FolderPlus className="mr-2 h-4 w-4" /> {t('addSubfolderToCurrent', 'Add subfolder here')}
                     </Button>
                 )}
             </div>
