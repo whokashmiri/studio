@@ -69,7 +69,7 @@ const translations: Record<Language, Record<string, string>> = {
     morePhotosInModal: "+{count} more. Click \"Manage Photos\" to see all.",
     
     addDetailsForAssetTitle: "Add Details for:",
-    stepDescriptionsAndSummaryTitle: "Step 2: Descriptions & AI Summary",
+    stepDescriptionsTitle: "Step 2: Descriptions",
     voiceDescriptionLabel: "Voice Description",
     recordVoiceDescriptionButton: "Record Voice Description",
     voiceTranscriptPlaceholder: "Voice transcript will appear here...",
@@ -77,14 +77,7 @@ const translations: Record<Language, Record<string, string>> = {
     textDescriptionPlaceholder: "Type detailed written description here...",
     backToPhotosName: "Back to Photos & Name",
     saveAssetButton: "Save Asset",
-    descriptionRequiredForSummaryTitle: "Description Required",
-    descriptionRequiredForSummaryDesc: "Please provide a voice or text description to generate a summary.",
-    summaryGeneratedTitle: "Summary Generated",
-    summaryGeneratedDesc: "AI summary created successfully.",
-    summaryFailedTitle: "Summarization Failed",
-    summaryFailedDesc: "Could not generate summary or summary was empty.",
-    summaryErrorTitle: "Summarization Error",
-    summaryErrorDesc: "An unexpected error occurred.",
+
     descriptionRequiredForSaveTitle: "Description Required",
     descriptionRequiredForSaveDesc: "Please provide at least one form of description (voice or text).",
     unnamedAsset: "Unnamed Asset",
@@ -103,10 +96,7 @@ const translations: Record<Language, Record<string, string>> = {
     noCompaniesAvailable: "No companies available. Please check the data source.",
     
     listening: "Listening...",
-    aiSummary: "AI Summary",
-    summarizing: "Summarizing...",
-    aiGeneratedSummary: "AI Generated Summary:",
-    
+        
     cameraErrorTitle: "Camera Error",
     cameraErrorDesc: "Could not access the camera.",
     cameraAccessDeniedTitle: "Camera Access Denied",
@@ -126,6 +116,7 @@ const translations: Record<Language, Record<string, string>> = {
     noPhotosInBatch: "No photos in the current batch yet.",
     projectContextLost: "Project context lost",
     noDescriptionAvailable: "No description available.",
+    voiceDescriptionOnly: "Voice description available",
     created: "Created",
     accessed: "Accessed",
     editProjectTitle: "Edit Project",
@@ -202,6 +193,7 @@ const translations: Record<Language, Record<string, string>> = {
     capturePhoto: "Capture Photo",
     sessionPhotoPreviewAlt: "Session Preview {number}",
     doneWithSession: "Done", // Generic done
+    doneWithSessionAddPhotos: "Done ({count}) - Add to Batch",
     currentPhotoBatch: "Current Photo Batch",
     customCameraViewTitle: "Custom Camera View",
     customCameraDialogTitle: "Camera",
@@ -280,7 +272,7 @@ const translations: Record<Language, Record<string, string>> = {
     morePhotosInModal: "+{count} أخرى. انقر فوق \"إدارة الصور\" لرؤية الكل.",
 
     addDetailsForAssetTitle: "إضافة تفاصيل لـ:",
-    stepDescriptionsAndSummaryTitle: "الخطوة 2: الأوصاف وملخص الذكاء الاصطناعي",
+    stepDescriptionsTitle: "الخطوة 2: الأوصاف",
     voiceDescriptionLabel: "الوصف الصوتي",
     recordVoiceDescriptionButton: "تسجيل الوصف الصوتي",
     voiceTranscriptPlaceholder: "سيظهر النص الصوتي هنا...",
@@ -288,14 +280,6 @@ const translations: Record<Language, Record<string, string>> = {
     textDescriptionPlaceholder: "اكتب وصفًا مكتوبًا مفصلاً هنا...",
     backToPhotosName: "العودة إلى الصور والاسم",
     saveAssetButton: "حفظ الأصل",
-    descriptionRequiredForSummaryTitle: "الوصف مطلوب",
-    descriptionRequiredForSummaryDesc: "يرجى تقديم وصف صوتي أو نصي لإنشاء ملخص.",
-    summaryGeneratedTitle: "تم إنشاء الملخص",
-    summaryGeneratedDesc: "تم إنشاء ملخص الذكاء الاصطناعي بنجاح.",
-    summaryFailedTitle: "فشل التلخيص",
-    summaryFailedDesc: "تعذر إنشاء الملخص أو كان الملخص فارغًا.",
-    summaryErrorTitle: "خطأ في التلخيص",
-    summaryErrorDesc: "حدث خطأ غير متوقع.",
     descriptionRequiredForSaveTitle: "الوصف مطلوب",
     descriptionRequiredForSaveDesc: "يرجى تقديم شكل واحد على الأقل من الوصف (صوتي أو نصي).",
     unnamedAsset: "أصل غير مسمى",
@@ -314,10 +298,7 @@ const translations: Record<Language, Record<string, string>> = {
     noCompaniesAvailable: "لا توجد شركات متاحة. يرجى التحقق من مصدر البيانات.",
     
     listening: "يستمع...",
-    aiSummary: "ملخص الذكاء الاصطناعي",
-    summarizing: "يلخص...",
-    aiGeneratedSummary: "الملخص الذي تم إنشاؤه بواسطة الذكاء الاصطناعي:",
-    
+        
     cameraErrorTitle: "خطأ في الكاميرا",
     cameraErrorDesc: "تعذر الوصول إلى الكاميرا.",
     cameraAccessDeniedTitle: "تم رفض الوصول إلى الكاميرا",
@@ -337,6 +318,7 @@ const translations: Record<Language, Record<string, string>> = {
     noPhotosInBatch: "لا توجد صور في الدفعة الحالية بعد.",
     projectContextLost: "فقد سياق المشروع",
     noDescriptionAvailable: "لا يوجد وصف متاح.",
+    voiceDescriptionOnly: "الوصف الصوتي متوفر",
     created: "تم الإنشاء",
     accessed: "تم الوصول",
     editProjectTitle: "تعديل المشروع",
@@ -413,6 +395,7 @@ const translations: Record<Language, Record<string, string>> = {
     capturePhoto: "التقاط صورة",
     sessionPhotoPreviewAlt: "معاينة صورة الجلسة {number}",
     doneWithSession: "تم",
+    doneWithSessionAddPhotos: "تم ({count}) - إضافة إلى الدفعة",
     currentPhotoBatch: "دفعة الصور الحالية",
     customCameraViewTitle: "عرض الكاميرا المخصص",
     customCameraDialogTitle: "الكاميرا",
@@ -473,5 +456,3 @@ export function useLanguage() {
   }
   return context;
 }
-
-    

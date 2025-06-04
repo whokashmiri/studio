@@ -16,10 +16,8 @@ import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
-import { summarizeAssetDescription, type SummarizeAssetDescriptionInput } from '@/ai/flows/summarize-asset-description';
 
-
-type AssetCreationStep = 'photos_and_name' | 'descriptions_and_summary';
+type AssetCreationStep = 'photos_and_name' | 'descriptions';
 
 export default function NewAssetPage() {
   const params = useParams();
@@ -38,7 +36,6 @@ export default function NewAssetPage() {
   const [assetName, setAssetName] = useState('');
   const [assetVoiceDescription, setAssetVoiceDescription] = useState('');
   const [assetTextDescription, setAssetTextDescription] = useState('');
-  const [assetSummary, setAssetSummary] = useState<string | undefined>(undefined);
   
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); 
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false); 
@@ -55,7 +52,6 @@ export default function NewAssetPage() {
   const [isListening, setIsListening] = useState(false);
   const [speechRecognitionAvailable, setSpeechRecognitionAvailable] = useState(false);
   const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
-  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
 
   const { toast } = useToast();
@@ -88,9 +84,8 @@ export default function NewAssetPage() {
           setAssetName(foundAsset.name);
           setAssetVoiceDescription(foundAsset.voiceDescription || '');
           setAssetTextDescription(foundAsset.textDescription || '');
-          setAssetSummary(foundAsset.summary);
           setPhotoPreviews(foundAsset.photos || []); 
-          setCurrentStep('descriptions_and_summary'); 
+          setCurrentStep('descriptions'); 
         } else {
           toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
           router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
@@ -250,7 +245,7 @@ export default function NewAssetPage() {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
       return;
     }
-    setCurrentStep('descriptions_and_summary');
+    setCurrentStep('descriptions');
     setIsPhotoModalOpen(false);
   };
 
@@ -268,37 +263,9 @@ export default function NewAssetPage() {
         setIsListening(true);
       } catch (e: any) {
         console.error("Error starting speech recognition:", e);
-        toast({ title: t('speechStartErrorTitle', 'Could not start speech recognition'), description: e.message || t('speechStartErrorDesc', 'Please ensure microphone permissions are granted.'), variant: 'destructive' });
+        toast({ title: t('speechErrorTitle', 'Could not start speech recognition'), description: e.message || t('speechStartErrorDesc', 'Please ensure microphone permissions are granted.'), variant: 'destructive' });
         setIsListening(false);
       }
-    }
-  };
-
-  const handleGenerateSummary = async () => {
-    if (!assetVoiceDescription.trim() && !assetTextDescription.trim()) {
-      toast({ title: t('descriptionRequiredForSummaryTitle', 'Description Required'), description: t('descriptionRequiredForSummaryDesc', 'Please provide a voice or text description to generate a summary.'), variant: 'destructive' });
-      return;
-    }
-    setIsLoadingSummary(true);
-    setAssetSummary(undefined);
-    try {
-      const input: SummarizeAssetDescriptionInput = { 
-        voiceDescription: assetVoiceDescription,
-        textDescription: assetTextDescription 
-      };
-      const result = await summarizeAssetDescription(input);
-      if (result && result.summary) {
-        setAssetSummary(result.summary);
-        toast({ title: t('summaryGeneratedTitle', 'Summary Generated'), description: t('summaryGeneratedDesc', 'AI summary created successfully.') });
-      } else {
-        console.error('Summarization result issue:', result);
-        toast({ title: t('summaryFailedTitle', 'Summarization Failed'), description: t('summaryFailedDesc', 'Could not generate summary or summary was empty.'), variant: 'destructive' });
-      }
-    } catch (error: any) {
-      console.error('Error summarizing asset description:', error);
-      toast({ title: t('summaryErrorTitle', 'Summarization Error'), description: error.message || t('summaryErrorDesc', 'An unexpected error occurred.'), variant: 'destructive' });
-    } finally {
-      setIsLoadingSummary(false);
     }
   };
 
@@ -312,7 +279,7 @@ export default function NewAssetPage() {
       setCurrentStep('photos_and_name'); 
       return;
     }
-    if (photoPreviews.length === 0 && !isEditMode) { // Allow editing asset details without changing photos
+    if (photoPreviews.length === 0 && !isEditMode) { 
       toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
       setCurrentStep('photos_and_name');
       return;
@@ -338,7 +305,6 @@ export default function NewAssetPage() {
       photos: photoPreviews, 
       voiceDescription: assetVoiceDescription,
       textDescription: assetTextDescription,
-      summary: assetSummary,
       createdAt: isEditMode && assetIdToEdit ? LocalStorageService.getAssets().find(a=>a.id===assetIdToEdit)?.createdAt || new Date().toISOString() : new Date().toISOString(),
       updatedAt: new Date().toISOString(), 
     };
@@ -426,14 +392,14 @@ export default function NewAssetPage() {
             </CardFooter>
           </Card>
         );
-      case 'descriptions_and_summary':
+      case 'descriptions':
         return (
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
                <CardTitle className="text-xl sm:text-2xl font-headline">
                 {isEditMode ? t('editAssetDetailsTitle', 'Edit Details for:') : t('addDetailsForAssetTitle', 'Add Details for:')} <span className="text-primary">{assetName}</span>
                </CardTitle>
-              <CardDescription>{t('stepDescriptionsAndSummaryTitle', 'Step 2: Descriptions & AI Summary')}</CardDescription>
+              <CardDescription>{t('stepDescriptionsTitle', 'Step 2: Descriptions')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 {isEditMode && (
@@ -501,24 +467,6 @@ export default function NewAssetPage() {
                     rows={5}
                     className="resize-y"
                   />
-                </div>
-
-                <div className="space-y-2">
-                   <Button 
-                    onClick={handleGenerateSummary} 
-                    variant="outline" 
-                    className="w-full sm:w-auto"
-                    disabled={isLoadingSummary || (!assetVoiceDescription.trim() && !assetTextDescription.trim())}
-                  >
-                    <BrainCircuit className="mr-2 h-4 w-4" />
-                    {isLoadingSummary ? t('summarizing', 'Summarizing...') : t('aiSummary', 'AI Summary')}
-                  </Button>
-                  {assetSummary && (
-                    <div className="mt-2 space-y-1 rounded-md border bg-muted/50 p-3">
-                      <Label className="font-semibold">{t('aiGeneratedSummary', 'AI Generated Summary:')}</Label>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assetSummary}</p>
-                    </div>
-                  )}
                 </div>
             </CardContent>
             <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-4">
@@ -617,12 +565,6 @@ export default function NewAssetPage() {
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
           if (!isOpen && !isPhotoModalOpen && photoPreviews.length > 0 && capturedPhotosInSession.length === 0) {
-            // If custom camera closes, no new photos were added from session, 
-            // and main modal isn't open, but we *do* have existing previews,
-            // then re-open the main modal to show the existing previews.
-            // This handles the case where user opens custom camera from main modal, cancels, and should return to main modal.
-            // Also if user opens custom camera from main page (step 1), captures, adds to batch (now in photoPreviews),
-            // then re-opens custom camera and cancels, they should go to the main photo modal.
             if (photoPreviews.length > 0) setIsPhotoModalOpen(true);
           }
           setIsCustomCameraOpen(isOpen);
@@ -700,4 +642,3 @@ export default function NewAssetPage() {
     </div>
   );
 }
-

@@ -33,7 +33,6 @@ export interface Asset {
   photos: string[]; // URLs or paths to photos (Data URLs for localStorage)
   voiceDescription?: string; // New field for voice-captured description
   textDescription?: string; // New field for typed description
-  summary?: string; // AI generated summary
   createdAt: string;
   updatedAt?: string; // Optional: track updates
 }

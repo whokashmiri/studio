@@ -17,17 +17,22 @@ export function AssetCard({ asset, onEditAsset, onDeleteAsset }: AssetCardProps)
   const { t } = useLanguage();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
 
+  // Combine voice and text descriptions if available, otherwise show a default message.
+  const getDescriptionText = () => {
+    if (asset.textDescription) return asset.textDescription;
+    if (asset.voiceDescription) return t('voiceDescriptionOnly', 'Voice description available');
+    return t('noDescriptionAvailable', 'No description available.');
+  }
+
   return (
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200 group">
       <CardHeader className="p-3 pb-1.5 relative">
         <CardTitle className="text-base font-headline leading-tight group-hover:text-primary transition-colors truncate">
           {asset.name}
         </CardTitle>
-        {asset.summary && (
-            <CardDescription className="text-xs line-clamp-1 pt-0.5">
-                {asset.summary}
-            </CardDescription>
-        )}
+        <CardDescription className="text-xs line-clamp-1 pt-0.5">
+            {getDescriptionText()}
+        </CardDescription>
       </CardHeader>
       <CardContent className="p-3 pt-0 flex-grow flex flex-col justify-between">
         <div className="aspect-video w-full relative mb-2 rounded-md overflow-hidden bg-muted">
