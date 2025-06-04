@@ -4,12 +4,13 @@ import { useState, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { NewProjectModal } from '@/components/modals/new-project-modal';
-import { EditProjectModal } from '@/components/modals/edit-project-modal'; // Added import
+import { EditProjectModal } from '@/components/modals/edit-project-modal';
 import type { Company, Project, ProjectStatus } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { FolderPlus, CheckCircle, Star, Clock, Sparkles, ArrowLeft } from 'lucide-react';
 import { ProjectCard } from './project-card';
 import { useLanguage } from '@/contexts/language-context';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProjectDashboardProps {
   company: Company;
@@ -18,11 +19,12 @@ interface ProjectDashboardProps {
 
 export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardProps) {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false); // State for edit modal
-  const [editingProject, setEditingProject] = useState<Project | null>(null); // State for project being edited
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeTab, setActiveTab] = useState<ProjectStatus | 'favorite'>('recent');
   const { t } = useLanguage();
+  const { toast } = useToast();
 
   useEffect(() => {
     setProjects(LocalStorageService.getProjects());
@@ -40,12 +42,15 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
       if (activeTab === 'new' && a.createdAt && b.createdAt) {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
+      // Fallback sort by name if dates are equal or not primary sort key for the tab
+      if (a.isFavorite && !b.isFavorite && activeTab === 'favorite') return -1; // Favorites first within favorite tab
+      if (!a.isFavorite && b.isFavorite && activeTab === 'favorite') return 1;
       return (a.name || '').localeCompare(b.name || '');
     });
   }, [projects, company.id, activeTab]);
   
   const handleProjectCreated = (newProject: Project) => {
-    setProjects(LocalStorageService.getProjects()); // Reload all projects
+    setProjects(LocalStorageService.getProjects());
     setActiveTab('recent'); 
   };
 
@@ -55,9 +60,25 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
   };
 
   const handleProjectUpdated = (updatedProject: Project) => {
-    setProjects(LocalStorageService.getProjects()); // Reload all projects
-    // Optionally, you could try to keep the active tab or re-evaluate based on changes
-    // For simplicity, just reloading all projects is fine here
+    setProjects(LocalStorageService.getProjects());
+    // If the updated project was the one being edited, clear editingProject
+    if (editingProject && editingProject.id === updatedProject.id) {
+        setEditingProject(null);
+    }
+  };
+
+  const handleToggleFavorite = (projectToToggle: Project) => {
+    const updatedProject = {
+      ...projectToToggle,
+      isFavorite: !projectToToggle.isFavorite,
+      lastAccessed: new Date().toISOString(), // Update lastAccessed time
+    };
+    LocalStorageService.updateProject(updatedProject);
+    setProjects(LocalStorageService.getProjects()); // Refresh the list
+    toast({
+      title: updatedProject.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
+      description: `Project "${updatedProject.name}" status updated.`,
+    });
   };
   
   const tabItems: { value: ProjectStatus | 'favorite'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
@@ -95,7 +116,12 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
             {filteredProjects.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project} onEditProject={handleOpenEditModal} />
+                  <ProjectCard 
+                    key={project.id} 
+                    project={project} 
+                    onEditProject={handleOpenEditModal}
+                    onToggleFavorite={handleToggleFavorite} 
+                  />
                 ))}
               </div>
             ) : (
