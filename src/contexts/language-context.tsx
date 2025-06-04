@@ -75,7 +75,7 @@ const translations: Record<Language, Record<string, string>> = {
     voiceTranscriptPlaceholder: "Voice transcript will appear here...",
     textDescriptionLabel: "Written Description",
     textDescriptionPlaceholder: "Type detailed written description here...",
-    backToPhotosName: "Back to Photos & Name",
+    backToPhotosName: "Back To Photos",
     saveAssetButton: "Save Asset",
 
     descriptionRequiredForSaveTitle: "Description Required",
@@ -193,7 +193,7 @@ const translations: Record<Language, Record<string, string>> = {
     capturePhoto: "Capture Photo",
     sessionPhotoPreviewAlt: "Session Preview {number}",
     doneWithSession: "Done", // Generic done
-    doneWithSessionAddPhotos: "Done ({count}) - Add to Batch",
+    doneWithSessionAddPhotos: "Done ({count})",
     currentPhotoBatch: "Current Photo Batch",
     customCameraViewTitle: "Custom Camera View",
     customCameraDialogTitle: "Camera",
