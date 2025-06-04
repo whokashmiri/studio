@@ -5,9 +5,9 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { FolderTreeDisplay } from '@/components/folder-tree'; 
-import type { Project, Folder as FolderType, ProjectStatus } from '@/data/mock-data';
+import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
-import { Home, FolderPlus, FilePlus } from 'lucide-react';
+import { Home, FolderPlus, FilePlus, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
 import { useIsMobile } from '@/hooks/use-mobile';
-
+import { AssetCard } from '@/components/asset-card'; // New Import
 
 export default function ProjectPage() {
   const params = useParams();
@@ -28,6 +28,7 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
+  const [currentAssets, setCurrentAssets] = useState<Asset[]>([]); // New state for assets
   
   const [newFolderName, setNewFolderName] = useState('');
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
@@ -64,12 +65,17 @@ export default function ProjectPage() {
         const allFoldersFromStorage = LocalStorageService.getFolders();
         const projectFolders = allFoldersFromStorage.filter(f => f.projectId === projectId);
         setAllProjectFolders(projectFolders);
+
+        const allAssetsFromStorage = LocalStorageService.getAssets();
+        const assetsForThisProject = allAssetsFromStorage.filter(a => a.projectId === projectId);
         
         if (currentUrlFolderId) {
           const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId);
           setSelectedFolder(folderFromUrl || null);
+          setCurrentAssets(assetsForThisProject.filter(a => a.folderId === currentUrlFolderId));
         } else {
           setSelectedFolder(null); 
+          setCurrentAssets(assetsForThisProject.filter(a => !a.folderId)); // Assets at project root
         }
 
       } else {
@@ -101,6 +107,7 @@ export default function ProjectPage() {
 
   const handleSelectFolder = (folder: FolderType | null) => {
     setSelectedFolder(folder);
+    // Asset loading will be triggered by useEffect watching loadProjectData's dependencies (specifically currentUrlFolderId changing via router.replace)
   };
 
   const handleCreateFolder = () => {
@@ -114,9 +121,6 @@ export default function ProjectPage() {
     };
 
     LocalStorageService.addFolder(newFolder);
-    const updatedAllFolders = LocalStorageService.getFolders().filter(f => f.projectId === projectId);
-    setAllProjectFolders(updatedAllFolders); 
-    setSelectedFolder(newFolder); 
     
     const updatedProjectData = {
       ...project,
@@ -124,12 +128,13 @@ export default function ProjectPage() {
       status: 'recent' as ProjectStatus,
     };
     LocalStorageService.updateProject(updatedProjectData);
-    setProject(updatedProjectData); 
     
     setNewFolderName('');
     setIsNewFolderDialogOpen(false);
     setNewFolderParentContext(null); 
     toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created and selected.`, {folderName: newFolder.name})});
+    loadProjectData(); // Reload all data
+    setSelectedFolder(newFolder); // Navigate by setting selected folder which triggers useEffect
   };
   
 
@@ -144,19 +149,18 @@ export default function ProjectPage() {
   };
   
   const handleFolderDeleted = (deletedFolder: FolderType) => {
-    const updatedFolders = LocalStorageService.getFolders().filter(f => f.projectId === projectId);
-    setAllProjectFolders(updatedFolders);
+    loadProjectData(); // Reload all data
     if (selectedFolder && selectedFolder.id === deletedFolder.id) {
-      const parentFolder = deletedFolder.parentId ? updatedFolders.find(f => f.id === deletedFolder.parentId) : null;
-      setSelectedFolder(parentFolder || null); 
+        const parentFolder = deletedFolder.parentId ? allProjectFolders.find(f => f.id === deletedFolder.parentId) : null;
+        setSelectedFolder(parentFolder || null); 
     }
   };
 
   const handleFolderUpdated = (updatedFolder: FolderType) => {
-    const updatedAllProjectFolders = LocalStorageService.getFolders().filter(f => f.projectId === projectId);
-    setAllProjectFolders(updatedAllProjectFolders); 
+    loadProjectData(); // Reload all data
     if (selectedFolder && selectedFolder.id === updatedFolder.id) {
-      setSelectedFolder(updatedAllProjectFolders.find(f => f.id === updatedFolder.id) || null);
+      const reloadedFolder = LocalStorageService.getFolders().find(f => f.id === updatedFolder.id);
+      setSelectedFolder(reloadedFolder || null);
     }
     if (project) {
       const updatedProjectData = {
@@ -166,6 +170,18 @@ export default function ProjectPage() {
       };
       LocalStorageService.updateProject(updatedProjectData);
       setProject(updatedProjectData);
+    }
+  };
+
+  const handleEditAsset = (asset: Asset) => {
+    router.push(`/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`);
+  };
+
+  const handleDeleteAsset = (assetToDelete: Asset) => {
+    if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
+      LocalStorageService.deleteAsset(assetToDelete.id);
+      toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
+      loadProjectData(); // Refresh assets
     }
   };
   
@@ -262,7 +278,7 @@ export default function ProjectPage() {
             onDeleteFolder={handleFolderDeleted}
             currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
         />
-        {foldersToDisplayInGrid.length === 0 && allProjectFolders.filter(f => f.parentId === (selectedFolder ? selectedFolder.id : null )).length === 0 && ( 
+        {foldersToDisplayInGrid.length === 0 && currentAssets.length === 0 && ( 
             <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">
                   {selectedFolder ? t('folderIsEmpty', 'This folder is empty.') : t('noFoldersInProjectStart', 'This project has no folders yet.')}
@@ -287,6 +303,34 @@ export default function ProjectPage() {
         )}
         </CardContent>
       </Card>
+
+      {/* Assets Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-lg sm:text-xl">
+            {selectedFolder 
+              ? t('assetsInFolder', 'Assets in "{folderName}"', { folderName: selectedFolder.name }) 
+              : t('assetsInProjectRoot', 'Assets in Project Root')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {currentAssets.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {currentAssets.map(asset => (
+                <AssetCard 
+                  key={asset.id} 
+                  asset={asset} 
+                  onEditAsset={() => handleEditAsset(asset)}
+                  onDeleteAsset={() => handleDeleteAsset(asset)}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground py-4 text-center">{t('noAssetsInLocation', 'No assets found in this location.')}</p>
+          )}
+        </CardContent>
+      </Card>
+
 
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 p-3 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2">

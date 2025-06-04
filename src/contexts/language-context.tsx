@@ -21,6 +21,8 @@ const translations: Record<Language, Record<string, string>> = {
     favorite: "Favorite",
     recent: "Recent",
     new: "New",
+    edit: "Edit",
+    delete: "Delete",
     createNewProject: "Create New Project",
     projectName: "Project Name",
     cancel: "Cancel",
@@ -88,21 +90,18 @@ const translations: Record<Language, Record<string, string>> = {
     unnamedAsset: "Unnamed Asset",
     managePhotosModalTitle: "Manage Photos for Asset:",
     managePhotosModalDesc: "Add more photos using your camera or gallery, or remove existing ones from the batch.",
-    doneWithSessionAddPhotos: "Done ({count}) - Add to Batch",
-
-
+    
     photosAdded: "Photos Added",
-    editPhotos: "Add/Edit Photos", // Keep if still used for button text
+    editPhotos: "Add/Edit Photos", 
     removePhotoTitle: "Remove photo",
     
     backTo: "Back to",
-    enterAssetNamePrompt: "Enter the asset name.", // May not be needed if inline
+    enterAssetNamePrompt: "Enter the asset name.", 
     assetNamePlaceholder: "e.g., Main Entrance Column",
     inFolder: "In folder:",
     forProject: "for",
     noCompaniesAvailable: "No companies available. Please check the data source.",
     
-    useSpeech: "Use Speech", // Specific to old component
     listening: "Listening...",
     aiSummary: "AI Summary",
     summarizing: "Summarizing...",
@@ -203,6 +202,7 @@ const translations: Record<Language, Record<string, string>> = {
     doneWithSession: "Done", // Generic done
     currentPhotoBatch: "Current Photo Batch",
     customCameraViewTitle: "Custom Camera View",
+    customCameraDialogTitle: "Camera",
 
     speechFeatureNotAvailableTitle: "Speech Recognition Not Available",
     speechFeatureNotAvailableDesc: "Your browser does not support speech recognition, or it is not enabled. You can still type the description manually.",
@@ -211,6 +211,17 @@ const translations: Record<Language, Record<string, string>> = {
     speechErrorNotAllowed: "Microphone access denied. Please allow microphone access.",
     speechErrorTitle: "Could not start speech recognition",
     speechStartErrorDesc: "Please ensure microphone permissions are granted.",
+
+    assetsInFolder: "Assets in \"{folderName}\"",
+    assetsInProjectRoot: "Assets in Project Root",
+    assetPhotoAlt: "Photo of {assetName}",
+    editAssetButton: "Edit Asset",
+    deleteAssetButton: "Delete Asset",
+    deleteAssetConfirmationTitle: "Confirm Deletion",
+    deleteAssetConfirmationDesc: "Are you sure you want to delete asset \"{assetName}\"?",
+    assetDeletedTitle: "Asset Deleted",
+    assetDeletedDesc: "Asset \"{assetName}\" has been deleted.",
+
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -219,6 +230,8 @@ const translations: Record<Language, Record<string, string>> = {
     favorite: "مفضل",
     recent: "الأخيرة",
     new: "جديد",
+    edit: "تعديل",
+    delete: "حذف",
     createNewProject: "إنشاء مشروع جديد",
     projectName: "اسم المشروع",
     cancel: "إلغاء",
@@ -286,8 +299,7 @@ const translations: Record<Language, Record<string, string>> = {
     unnamedAsset: "أصل غير مسمى",
     managePhotosModalTitle: "إدارة صور الأصل:",
     managePhotosModalDesc: "أضف المزيد من الصور باستخدام الكاميرا أو المعرض، أو قم بإزالة الموجودة من الدفعة.",
-    doneWithSessionAddPhotos: "تم ({count}) - إضافة إلى الدفعة",
-
+    
     photosAdded: "الصور المضافة",
     editPhotos: "إضافة/تعديل الصور",
     removePhotoTitle: "إزالة الصورة",
@@ -299,7 +311,6 @@ const translations: Record<Language, Record<string, string>> = {
     forProject: "لمشروع",
     noCompaniesAvailable: "لا توجد شركات متاحة. يرجى التحقق من مصدر البيانات.",
     
-    useSpeech: "استخدام الصوت",
     listening: "يستمع...",
     aiSummary: "ملخص الذكاء الاصطناعي",
     summarizing: "يلخص...",
@@ -400,14 +411,25 @@ const translations: Record<Language, Record<string, string>> = {
     doneWithSession: "تم",
     currentPhotoBatch: "دفعة الصور الحالية",
     customCameraViewTitle: "عرض الكاميرا المخصص",
+    customCameraDialogTitle: "الكاميرا",
 
-     speechFeatureNotAvailableTitle: "ميزة التعرف على الكلام غير متوفرة",
+    speechFeatureNotAvailableTitle: "ميزة التعرف على الكلام غير متوفرة",
     speechFeatureNotAvailableDesc: "متصفحك لا يدعم التعرف على الكلام، أو أنه غير ممكّن. لا يزال بإمكانك كتابة الوصف يدويًا.",
     speechErrorNoSpeech: "لم يتم اكتشاف أي كلام. يرجى المحاولة مرة أخرى.",
     speechErrorAudioCapture: "فشل التقاط الصوت. تحقق من أذونات الميكروفون.",
     speechErrorNotAllowed: "تم رفض الوصول إلى الميكروفون. يرجى السماح بالوصول إلى الميكروفون.",
     speechErrorTitle: "تعذر بدء التعرف على الكلام",
     speechStartErrorDesc: "يرجى التأكد من منح أذونات الميكروفون.",
+
+    assetsInFolder: "الأصول في \"{folderName}\"",
+    assetsInProjectRoot: "الأصول في جذر المشروع",
+    assetPhotoAlt: "صورة {assetName}",
+    editAssetButton: "تعديل الأصل",
+    deleteAssetButton: "حذف الأصل",
+    deleteAssetConfirmationTitle: "تأكيد الحذف",
+    deleteAssetConfirmationDesc: "هل أنت متأكد أنك تريد حذف الأصل \"{assetName}\"؟",
+    assetDeletedTitle: "تم حذف الأصل",
+    assetDeletedDesc: "تم حذف الأصل \"{assetName}\".",
   },
 };
 
