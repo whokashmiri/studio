@@ -52,16 +52,16 @@ export function ProjectCard({ project, onEditProject, onToggleFavorite }: Projec
                 <CardTitle className="text-base font-headline leading-tight group-hover:text-primary transition-colors">
                   {project.name}
                 </CardTitle>
+              </div>
+              <div className="flex items-center shrink-0">
                 {isMobile && (
                   <Badge 
                     variant={getStatusBadgeVariant(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status)} 
-                    className="capitalize text-xs mt-1 inline-block"
+                    className="capitalize text-xs mr-1"
                   >
                     {t(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status, project.status)}
                   </Badge>
                 )}
-              </div>
-              <div className="flex items-center shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -100,8 +100,6 @@ export function ProjectCard({ project, onEditProject, onToggleFavorite }: Projec
                 {t(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status, project.status)}
               </Badge>
             )}
-            {/* Optional: Add a placeholder div if CardContent becomes completely empty on mobile and affects layout */}
-            {/* {isMobile && <div className="h-1"></div>} */}
           </CardContent>
       </Link>
     </Card>
