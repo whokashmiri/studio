@@ -27,7 +27,7 @@ interface FolderGridViewProps {
   currentSelectedFolderId: string | null;
 }
 
-export function FolderTreeDisplay({ // Renaming to FolderGridView conceptually
+export function FolderTreeDisplay({ // Conceptually a GridView now
   foldersToDisplay,
   projectId,
   onSelectFolder,
@@ -53,9 +53,10 @@ export function FolderTreeDisplay({ // Renaming to FolderGridView conceptually
       return;
     }
 
-    if (confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${currentFolder.name}" and all its contents? This action cannot be undone.`, { folderName: currentFolder.name }))) {
-      LocalStorageService.deleteFolderCascade(currentFolder.id); // Use cascade delete
-      onDeleteFolder(currentFolder); // Notify parent to update its list
+    // Using window.confirm for simplicity; a custom dialog would be better for UX.
+    if (window.confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${currentFolder.name}"? This action cannot be undone.`, { folderName: currentFolder.name }))) {
+      LocalStorageService.deleteFolderCascade(currentFolder.id);
+      onDeleteFolder(currentFolder);
       toast({
         title: t('folderDeletedTitle', 'Folder Deleted'),
         description: t('folderDeletedDesc', `Folder "${currentFolder.name}" has been deleted.`, { folderName: currentFolder.name }),
@@ -70,22 +71,21 @@ export function FolderTreeDisplay({ // Renaming to FolderGridView conceptually
         <p className="mt-4 text-muted-foreground">
           {currentSelectedFolderId ? t('folderIsEmpty', 'This folder is empty.') : t('noFoldersInProjectStart', 'This project has no folders yet.')}
         </p>
-         {/* Optionally, a button here to create the first folder if root is empty could be nice,
-             but ProjectPage already handles this with its main "Add Folder" button. */}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       {foldersToDisplay.map(folder => (
         <Card 
           key={folder.id} 
-          className="group flex flex-col items-center justify-center text-center p-4 hover:shadow-md transition-shadow cursor-pointer relative"
+          className="group flex flex-col items-center justify-center text-center p-4 hover:shadow-md transition-shadow cursor-pointer relative aspect-square" // Added aspect-square for more "drive-like" items
           onClick={() => onSelectFolder(folder)}
+          title={folder.name}
         >
-          <FolderIcon className="h-20 w-20 text-primary mb-2" />
-          <CardTitle className="text-sm font-medium truncate w-full" title={folder.name}>
+          <FolderIcon className="h-16 w-16 sm:h-20 sm:w-20 text-primary mb-2" /> {/* Made icon slightly responsive */}
+          <CardTitle className="text-xs sm:text-sm font-medium truncate w-full">
             {folder.name}
           </CardTitle>
           
@@ -96,7 +96,7 @@ export function FolderTreeDisplay({ // Renaming to FolderGridView conceptually
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={(e) => e.stopPropagation()} // Prevent card click
+                  onClick={(e) => e.stopPropagation()} 
                 >
                   <MoreVertical className="h-4 w-4" />
                   <span className="sr-only">{t('folderActions', 'Folder actions')}</span>
