@@ -8,6 +8,7 @@ import type { Project } from '@/data/mock-data';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/language-context';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ProjectCardProps {
   project: Project;
@@ -17,13 +18,16 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project, onEditProject, onToggleFavorite }: ProjectCardProps) {
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
   
   const getStatusBadgeVariant = (status: Project['status']) => {
     switch (status) {
       case 'done': return 'default';
       case 'new': return 'secondary'; 
       case 'recent': return 'outline';
-      default: return 'default';
+      // Favorite is handled by the star icon, so we don't need a specific badge variant for it here.
+      // If a project is 'favorite' and also 'recent', 'recent' badge will show.
+      default: return 'outline'; // Default to outline if status is 'favorite' but we want to show e.g. 'recent'
     }
   };
 
@@ -41,18 +45,28 @@ export function ProjectCard({ project, onEditProject, onToggleFavorite }: Projec
 
   return (
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200">
-      <Link href={`/project/${project.id}`} className="flex flex-col flex-grow p-3 group cursor-pointer">
-          <CardHeader className="p-0 pb-1.5 w-full">
-            <div className="flex justify-between items-start w-full">
-              <CardTitle className="text-base font-headline leading-tight group-hover:text-primary transition-colors mr-2">
-                {project.name}
-              </CardTitle>
+      <Link href={`/project/${project.id}`} className="flex flex-col flex-grow group cursor-pointer">
+          <CardHeader className="p-3 pb-1.5 w-full">
+            <div className="flex justify-between items-start w-full gap-2">
+              <div className="flex-grow min-w-0">
+                <CardTitle className="text-base font-headline leading-tight group-hover:text-primary transition-colors">
+                  {project.name}
+                </CardTitle>
+                {isMobile && (
+                  <Badge 
+                    variant={getStatusBadgeVariant(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status)} 
+                    className="capitalize text-xs mt-1 inline-block"
+                  >
+                    {t(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status, project.status)}
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "h-8 w-8 rounded-full", // Increased size
+                    "h-8 w-8 rounded-full",
                     project.isFavorite ? "text-yellow-400 hover:text-yellow-500" : "text-muted-foreground hover:text-yellow-400"
                   )}
                   onClick={handleFavoriteClick}
@@ -64,7 +78,7 @@ export function ProjectCard({ project, onEditProject, onToggleFavorite }: Projec
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="text-muted-foreground hover:text-primary h-8 w-8" // Increased size
+                  className="text-muted-foreground hover:text-primary h-8 w-8"
                   onClick={handleEditClick} 
                   title={t('editProjectTitle', 'Edit Project')}
                 >
@@ -77,10 +91,17 @@ export function ProjectCard({ project, onEditProject, onToggleFavorite }: Projec
                 {project.description || t('noDescriptionAvailable', 'No description available.')}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex-grow p-0 pt-1.5 flex items-end">
-            <Badge variant={getStatusBadgeVariant(project.status)} className="capitalize text-xs">
-                {t(project.status, project.status)}
-            </Badge>
+          <CardContent className="flex-grow p-3 pt-1.5 flex items-end">
+            {!isMobile && (
+               <Badge 
+                variant={getStatusBadgeVariant(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status)} 
+                className="capitalize text-xs"
+              >
+                {t(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status, project.status)}
+              </Badge>
+            )}
+            {/* Optional: Add a placeholder div if CardContent becomes completely empty on mobile and affects layout */}
+            {/* {isMobile && <div className="h-1"></div>} */}
           </CardContent>
       </Link>
     </Card>
