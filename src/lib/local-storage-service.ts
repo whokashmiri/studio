@@ -102,32 +102,36 @@ export function updateFolder(updatedFolder: Folder): void {
   }
 }
 
-export function deleteFolder(folderId: string): void {
+export function deleteFolder(folderId: string): void { // Kept simple delete for now
   let folders = getFolders();
-  // Also delete subfolders and assets associated with this folder
-  // This requires recursive deletion or careful filtering.
-  // For simplicity, this example only deletes the specified folder.
-  // A more robust solution would handle cascading deletes.
-  const foldersToDelete = [folderId];
-  let currentFolders = getFolders();
-  let currentAssets = getAssets();
-
-  // Find all subfolders recursively (simple iterative approach)
-  const queue = [folderId];
-  while (queue.length > 0) {
-    const currentParentId = queue.shift();
-    const children = currentFolders.filter(f => f.parentId === currentParentId);
-    children.forEach(child => {
-      foldersToDelete.push(child.id);
-      queue.push(child.id);
-    });
-  }
-
-  const updatedFolders = currentFolders.filter(f => !foldersToDelete.includes(f.id));
-  const updatedAssets = currentAssets.filter(a => !foldersToDelete.includes(a.folderId!));
-  
+  const updatedFolders = folders.filter(f => f.id !== folderId);
   saveFolders(updatedFolders);
-  saveAssets(updatedAssets); // Ensure assets within deleted folders are also removed
+  // Note: This simple delete does not handle subfolders or assets within the folder.
+  // deleteFolderCascade should be used for that.
+}
+
+export function deleteFolderCascade(folderId: string): void {
+  let allFolders = getFolders();
+  let allAssets = getAssets();
+  
+  const foldersToDeleteIds: string[] = [];
+  const queue: string[] = [folderId];
+  
+  // Find all subfolders to delete
+  while (queue.length > 0) {
+    const currentFolderId = queue.shift()!;
+    foldersToDeleteIds.push(currentFolderId);
+    const children = allFolders.filter(f => f.parentId === currentFolderId);
+    children.forEach(child => queue.push(child.id));
+  }
+  
+  // Filter out deleted folders
+  const updatedFolders = allFolders.filter(f => !foldersToDeleteIds.includes(f.id));
+  saveFolders(updatedFolders);
+  
+  // Filter out assets within deleted folders
+  const updatedAssets = allAssets.filter(a => a.folderId === null || !foldersToDeleteIds.includes(a.folderId));
+  saveAssets(updatedAssets);
 }
 
 

@@ -37,7 +37,7 @@ const translations: Record<Language, Record<string, string>> = {
     folders: "Folders",
     assets: "Assets",
     addNewFolder: "Add New Folder",
-    addNewFolderToRoot: "Add Folder to Root", // Kept for mobile FAB context
+    addNewFolderToRoot: "Add Folder to Root", 
     addNewSubfolder: "Add New Subfolder",
     addNewSubfolderTo: "Add New Subfolder to \"{parentName}\"",
     folderName: "Folder Name",
@@ -131,9 +131,9 @@ const translations: Record<Language, Record<string, string>> = {
     confirmPhotosAndContinue: "Confirm Photos & Continue",
     saveChangesAndContinue: "Save Changes & Continue",
     deleteAssetTitle: "Delete Asset",
-    editFolderTitle: "Edit folder {folderName}", // Generic title
-    addRootFolderTitle: "Add Folder to Project Root", // Specific for button/dialog
-    addSubfolderTitle: "Add subfolder to {folderName}", // Generic title
+    editFolderTitle: "Edit folder {folderName}",
+    addRootFolderTitle: "Add Folder to Project Root",
+    addSubfolderTitle: "Add subfolder to {folderName}",
     projectRoot: "Project Root",
     noTopLevelFolders: "No top-level folders created yet.",
     folderNameRequiredTitle: "Folder Name Required",
@@ -157,10 +157,10 @@ const translations: Record<Language, Record<string, string>> = {
     selectOrCreateFolderPrompt: "Select a folder below, or add a new folder to the project root.",
     manageFolderContentsPrompt: "Manage contents of \"{folderName}\", or add a subfolder.",
     contentsOfFolder: "Contents of \"{folderName}\"",
-    projectRootContents: "Project Root - Folders & Assets", // Updated general description
+    projectRootContents: "Project Root - Folders & Assets", 
     folderActions: "Folder actions",
-    openFolder: "Open", // No longer directly applicable as selection is primary interaction
-    selectFolder: "Select Folder", // New action for tree item if needed, or can be implicit
+    openFolder: "Open Folder", 
+    selectFolder: "Select Folder", 
     editFolder: "Edit folder",
     deleteFolder: "Delete folder",
     deleteFolderConfirmation: "Are you sure you want to delete \"{folderName}\" and all its contents? This action cannot be undone.",
@@ -168,9 +168,8 @@ const translations: Record<Language, Record<string, string>> = {
     folderNotEmptyDesc: "Cannot delete folder. Please delete all subfolders and assets first.",
     folderDeletedTitle: "Folder Deleted",
     folderDeletedDesc: "Folder \"{folderName}\" has been deleted.",
-    noFoldersInCurrentView: "This folder is empty.", // Replaced, no longer relevant
-    useButtonToAddSubfolderPrompt: "You can add a subfolder using the button above or the context menu on a parent folder.", // Replaced
-    addSubfolderToCurrent: "Add subfolder here", // Used in dropdown
+    folderIsEmpty: "This folder is empty.",
+    addSubfolderToCurrent: "Add subfolder here", 
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -317,8 +316,8 @@ const translations: Record<Language, Record<string, string>> = {
     contentsOfFolder: "محتويات \"{folderName}\"",
     projectRootContents: "جذر المشروع - المجلدات والأصول",
     folderActions: "إجراءات المجلد",
-    openFolder: "فتح",
-    selectFolder: "تحديد المجلد",
+    openFolder: "فتح المجلد", 
+    selectFolder: "تحديد المجلد", 
     editFolder: "تعديل المجلد",
     deleteFolder: "حذف المجلد",
     deleteFolderConfirmation: "هل أنت متأكد أنك تريد حذف \"{folderName}\" وجميع محتوياته؟ لا يمكن التراجع عن هذا الإجراء.",
@@ -326,8 +325,7 @@ const translations: Record<Language, Record<string, string>> = {
     folderNotEmptyDesc: "لا يمكن حذف المجلد. يرجى حذف جميع المجلدات الفرعية والأصول أولاً.",
     folderDeletedTitle: "تم حذف المجلد",
     folderDeletedDesc: "تم حذف المجلد \"{folderName}\".",
-    noFoldersInCurrentView: "هذا المجلد فارغ.",
-    useButtonToAddSubfolderPrompt: "يمكنك إضافة مجلد فرعي باستخدام الزر أعلاه أو قائمة السياق في المجلد الأصل.",
+    folderIsEmpty: "هذا المجلد فارغ.",
     addSubfolderToCurrent: "إضافة مجلد فرعي هنا",
   },
 };
