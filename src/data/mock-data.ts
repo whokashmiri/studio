@@ -31,7 +31,8 @@ export interface Asset {
   projectId: string;
   folderId: string | null; // null if asset is at project root
   photos: string[]; // URLs or paths to photos (Data URLs for localStorage)
-  description: string;
+  voiceDescription?: string; // New field for voice-captured description
+  textDescription?: string; // New field for typed description
   summary?: string; // AI generated summary
   createdAt: string;
   updatedAt?: string; // Optional: track updates
@@ -61,6 +62,6 @@ export const mockFolders: Folder[] = [
 ];
 
 export const mockAssets: Asset[] = [
-  { id: 'asset1', name: 'Main Entrance Door Frame', projectId: 'proj1', folderId: 'folder1', photos: ['https://placehold.co/600x400.png?ai_hint=door+frame'], description: 'Damage noted on the main entrance door frame, lower right corner. Possible water ingress.', createdAt: new Date().toISOString() },
-  { id: 'asset2', name: 'HVAC Unit #3 (Rooftop)', projectId: 'proj1', folderId: 'folder2', photos: ['https://placehold.co/600x400.png?ai_hint=hvac+unit', 'https://placehold.co/600x400.png?ai_hint=rooftop+view'], description: 'Unit appears to be leaking coolant. Rust visible on the casing.', createdAt: new Date().toISOString() },
+  { id: 'asset1', name: 'Main Entrance Door Frame', projectId: 'proj1', folderId: 'folder1', photos: ['https://placehold.co/600x400.png?ai_hint=door+frame'], textDescription: 'Damage noted on the main entrance door frame, lower right corner. Possible water ingress.', voiceDescription: 'Initial voice report confirms visual damage.', createdAt: new Date().toISOString() },
+  { id: 'asset2', name: 'HVAC Unit #3 (Rooftop)', projectId: 'proj1', folderId: 'folder2', photos: ['https://placehold.co/600x400.png?ai_hint=hvac+unit', 'https://placehold.co/600x400.png?ai_hint=rooftop+view'], textDescription: 'Unit appears to be leaking coolant. Rust visible on the casing.', createdAt: new Date().toISOString() },
 ];

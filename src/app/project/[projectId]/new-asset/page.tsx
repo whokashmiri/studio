@@ -1,9 +1,8 @@
 
 "use client";
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { AssetDescriptionInput } from '@/components/asset-description-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,13 +10,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info } from 'lucide-react';
 import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
+import { summarizeAssetDescription, type SummarizeAssetDescriptionInput } from '@/ai/flows/summarize-asset-description';
 
-type AssetCreationStep = 'name' | 'photos' | 'description';
+
+type AssetCreationStep = 'photos_and_name' | 'descriptions_and_summary';
 
 export default function NewAssetPage() {
   const params = useParams();
@@ -29,11 +31,13 @@ export default function NewAssetPage() {
   const assetIdToEdit = searchParams.get('assetId');
 
   const [isEditMode, setIsEditMode] = useState(false);
-  const [currentStep, setCurrentStep] = useState<AssetCreationStep>('name');
+  const [currentStep, setCurrentStep] = useState<AssetCreationStep>('photos_and_name');
   const [project, setProject] = useState<Project | null>(null);
   const [currentFolder, setCurrentFolder] = useState<Folder | null>(null);
+  
   const [assetName, setAssetName] = useState('');
-  const [assetDescription, setAssetDescription] = useState('');
+  const [assetVoiceDescription, setAssetVoiceDescription] = useState('');
+  const [assetTextDescription, setAssetTextDescription] = useState('');
   const [assetSummary, setAssetSummary] = useState<string | undefined>(undefined);
   
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); 
@@ -47,11 +51,17 @@ export default function NewAssetPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null); 
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  // const cameraInputRef = useRef<HTMLInputElement>(null); // No longer needed for custom camera
+
+  // Speech Recognition State
+  const [isListening, setIsListening] = useState(false);
+  const [speechRecognitionAvailable, setSpeechRecognitionAvailable] = useState(false);
+  const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
 
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
 
   const loadProjectAndAsset = useCallback(() => {
@@ -78,9 +88,11 @@ export default function NewAssetPage() {
         if (foundAsset) {
           setIsEditMode(true);
           setAssetName(foundAsset.name);
-          setAssetDescription(foundAsset.description);
+          setAssetVoiceDescription(foundAsset.voiceDescription || '');
+          setAssetTextDescription(foundAsset.textDescription || '');
           setAssetSummary(foundAsset.summary);
           setPhotoPreviews(foundAsset.photos || []); 
+          setCurrentStep('descriptions_and_summary'); // Skip to details if editing
         } else {
           toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
           router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
@@ -94,14 +106,7 @@ export default function NewAssetPage() {
   }, [loadProjectAndAsset]);
 
   useEffect(() => {
-    if (isEditMode && assetName && currentStep === 'name') {
-      setCurrentStep('description');
-    }
-  }, [isEditMode, assetName, currentStep]);
-
-  useEffect(() => {
     let streamInstance: MediaStream | null = null;
-
     const getCameraStream = async () => {
       if (isCustomCameraOpen) {
         try {
@@ -123,9 +128,7 @@ export default function NewAssetPage() {
         }
       }
     };
-
     getCameraStream();
-
     return () => { 
       if (streamInstance) {
         streamInstance.getTracks().forEach(track => track.stop());
@@ -137,21 +140,67 @@ export default function NewAssetPage() {
     };
   }, [isCustomCameraOpen, toast, t]);
 
+  // Speech Recognition Effect
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      setSpeechRecognitionAvailable(true);
+      const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      speechRecognitionRef.current = new SpeechRecognitionAPI();
+      const recognition = speechRecognitionRef.current;
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = language === 'ar' ? 'ar-SA' : 'en-US';
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = event.results[0][0].transcript;
+        setAssetVoiceDescription(prev => prev ? `${prev} ${transcript}`.trim() : transcript);
+        setIsListening(false);
+      };
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error', event.error, event.message);
+        let errorMessage = event.message || event.error;
+        if (event.error === 'no-speech') errorMessage = t('speechErrorNoSpeech', 'No speech detected. Please try again.');
+        else if (event.error === 'audio-capture') errorMessage = t('speechErrorAudioCapture', 'Audio capture failed. Check microphone permissions.');
+        else if (event.error === 'not-allowed') errorMessage = t('speechErrorNotAllowed', 'Microphone access denied. Please allow microphone access.');
+        toast({ title: t('speechErrorTitle', 'Speech Recognition Error'), description: errorMessage, variant: 'destructive' });
+        setIsListening(false);
+      };
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+    } else {
+      setSpeechRecognitionAvailable(false);
+    }
+  }, [toast, language, t]);
+
+  useEffect(() => {
+    if (speechRecognitionRef.current) {
+      speechRecognitionRef.current.lang = language === 'ar' ? 'ar-SA' : 'en-US';
+    }
+  }, [language]);
+
+
+  const handlePhotoUploadFromGallery = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const newFiles = Array.from(event.target.files);
+      const newPhotoUrls: string[] = [];
+      let filesProcessed = 0;
       newFiles.forEach(file => {
         const reader = new FileReader();
         reader.onload = (loadEvent) => {
           if (loadEvent.target?.result) {
-             setPhotoPreviews(prev => [...prev, loadEvent.target!.result as string]);
+             newPhotoUrls.push(loadEvent.target.result as string);
+          }
+          filesProcessed++;
+          if (filesProcessed === newFiles.length) {
+            setPhotoPreviews(prev => [...prev, ...newPhotoUrls]);
+            if (!isPhotoModalOpen) setIsPhotoModalOpen(true); // Open modal if not already
           }
         };
         reader.readAsDataURL(file);
       });
     }
-    event.target.value = ''; // Clear input to allow re-uploading the same file
+    event.target.value = ''; 
   };
 
   const handleCapturePhotoFromStream = () => {
@@ -181,6 +230,9 @@ export default function NewAssetPage() {
     setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession]);
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
+    if (!isPhotoModalOpen && photoPreviews.length + capturedPhotosInSession.length > 0) {
+      setIsPhotoModalOpen(true); // Ensure main photo modal is open to see combined batch
+    }
   };
 
   const handleCancelCustomCamera = () => {
@@ -192,30 +244,84 @@ export default function NewAssetPage() {
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  const handleNameSubmit = () => {
+  const handleNextToDescriptions = () => {
+    if (photoPreviews.length === 0) {
+      toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
+      return;
+    }
     if (!assetName.trim()) {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
       return;
     }
-    setIsPhotoModalOpen(true); 
+    setCurrentStep('descriptions_and_summary');
+    setIsPhotoModalOpen(false); // Close photo modal if open
   };
 
-  const handlePhotosSubmittedOrSkipped = () => { 
-    setIsPhotoModalOpen(false);
-    if (currentStep === 'name' && assetName.trim()){ 
-        setCurrentStep('description');
+  const toggleListening = () => {
+    if (!speechRecognitionRef.current || !speechRecognitionAvailable) {
+      toast({ title: t('speechFeatureNotAvailableTitle', 'Feature Not Available'), description: t('speechFeatureNotAvailableDesc', 'Speech recognition is not supported or enabled in your browser.'), variant: 'destructive' });
+      return;
+    }
+    if (isListening) {
+      speechRecognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        speechRecognitionRef.current.start();
+        setIsListening(true);
+      } catch (e: any) {
+        console.error("Error starting speech recognition:", e);
+        toast({ title: t('speechStartErrorTitle', 'Could not start speech recognition'), description: e.message || t('speechStartErrorDesc', 'Please ensure microphone permissions are granted.'), variant: 'destructive' });
+        setIsListening(false);
+      }
     }
   };
 
-  const handleSaveAssetFlow = (descriptionFromInput: string, summaryFromInput?: string) => {
+  const handleGenerateSummary = async () => {
+    if (!assetVoiceDescription.trim() && !assetTextDescription.trim()) {
+      toast({ title: t('descriptionRequiredForSummaryTitle', 'Description Required'), description: t('descriptionRequiredForSummaryDesc', 'Please provide a voice or text description to generate a summary.'), variant: 'destructive' });
+      return;
+    }
+    setIsLoadingSummary(true);
+    setAssetSummary(undefined);
+    try {
+      const input: SummarizeAssetDescriptionInput = { 
+        voiceDescription: assetVoiceDescription,
+        textDescription: assetTextDescription 
+      };
+      const result = await summarizeAssetDescription(input);
+      if (result && result.summary) {
+        setAssetSummary(result.summary);
+        toast({ title: t('summaryGeneratedTitle', 'Summary Generated'), description: t('summaryGeneratedDesc', 'AI summary created successfully.') });
+      } else {
+        console.error('Summarization result issue:', result);
+        toast({ title: t('summaryFailedTitle', 'Summarization Failed'), description: t('summaryFailedDesc', 'Could not generate summary or summary was empty.'), variant: 'destructive' });
+      }
+    } catch (error: any) {
+      console.error('Error summarizing asset description:', error);
+      toast({ title: t('summaryErrorTitle', 'Summarization Error'), description: error.message || t('summaryErrorDesc', 'An unexpected error occurred.'), variant: 'destructive' });
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
+  const handleSaveAsset = () => {
     if (!project) {
       toast({ title: t('projectContextLost', "Project context lost"), variant: "destructive" });
       return;
     }
      if (!assetName.trim()) {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), variant: "destructive" });
-      setCurrentStep('name'); 
-      setIsPhotoModalOpen(false); 
+      setCurrentStep('photos_and_name'); 
+      return;
+    }
+    if (photoPreviews.length === 0 && !isEditMode) { // Allow editing without photos if they were never added
+      toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
+      setCurrentStep('photos_and_name');
+      return;
+    }
+    if (!assetVoiceDescription.trim() && !assetTextDescription.trim()) {
+      toast({ title: t('descriptionRequiredForSaveTitle', 'Description Required'), description: t('descriptionRequiredForSaveDesc', 'Please provide at least one form of description (voice or text).'), variant: "destructive" });
       return;
     }
 
@@ -233,8 +339,9 @@ export default function NewAssetPage() {
       projectId: project.id,
       folderId: folderId,
       photos: photoPreviews, 
-      description: descriptionFromInput,
-      summary: summaryFromInput,
+      voiceDescription: assetVoiceDescription,
+      textDescription: assetTextDescription,
+      summary: assetSummary,
       createdAt: isEditMode && assetIdToEdit ? LocalStorageService.getAssets().find(a=>a.id===assetIdToEdit)?.createdAt || new Date().toISOString() : new Date().toISOString(),
       updatedAt: new Date().toISOString(), 
     };
@@ -255,30 +362,21 @@ export default function NewAssetPage() {
   }
 
   const pageTitle = isEditMode ? t('editAssetTitle', "Edit Asset") : t('newAsset', 'Create New Asset');
-  const saveButtonText = isEditMode ? t('updateAssetButton', "Update Asset") : t('saveDescription', 'Save Description & Asset');
-
+  
   const renderStepContent = () => {
     switch (currentStep) {
-      case 'name':
+      case 'photos_and_name':
         return (
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
               <CardTitle className="text-xl sm:text-2xl font-headline">{pageTitle} {t('forProject', 'for')} {project.name}</CardTitle>
               {currentFolder && <CardDescription>{t('inFolder', 'In folder:')} {currentFolder.name}</CardDescription>}
-              <CardDescription>{t('step1Of3', 'Step 1 of 3:')} {t('enterAssetNamePrompt', 'Enter the asset name.')}</CardDescription>
+              <CardDescription>{t('stepPhotosAndNameTitle', 'Step 1: Photos & Asset Name')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="asset-name">{t('assetName', 'Asset Name')}</Label>
-                <Input
-                  id="asset-name"
-                  value={assetName}
-                  onChange={(e) => setAssetName(e.target.value)}
-                  placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
-                />
-              </div>
-               {photoPreviews.length === 0 && (
-                 <div className="flex flex-col sm:flex-row gap-2 mt-4">
+              <div>
+                <Label>{t('addPhotosSectionTitle', 'Add Photos')}</Label>
+                <div className="flex flex-col sm:flex-row gap-2 mt-1">
                     <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1">
                         <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
                     </Button>
@@ -289,76 +387,155 @@ export default function NewAssetPage() {
                         type="file"
                         accept="image/*"
                         multiple
-                        id="gallery-input-name-step"
+                        id="gallery-input-main"
                         ref={galleryInputRef}
                         className="hidden"
-                        onChange={handlePhotoUpload}
+                        onChange={handlePhotoUploadFromGallery}
                     />
-                 </div>
-               )}
+                </div>
+                {photoPreviews.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
+                      <Button variant="outline" size="sm" onClick={()={() => setIsPhotoModalOpen(true)}}>
+                         <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-6 gap-1.5">
+                      {photoPreviews.slice(0, 6).map((src, index) => ( // Show first 6 as quick preview
+                          <div key={`main-preview-${index}-${src.substring(0,20)}`} className="relative group">
+                            <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
+                          </div>
+                      ))}
+                    </div>
+                    {photoPreviews.length > 6 && <p className="text-xs text-muted-foreground text-center mt-1">{t('morePhotosInModal', `+${photoPreviews.length - 6} more. Click "Manage Photos" to see all.`)}</p>}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="asset-name">{t('assetName', 'Asset Name')}</Label>
+                <Input
+                  id="asset-name"
+                  value={assetName}
+                  onChange={(e) => setAssetName(e.target.value)}
+                  placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
+                />
+              </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              <Button onClick={handleNameSubmit}>
-                {photoPreviews.length > 0 ? t('nextAddManagePhotos', 'Next: Add/Manage Photos') : t('nextStepDescription', 'Next: Description')} <ArrowRight className="ml-2 h-4 w-4" />
+              <Button onClick={handleNextToDescriptions} disabled={photoPreviews.length === 0 || !assetName.trim()}>
+                {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
           </Card>
         );
-      case 'description':
+      case 'descriptions_and_summary':
         return (
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
                <CardTitle className="text-xl sm:text-2xl font-headline">
-                {isEditMode ? t('editAssetDetailsTitle', 'Edit Details for:') : t('addDescriptionFor', 'Add Description for:')} <span className="text-primary">{assetName}</span>
+                {isEditMode ? t('editAssetDetailsTitle', 'Edit Details for:') : t('addDetailsForAssetTitle', 'Add Details for:')} <span className="text-primary">{assetName}</span>
                </CardTitle>
-              <CardDescription>
-                {isEditMode ? t('updateDetailsPrompt', 'Update the details for this asset.') : `${t('step3Of3', 'Step 3 of 3:')} ${t('provideDetailsPrompt', 'Provide detailed information about the asset.')}`}
-              </CardDescription>
+              <CardDescription>{t('stepDescriptionsAndSummaryTitle', 'Step 2: Descriptions & AI Summary')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 {isEditMode && (
                      <div className="space-y-2">
                         <Label htmlFor="asset-name-edit">{t('assetName', 'Asset Name')}</Label>
                         <Input
-                        id="asset-name-edit"
-                        value={assetName}
-                        onChange={(e) => setAssetName(e.target.value)}
-                        placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
+                          id="asset-name-edit"
+                          value={assetName}
+                          onChange={(e) => setAssetName(e.target.value)}
+                          placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
                         />
                     </div>
                 )}
                 {photoPreviews.length > 0 && (
-                <div className="space-y-2">
-                    <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                    <div className="grid grid-cols-6 gap-1.5">
-                    {photoPreviews.map((src, index) => (
-                        <div key={`desc-preview-${index}-${src.substring(0,20)}`} className="relative group">
-                          <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
-                          <Button 
-                              variant="destructive" 
-                              size="icon" 
-                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                              onClick={() => removePhotoFromPreviews(index)}
-                              title={t('removePhotoTitle', "Remove photo")}
-                          >
-                              <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                    ))}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
+                       <Button variant="outline" size="sm" onClick={() => { setIsPhotoModalOpen(true); }}>
+                          <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
+                       </Button>
                     </div>
-                </div>
+                    <div className="grid grid-cols-6 gap-1.5">
+                      {photoPreviews.map((src, index) => (
+                          <div key={`desc-preview-${index}-${src.substring(0,20)}`} className="relative group">
+                            <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
+                          </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
-                 <Button variant="outline" size="sm" onClick={() => { setIsPhotoModalOpen(true); }} className="mt-2">
-                    <Edit3 className="mr-2 h-4 w-4" /> {t('editPhotos', 'Add/Edit Photos')}
-                 </Button>
-              <AssetDescriptionInput 
-                assetName={assetName}
-                initialDescription={assetDescription}
-                initialSummary={assetSummary}
-                onSave={handleSaveAssetFlow}
-                saveButtonText={saveButtonText}
-              />
+                
+                {/* Voice Description Section */}
+                <div className="space-y-2">
+                  <Label htmlFor="asset-voice-description">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
+                  {speechRecognitionAvailable ? (
+                    <Button onClick={toggleListening} variant="outline" className="w-full sm:w-auto">
+                      <Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-destructive' : ''}`} />
+                      {isListening ? t('listening', 'Listening...') : t('recordVoiceDescriptionButton', 'Record Voice Description')}
+                    </Button>
+                  ) : (
+                     <Alert variant="default">
+                        <Info className="h-4 w-4" />
+                        <AlertTitle>{t('speechFeatureNotAvailableTitle', 'Speech Recognition Not Available')}</AlertTitle>
+                        <AlertDescription>{t('speechFeatureNotAvailableDesc', 'Your browser does not support speech recognition.')}</AlertDescription>
+                     </Alert>
+                  )}
+                  {assetVoiceDescription && (
+                    <Textarea
+                      id="asset-voice-description-display"
+                      value={assetVoiceDescription}
+                      readOnly
+                      rows={3}
+                      className="mt-2 bg-muted/50"
+                      placeholder={t('voiceTranscriptPlaceholder', 'Voice transcript will appear here...')}
+                    />
+                  )}
+                </div>
+
+                {/* Text Description Section */}
+                <div className="space-y-2">
+                  <Label htmlFor="asset-text-description">{t('textDescriptionLabel', 'Written Description')}</Label>
+                  <Textarea
+                    id="asset-text-description"
+                    value={assetTextDescription}
+                    onChange={(e) => setAssetTextDescription(e.target.value)}
+                    placeholder={t('textDescriptionPlaceholder', 'Type detailed written description here...')}
+                    rows={5}
+                    className="resize-y"
+                  />
+                </div>
+
+                {/* AI Summary Section */}
+                <div className="space-y-2">
+                   <Button 
+                    onClick={handleGenerateSummary} 
+                    variant="outline" 
+                    className="w-full sm:w-auto"
+                    disabled={isLoadingSummary || (!assetVoiceDescription.trim() && !assetTextDescription.trim())}
+                  >
+                    <BrainCircuit className="mr-2 h-4 w-4" />
+                    {isLoadingSummary ? t('summarizing', 'Summarizing...') : t('aiSummary', 'AI Summary')}
+                  </Button>
+                  {assetSummary && (
+                    <div className="mt-2 space-y-1 rounded-md border bg-muted/50 p-3">
+                      <Label className="font-semibold">{t('aiGeneratedSummary', 'AI Generated Summary:')}</Label>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assetSummary}</p>
+                    </div>
+                  )}
+                </div>
             </CardContent>
+            <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-4">
+              <Button variant="outline" onClick={() => setCurrentStep('photos_and_name')}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToPhotosName', 'Back to Photos & Name')}
+              </Button>
+              <Button onClick={handleSaveAsset} size="lg">
+                <Save className="mr-2 h-4 w-4" />
+                {isEditMode ? t('updateAssetButton', "Update Asset") : t('saveAssetButton', 'Save Asset')}
+              </Button>
+            </CardFooter>
           </Card>
         );
       default:
@@ -380,47 +557,40 @@ export default function NewAssetPage() {
       
        {renderStepContent()}
 
-      <Dialog open={isPhotoModalOpen} onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            if (currentStep === 'name' && assetName.trim()) {
-                setCurrentStep('description');
-            }
-          }
-          setIsPhotoModalOpen(isOpen);
-      }}>
+      <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-headline">
-                {isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3ManagePhotos', 'Step 2 of 3: Manage Photos for')} "{assetName}"
+                {t('managePhotosModalTitle', 'Manage Photos for Asset:')} <span className="text-primary">{assetName || t('unnamedAsset', 'Unnamed Asset')}</span>
             </DialogTitle>
-            <DialogDescription>{t('takeOrUploadPhotosPromptNoLimit', "You can take new photos using your device camera or upload from your gallery.")}</DialogDescription>
+            <DialogDescription>{t('managePhotosModalDesc', "Add more photos using your camera or gallery, or remove existing ones from the batch.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4 flex-grow overflow-y-auto">
             <div className="flex flex-col sm:flex-row gap-2">
               <Button 
                 variant="outline" 
-                onClick={() => setIsCustomCameraOpen(true)}
+                onClick={() => { setIsCustomCameraOpen(true); setIsPhotoModalOpen(false); }} // Close this modal to open camera
                 className="w-full sm:w-auto">
                 <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
               </Button>
               <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto">
                 <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                id="gallery-input-modal"
-                ref={galleryInputRef}
-                className="hidden"
-                onChange={handlePhotoUpload}
-              />
+               <input // Keep a gallery input specific to the modal if needed
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  id="gallery-input-modal" 
+                  ref={galleryInputRef}
+                  className="hidden"
+                  onChange={handlePhotoUploadFromGallery}
+                />
             </div>
 
             <div className="space-y-2 mt-4">
               <Label>{t('currentPhotoBatch', 'Current Photo Batch')} ({photoPreviews.length})</Label>
               {photoPreviews.length > 0 ? (
-                <ScrollArea className="max-h-[300px] pr-3">
+                <ScrollArea className="h-[300px] pr-3"> {/* Ensure height is constrained */}
                   <div className="grid grid-cols-6 gap-1.5">
                     {photoPreviews.map((src, index) => (
                       <div key={`batch-${index}-${src.substring(0,20)}`} className="relative group">
@@ -444,14 +614,21 @@ export default function NewAssetPage() {
             </div>
           </div>
           <DialogFooter className="flex flex-row justify-end space-x-2 pt-4 border-t">
-             <Button variant="outline" onClick={handlePhotosSubmittedOrSkipped} className="flex-1 sm:flex-auto">
-                {currentStep === 'name' ? t('confirmAndContinueToDesc', 'Confirm & Continue to Description') : t('doneWithPhotos', 'Done with Photos')}
+             <Button variant="outline" onClick={() => setIsPhotoModalOpen(false)}>
+                {t('doneWithPhotos', 'Done with Photos')}
              </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCustomCameraOpen} onOpenChange={setIsCustomCameraOpen}>
+      <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
+          if (!isOpen && !isPhotoModalOpen && photoPreviews.length > 0) {
+            // If custom camera closes and main photo modal isn't already open,
+            // and we have photos, open the main photo modal.
+            setIsPhotoModalOpen(true);
+          }
+          setIsCustomCameraOpen(isOpen);
+        }}>
          <DialogContent className="p-0 m-0 w-full h-full max-w-full max-h-full sm:w-[calc(100%-2rem)] sm:h-[calc(100%-2rem)] sm:max-w-4xl sm:max-h-[90vh] sm:rounded-lg overflow-hidden flex flex-col bg-black text-white">
            <DialogHeader>
              <DialogTitle className="sr-only">{t('customCameraViewTitle', 'Custom Camera View')}</DialogTitle>
@@ -515,7 +692,7 @@ export default function NewAssetPage() {
                   disabled={capturedPhotosInSession.length === 0}
                   className="text-white hover:bg-white/20"
                 >
-                   {t('doneWithSession', 'Done')} ({capturedPhotosInSession.length})
+                   {t('doneWithSessionAddPhotos', 'Done ({count}) - Add to Batch', { count: capturedPhotosInSession.length })}
                 </Button>
               </div>
             </div>
@@ -525,4 +702,3 @@ export default function NewAssetPage() {
     </div>
   );
 }
-    

@@ -1,8 +1,9 @@
+
 // src/ai/flows/summarize-asset-description.ts
 'use server';
 
 /**
- * @fileOverview Summarizes an asset description using GenAI.
+ * @fileOverview Summarizes asset descriptions (voice and text) using GenAI.
  *
  * - summarizeAssetDescription - A function that handles the summarization process.
  * - SummarizeAssetDescriptionInput - The input type for the summarizeAssetDescription function.
@@ -13,9 +14,14 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SummarizeAssetDescriptionInputSchema = z.object({
-  assetDescription: z
+  voiceDescription: z
     .string()
-    .describe('The description of the asset that needs to be summarized.'),
+    .describe('The voice-captured description of the asset.')
+    .optional(),
+  textDescription: z
+    .string()
+    .describe('The typed/written description of the asset.')
+    .optional(),
 });
 export type SummarizeAssetDescriptionInput = z.infer<
   typeof SummarizeAssetDescriptionInputSchema
@@ -24,7 +30,7 @@ export type SummarizeAssetDescriptionInput = z.infer<
 const SummarizeAssetDescriptionOutputSchema = z.object({
   summary: z
     .string()
-    .describe('A concise summary of the asset description.'),
+    .describe('A concise summary of the combined asset descriptions.'),
 });
 export type SummarizeAssetDescriptionOutput = z.infer<
   typeof SummarizeAssetDescriptionOutputSchema
@@ -40,9 +46,22 @@ const prompt = ai.definePrompt({
   name: 'summarizeAssetDescriptionPrompt',
   input: {schema: SummarizeAssetDescriptionInputSchema},
   output: {schema: SummarizeAssetDescriptionOutputSchema},
-  prompt: `You are an expert asset inspector. Your goal is to provide a consise summary of the asset description provided.  The summary should capture the key details of the asset.
+  prompt: `You are an expert asset inspector. Your goal is to provide a concise summary based on the provided voice and text descriptions of an asset. The summary should capture the key details from both sources. If one description is empty or not provided, base the summary on the available one. If both are empty, indicate that no description was provided.
 
-Asset Description: {{{assetDescription}}}`,
+{{#if voiceDescription}}
+Voice Description:
+{{{voiceDescription}}}
+{{/if}}
+
+{{#if textDescription}}
+Written Description:
+{{{textDescription}}}
+{{/if}}
+
+{{#unless voiceDescription}}{{#unless textDescription}}
+No detailed description was provided for this asset.
+{{/unless}}{{/unless}}
+`,
 });
 
 const summarizeAssetDescriptionFlow = ai.defineFlow(
@@ -52,6 +71,9 @@ const summarizeAssetDescriptionFlow = ai.defineFlow(
     outputSchema: SummarizeAssetDescriptionOutputSchema,
   },
   async input => {
+    if (!input.voiceDescription && !input.textDescription) {
+      return { summary: 'No description provided to summarize.' };
+    }
     const {output} = await prompt(input);
     return output!;
   }
