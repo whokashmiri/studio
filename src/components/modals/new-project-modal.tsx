@@ -70,23 +70,24 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
         setProjectName(''); 
       }
     }}>
-      <DialogContent className="sm:max-w-[425px] max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-full max-h-[90vh] flex flex-col"  style={{ marginBottom: '20vh' }} >
         <DialogHeader>
           <DialogTitle className="font-headline">{t('createNewProject', 'Create New Project')}</DialogTitle>
           <DialogDescription>
-            Enter a name for your new inspection project. You can organize assets and folders within it later.
+            Enter a name for your new inspection project.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4 flex-grow overflow-y-auto">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="project-name" className="text-right">
-              {t('projectName', 'Project Name')}
-            </Label>
+        <div className="grid gap-2 py-2 flex-grow overflow-y-auto">
+          <div className="grid grid-cols-2 items-center gap-2">
+            {/* <Label htmlFor="project-name" className="text-right">
+              {t('projectName')}
+            </Label> */}
             <Input
               id="project-name"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              className="col-span-3"
+              className="col-span-2"
+              type="text"
               placeholder="e.g., Spring Mall Inspection"
               disabled={isLoading}
             />
