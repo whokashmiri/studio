@@ -57,7 +57,7 @@ const translations: Record<Language, Record<string, string>> = {
     assetNameRequiredDesc: "Please enter a name for the asset.",
     assetSavedTitle: "Asset Saved",
     assetSavedDesc: "Asset \"{assetName}\" has been saved.",
-    nextAddPhotos: "Next: Add Photos", // Old key, might be replaced
+    nextAddPhotos: "Next: Add Photos", 
     nextAddManagePhotos: "Next: Add/Manage Photos",
     addDescriptionFor: "Add Description for:",
     provideDetailsPrompt: "Provide detailed information about the asset.",
@@ -128,9 +128,9 @@ const translations: Record<Language, Record<string, string>> = {
     updateAssetButton: "Update Asset",
     editAssetDetailsTitle: "Edit Details for:",
     updateDetailsPrompt: "Update the details for this asset.",
-    confirmPhotosAndContinue: "Confirm Photos & Continue", // Used in main photo batch modal
+    confirmPhotosAndContinue: "Confirm Photos & Continue", 
     confirmAndContinueToDesc: 'Confirm & Continue to Description',
-    doneWithPhotos: 'Done with Photos', // Used in main photo batch modal when editing
+    doneWithPhotos: 'Done with Photos', 
     saveChangesAndContinue: "Save Changes & Continue",
     deleteAssetTitle: "Delete Asset",
     editFolderTitle: "Edit folder {folderName}",
@@ -176,7 +176,6 @@ const translations: Record<Language, Record<string, string>> = {
     collapseFolder: "Collapse folder",
     viewAssetsInFolder: "View assets in {folderName}",
     
-    // Custom Camera UI
     takePhotosCustomCamera: "Take Photos (Camera)",
     initializingCamera: "Initializing Camera...",
     allowCameraAccessPrompt: "Please allow camera access when prompted.",
@@ -184,6 +183,7 @@ const translations: Record<Language, Record<string, string>> = {
     sessionPhotoPreviewAlt: "Session Preview {number}",
     doneWithSession: "Done",
     currentPhotoBatch: "Current Photo Batch",
+    customCameraViewTitle: "Custom Camera View",
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -347,7 +347,6 @@ const translations: Record<Language, Record<string, string>> = {
     collapseFolder: "طي المجلد",
     viewAssetsInFolder: "عرض الأصول في {folderName}",
 
-    // Custom Camera UI
     takePhotosCustomCamera: "التقاط صور (كاميرا)",
     initializingCamera: "جاري تهيئة الكاميرا...",
     allowCameraAccessPrompt: "يرجى السماح بالوصول إلى الكاميرا عند الطلب.",
@@ -355,6 +354,7 @@ const translations: Record<Language, Record<string, string>> = {
     sessionPhotoPreviewAlt: "معاينة صورة الجلسة {number}",
     doneWithSession: "تم",
     currentPhotoBatch: "دفعة الصور الحالية",
+    customCameraViewTitle: "عرض الكاميرا المخصص",
   },
 };
 
@@ -394,4 +394,6 @@ export function useLanguage() {
   }
   return context;
 }
+    
+
     

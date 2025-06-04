@@ -35,8 +35,8 @@ export default function NewAssetPage() {
   const [assetDescription, setAssetDescription] = useState('');
   const [assetSummary, setAssetSummary] = useState<string | undefined>(undefined);
   
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); // Main batch of photos for the asset
-  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false); // For reviewing the main batch
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); 
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false); 
   
   const [isCustomCameraOpen, setIsCustomCameraOpen] = useState(false);
   const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]);
@@ -45,7 +45,7 @@ export default function NewAssetPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null); // For gallery uploads
+  const galleryInputRef = useRef<HTMLInputElement>(null); 
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -88,7 +88,6 @@ export default function NewAssetPage() {
     }
   }, [isEditMode, assetName, currentStep]);
 
-  // Effect for custom camera stream
   useEffect(() => {
     let streamInstance: MediaStream | null = null;
 
@@ -109,14 +108,14 @@ export default function NewAssetPage() {
             title: t('cameraAccessDeniedTitle', 'Camera Access Denied'),
             description: t('cameraAccessDeniedDesc', 'Please enable camera permissions in your browser settings to use this app.'),
           });
-          setIsCustomCameraOpen(false); // Close camera view if permission denied
+          setIsCustomCameraOpen(false); 
         }
       }
     };
 
     getCameraStream();
 
-    return () => { // Cleanup function
+    return () => { 
       if (streamInstance) {
         streamInstance.getTracks().forEach(track => track.stop());
       }
@@ -128,16 +127,14 @@ export default function NewAssetPage() {
   }, [isCustomCameraOpen, toast, t]);
 
 
-  const handleGalleryPhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const newFiles = Array.from(event.target.files);
-      const currentPhotoCount = photoPreviews.length;
-      
       newFiles.forEach(file => {
         const reader = new FileReader();
         reader.onload = (loadEvent) => {
           if (loadEvent.target?.result) {
-            setPhotoPreviews(prev => [...prev, loadEvent.target!.result as string]);
+             setPhotoPreviews(prev => [...prev, loadEvent.target!.result as string]);
           }
         };
         reader.readAsDataURL(file);
@@ -155,7 +152,7 @@ export default function NewAssetPage() {
       const context = canvas.getContext('2d');
       if (context) {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-        const photoDataUrl = canvas.toDataURL('image/jpeg'); // Use JPEG for smaller size
+        const photoDataUrl = canvas.toDataURL('image/jpeg'); 
         setCapturedPhotosInSession(prev => [...prev, photoDataUrl]);
       } else {
          toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
@@ -180,7 +177,7 @@ export default function NewAssetPage() {
     setIsCustomCameraOpen(false);
   };
   
-  const removePhotoFromPreviews = (indexToRemove: number) => { // Used in main batch (photoModal and description step)
+  const removePhotoFromPreviews = (indexToRemove: number) => { 
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
@@ -189,10 +186,10 @@ export default function NewAssetPage() {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
       return;
     }
-    setIsPhotoModalOpen(true); // Open the main batch review modal
+    setIsPhotoModalOpen(true); 
   };
 
-  const handlePhotosSubmittedOrSkipped = () => { // From main batch review modal
+  const handlePhotosSubmittedOrSkipped = () => { 
     setIsPhotoModalOpen(false);
     if (currentStep === 'name' && assetName.trim()){ 
         setCurrentStep('description');
@@ -345,7 +342,7 @@ export default function NewAssetPage() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-      <canvas ref={canvasRef} className="hidden"></canvas> {/* Hidden canvas for capturing frames */}
+      <canvas ref={canvasRef} className="hidden"></canvas> 
       <Link href={backLinkHref} className="text-sm text-primary hover:underline flex items-center mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         {backLinkText}
@@ -353,7 +350,6 @@ export default function NewAssetPage() {
       
        {renderStepContent()}
 
-      {/* Main Photo Batch Review Modal */}
       <Dialog open={isPhotoModalOpen} onOpenChange={(isOpen) => {
           if (!isOpen) {
             if (currentStep === 'name' && assetName.trim()) {
@@ -387,7 +383,7 @@ export default function NewAssetPage() {
                 id="gallery-input-modal" 
                 ref={galleryInputRef}
                 className="hidden" 
-                onChange={handleGalleryPhotoUpload} 
+                onChange={handlePhotoUpload} 
               />
             </div>
 
@@ -428,6 +424,9 @@ export default function NewAssetPage() {
       {/* Custom Camera UI Dialog */}
       <Dialog open={isCustomCameraOpen} onOpenChange={setIsCustomCameraOpen}>
         <DialogContent className="p-0 m-0 w-full h-full max-w-full max-h-full sm:w-[calc(100%-2rem)] sm:h-[calc(100%-2rem)] sm:max-w-4xl sm:max-h-[90vh] sm:rounded-lg overflow-hidden flex flex-col bg-black text-white">
+          <DialogHeader>
+            <DialogTitle className="sr-only">{t('customCameraViewTitle', 'Custom Camera View')}</DialogTitle>
+          </DialogHeader>
           <div className="relative flex-grow w-full h-full flex items-center justify-center">
             {hasCameraPermission === false && (
               <Alert variant="destructive" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 max-w-md z-20">
@@ -449,7 +448,6 @@ export default function NewAssetPage() {
               muted 
               playsInline 
             />
-            {/* Shutter button and session controls */}
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-black bg-opacity-50 z-10">
               {capturedPhotosInSession.length > 0 && (
                 <ScrollArea className="w-full mb-3 max-h-24 whitespace-nowrap">
@@ -498,4 +496,6 @@ export default function NewAssetPage() {
     </div>
   );
 }
+    
+
     
