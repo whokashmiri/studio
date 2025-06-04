@@ -64,7 +64,6 @@ const translations: Record<Language, Record<string, string>> = {
     editPhotos: "Add/Edit Photos",
     removePhotoTitle: "Remove photo",
     addPhotosFor: "Add Photos for",
-    takeOrUploadPhotosPrompt: "You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.", // Kept for reference, will be replaced
     takeOrUploadPhotosPromptNoLimit: "You can take new photos using your device camera or upload from your gallery.",
     noPhotosAddedYet: "No photos added yet.",
     nextStepDescription: "Next: Description",
@@ -74,9 +73,6 @@ const translations: Record<Language, Record<string, string>> = {
     enterAssetNamePrompt: "Enter the asset name.",
     assetNamePlaceholder: "e.g., Main Entrance Column",
     inFolder: "In folder:",
-    maxPhotosTitle: "Maximum {MAX_PHOTOS} Photos", // To be removed or deprecated
-    maxPhotosDesc: "You can upload a maximum of {MAX_PHOTOS} photos.", // To be removed or deprecated
-    maxPhotosReached: "You have reached the maximum of {MAX_PHOTOS} photos.", // To be removed or deprecated
     noCompaniesAvailable: "No companies available. Please check the data source.",
     useSpeech: "Use Speech",
     listening: "Listening...",
@@ -93,11 +89,6 @@ const translations: Record<Language, Record<string, string>> = {
     cameraNotFoundDesc: "No camera was found. Please ensure a camera is connected and enabled.",
     photoCaptureErrorTitle: "Photo Capture Error",
     photoCaptureErrorDesc: "Could not capture photo.",
-    startCamera: "Start Camera", // Deprecated with removal of in-app preview
-    startingCamera: "Starting...", // Deprecated
-    capturePhoto: "Capture Photo", // Deprecated
-    capturingPhoto: "Capturing...", // Deprecated
-    stopCamera: "Stop Camera", // Deprecated
     projectNotFound: "Project Not Found",
     loadingProjectContext: "Loading project context...",
     step1Of3: "Step 1 of 3:",
@@ -106,6 +97,8 @@ const translations: Record<Language, Record<string, string>> = {
     forProject: "for",
     unknownFolder: "Unknown Folder",
     previewPhotoAlt: "Preview {number}",
+    previewBatchPhotoAlt: "Batch Preview {number}",
+    noPhotosInBatch: "No photos in the current batch yet.",
     projectContextLost: "Project context lost",
     noDescriptionAvailable: "No description available.",
     created: "Created",
@@ -225,7 +218,6 @@ const translations: Record<Language, Record<string, string>> = {
     editPhotos: "إضافة/تعديل الصور",
     removePhotoTitle: "إزالة الصورة",
     addPhotosFor: "إضافة صور لـ",
-    takeOrUploadPhotosPrompt: "يمكنك التقاط صور جديدة أو التحميل من معرض الصور الخاص بك. الحد الأقصى {MAX_PHOTOS} صور.",
     takeOrUploadPhotosPromptNoLimit: "يمكنك التقاط صور جديدة باستخدام كاميرا جهازك أو التحميل من معرض الصور الخاص بك.",
     noPhotosAddedYet: "لم تتم إضافة أي صور بعد.",
     nextStepDescription: "التالي: الوصف",
@@ -235,9 +227,6 @@ const translations: Record<Language, Record<string, string>> = {
     enterAssetNamePrompt: "أدخل اسم الأصل.",
     assetNamePlaceholder: "مثال: عمود المدخل الرئيسي",
     inFolder: "في المجلد:",
-    maxPhotosTitle: "الحد الأقصى {MAX_PHOTOS} صور",
-    maxPhotosDesc: "يمكنك تحميل {MAX_PHOTOS} صور كحد أقصى.",
-    maxPhotosReached: "لقد وصلت إلى الحد الأقصى لعدد الصور وهو {MAX_PHOTOS} صور.",
     noCompaniesAvailable: "لا توجد شركات متاحة. يرجى التحقق من مصدر البيانات.",
     useSpeech: "استخدام الصوت",
     listening: "يستمع...",
@@ -254,11 +243,6 @@ const translations: Record<Language, Record<string, string>> = {
     cameraNotFoundDesc: "لم يتم العثور على كاميرا. يرجى التأكد من توصيل الكاميرا وتمكينها.",
     photoCaptureErrorTitle: "خطأ في التقاط الصورة",
     photoCaptureErrorDesc: "تعذر التقاط الصورة.",
-    startCamera: "بدء الكاميرا",
-    startingCamera: "جاري البدء...",
-    capturePhoto: "التقاط صورة",
-    capturingPhoto: "جاري الالتقاط...",
-    stopCamera: "إيقاف الكاميرا",
     projectNotFound: "المشروع غير موجود",
     loadingProjectContext: "جاري تحميل سياق المشروع...",
     step1Of3: "الخطوة 1 من 3:",
@@ -267,6 +251,8 @@ const translations: Record<Language, Record<string, string>> = {
     forProject: "لمشروع",
     unknownFolder: "مجلد غير معروف",
     previewPhotoAlt: "معاينة {number}",
+    previewBatchPhotoAlt: "معاينة الدفعة {number}",
+    noPhotosInBatch: "لا توجد صور في الدفعة الحالية بعد.",
     projectContextLost: "فقد سياق المشروع",
     noDescriptionAvailable: "لا يوجد وصف متاح.",
     created: "تم الإنشاء",
@@ -375,4 +361,3 @@ export function useLanguage() {
   return context;
 }
     
-

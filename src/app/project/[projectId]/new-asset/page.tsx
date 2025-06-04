@@ -9,12 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckSquare, Trash2 } from 'lucide-react';
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3 } from 'lucide-react';
 import type { Project, Asset, ProjectStatus } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
-import { Separator } from '@/components/ui/separator';
 
 type AssetCreationStep = 'name' | 'photos' | 'description';
 
@@ -34,8 +33,7 @@ export default function NewAssetPage() {
   const [assetDescription, setAssetDescription] = useState('');
   const [assetSummary, setAssetSummary] = useState<string | undefined>(undefined);
   
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); // Main batch of photos
-  const [newlyCapturedPhotos, setNewlyCapturedPhotos] = useState<string[]>([]); // Staging area for new photos
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   
   const { toast } = useToast();
@@ -91,7 +89,7 @@ export default function NewAssetPage() {
         const reader = new FileReader();
         reader.onload = (loadEvent) => {
           if (loadEvent.target?.result) {
-            setNewlyCapturedPhotos(prev => [...prev, loadEvent.target!.result as string]);
+            setPhotoPreviews(prev => [...prev, loadEvent.target!.result as string]);
           }
         };
         reader.readAsDataURL(file);
@@ -103,16 +101,6 @@ export default function NewAssetPage() {
   const removePhotoFromPreviews = (indexToRemove: number) => {
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
   };
-
-  const handleAddAllNewPhotos = () => {
-    setPhotoPreviews(prev => [...prev, ...newlyCapturedPhotos]);
-    setNewlyCapturedPhotos([]);
-  };
-
-  const handleClearNewPhotos = () => {
-    setNewlyCapturedPhotos([]);
-  };
-
 
   const handleNameSubmit = () => {
     if (!assetName.trim()) {
@@ -328,46 +316,8 @@ export default function NewAssetPage() {
               />
             </div>
 
-            {/* Section 1: Newly Captured/Selected Photos */}
-            {newlyCapturedPhotos.length > 0 && (
-              <div className="space-y-2 p-3 border rounded-md bg-muted/30 mt-4">
-                <Label>{t('newlyCapturedPhotosTitle', 'Newly Captured/Selected ({count})', { count: newlyCapturedPhotos.length })}</Label>
-                <div className="grid grid-cols-6 gap-1.5">
-                  {newlyCapturedPhotos.map((src, index) => (
-                    <div key={`new-${index}-${src.substring(0,20)}`} className="relative group">
-                      <img src={src} alt={t('previewNewPhotoAlt', `New Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo new" className="rounded-md object-cover aspect-square" />
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleAddAllNewPhotos}
-                    disabled={newlyCapturedPhotos.length === 0}
-                    className="flex-1"
-                  >
-                    <CheckSquare className="mr-2 h-4 w-4" /> {t('addAllToBatch', 'Add All to Batch')}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={handleClearNewPhotos}
-                    disabled={newlyCapturedPhotos.length === 0}
-                    className="flex-1"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> {t('clearNewPhotos', 'Clear New Photos')}
-                  </Button>
-                </div>
-              </div>
-            )}
-            {newlyCapturedPhotos.length === 0 && currentStep !== 'name' && (
-                 <p className="text-sm text-muted-foreground text-center py-2">{t('noNewPhotosStaged', 'No new photos staged. Use camera or gallery to add.')}</p>
-            )}
-
-            <Separator className="my-3" />
-
-            {/* Section 2: Current Batch for Asset */}
-            <div className="space-y-2">
-              <Label>{t('currentBatchTitle', 'Current Batch for Asset ({count})', { count: photoPreviews.length })}</Label>
+            <div className="space-y-2 mt-4">
+              <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
               {photoPreviews.length > 0 ? (
                 <div className="grid grid-cols-6 gap-1.5">
                   {photoPreviews.map((src, index) => (
@@ -392,11 +342,10 @@ export default function NewAssetPage() {
           </div>
           <DialogFooter className="flex flex-row justify-end space-x-2 pt-4 border-t">
              <Button variant="outline" onClick={handlePhotosSubmittedOrSkipped} className="flex-1 sm:flex-auto">
-                {photoPreviews.length > 0 || newlyCapturedPhotos.length > 0 || isEditMode ? t('confirmPhotosAndContinue', 'Confirm Photos & Continue') : t('skipPhotosAndNext', 'Skip Photos & Next')}
+                {photoPreviews.length > 0 || isEditMode ? t('confirmPhotosAndContinue', 'Confirm Photos & Continue') : t('skipPhotosAndNext', 'Skip Photos & Next')}
              </Button>
-             {/* Keep this button or adjust its role. Currently it also just closes the modal and relies on onOpenChange to advance step. */}
              <Button onClick={handlePhotosSubmittedOrSkipped} className="flex-1 sm:flex-auto">
-                <Save className="mr-2 h-4 w-4" /> {isEditMode ? t('saveChangesAndContinue', 'Save Changes & Continue') : (photoPreviews.length > 0 || newlyCapturedPhotos.length > 0 ? t('savePhotosAndContinue', 'Save Photos & Continue') : t('nextStepDescription', 'Next: Description'))}
+                <Save className="mr-2 h-4 w-4" /> {isEditMode ? t('saveChangesAndContinue', 'Save Changes & Continue') : (photoPreviews.length > 0 ? t('savePhotosAndContinue', 'Save Photos & Continue') : t('nextStepDescription', 'Next: Description'))}
              </Button>
           </DialogFooter>
         </DialogContent>
@@ -405,4 +354,3 @@ export default function NewAssetPage() {
   );
 }
     
-
