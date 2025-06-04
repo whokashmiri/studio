@@ -62,7 +62,7 @@ function FolderItem({ folder, folders, projectId, onSelectFolder, onAddSubfolder
           ) : (
              <span className="w-4 mr-1 shrink-0"></span> 
           )}
-          <FolderIcon className={cn("h-5 w-5 mr-2 shrink-0", selectedFolderId === folder.id ? "text-primary" : "text-muted-foreground group-hover:text-primary/80")} /> 
+          <FolderIcon className={cn("h-6 w-6 mr-2 shrink-0", selectedFolderId === folder.id ? "text-primary" : "text-muted-foreground group-hover:text-primary/80")} /> 
           <span className="text-sm truncate" title={folder.name}>{folder.name}</span>
         </div>
         <div className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity focus-within:opacity-100">
