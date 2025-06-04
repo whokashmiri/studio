@@ -78,6 +78,21 @@ export default function ProjectPage() {
     }
   }, [selectedFolder, project, router]);
 
+  const getFolderPath = useCallback((folderId: string | null, currentProject: Project, allFolders: FolderType[]): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
+    const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
+    let current: FolderType | undefined | null = folderId ? allFolders.find(f => f.id === folderId && f.projectId === currentProject.id) : null;
+  
+    while (current) {
+      path.unshift({ id: current.id, name: current.name, type: 'folder' });
+      current = current.parentId ? allFolders.find(f => f.id === current.parentId && f.projectId === currentProject.id) : null;
+    }
+    path.unshift({ id: null, name: currentProject.name, type: 'project' }); 
+    return path;
+  }, []); // This useCallback is now before the early return
+
+  if (!project) {
+    return <div className="container mx-auto p-4 text-center">{t('loadingProjectContext', 'Loading project context...')}</div>;
+  }
 
   const handleSelectFolder = (folder: FolderType | null) => {
     setSelectedFolder(folder);
@@ -95,7 +110,7 @@ export default function ProjectPage() {
 
     LocalStorageService.addFolder(newFolder);
     setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); 
-    setSelectedFolder(newFolder); // Automatically navigate into the new folder
+    setSelectedFolder(newFolder); 
     
     const updatedProjectData = {
       ...project,
@@ -111,6 +126,7 @@ export default function ProjectPage() {
   };
   
   const openNewFolderDialog = (parentFolderContext: FolderType | null) => {
+    setSelectedFolder(parentFolderContext); // Set context before opening dialog
     setIsNewFolderDialogOpen(true); 
   };
 
@@ -122,7 +138,7 @@ export default function ProjectPage() {
   const handleFolderUpdated = (updatedFolder: FolderType) => {
     setFolders(LocalStorageService.getFolders().filter(f => f.projectId === projectId)); 
     if (selectedFolder && selectedFolder.id === updatedFolder.id) {
-      setSelectedFolder(updatedFolder); // Update selected folder if it was the one edited
+      setSelectedFolder(updatedFolder); 
     }
     if (project) {
       const updatedProjectData = {
@@ -136,28 +152,11 @@ export default function ProjectPage() {
   };
   
   const displayedAssets = assets.filter(asset => 
-    selectedFolder ? asset.folderId === selectedFolder.id : asset.folderId === null // This will be empty for root if we disallow root assets
+    selectedFolder ? asset.folderId === selectedFolder.id : false // Only show assets if a folder is selected
   );
-
-  if (!project) {
-    return <div className="container mx-auto p-4 text-center">{t('loadingProjectContext', 'Loading project context...')}</div>;
-  }
 
   const canCreateAsset = !!selectedFolder;
   const newAssetHref = canCreateAsset ? `/project/${project.id}/new-asset?folderId=${selectedFolder!.id}` : '#';
-
-  const getFolderPath = useCallback((folderId: string | null, currentProject: Project, allFolders: FolderType[]): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
-    const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
-    let current: FolderType | undefined | null = folderId ? allFolders.find(f => f.id === folderId && f.projectId === currentProject.id) : null;
-  
-    while (current) {
-      path.unshift({ id: current.id, name: current.name, type: 'folder' });
-      current = current.parentId ? allFolders.find(f => f.id === current.parentId && f.projectId === currentProject.id) : null;
-    }
-    path.unshift({ id: null, name: currentProject.name, type: 'project' }); 
-    return path;
-  }, []);
-
   const breadcrumbItems = selectedFolder ? getFolderPath(selectedFolder.id, project, folders) : [{ id: null, name: project.name, type: 'project' as 'project' | 'folder' }];
 
 
@@ -199,7 +198,7 @@ export default function ProjectPage() {
                 <FolderPlus className="mr-2 h-4 w-4" /> {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addNewFolderToRoot', 'Add New Folder to Root')}
               </Button>
             )}
-            {isMobile && <div className="h-10"></div>}
+            {isMobile && <div className="h-10"></div>} {/* Placeholder for mobile to maintain layout consistency if header content varies */}
           </CardHeader>
           <CardContent>
             <FolderTree 
@@ -207,7 +206,6 @@ export default function ProjectPage() {
               projectId={project.id} 
               onSelectFolder={handleSelectFolder}
               onAddSubfolder={(parentFolder) => {
-                setSelectedFolder(parentFolder); 
                 openNewFolderDialog(parentFolder);
               }}
               onEditFolder={handleOpenEditFolderModal}
@@ -293,7 +291,7 @@ export default function ProjectPage() {
             size="lg"
           >
             <FolderPlus className="mr-2 h-5 w-5" />
-            {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addNewFolder', 'Add New Folder')}
+            {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addNewFolderToRoot', 'Add New Folder to Root')}
           </Button>
           <Link href={newAssetHref} passHref legacyBehavior>
             <Button
@@ -324,7 +322,7 @@ export default function ProjectPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-                {selectedFolder ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: selectedFolder.name }) : t('addNewFolder', 'Add New Folder')}
+                {selectedFolder ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: selectedFolder.name }) : t('addNewFolderToRoot', 'Add New Folder to Root')}
             </DialogTitle>
           </DialogHeader>
           <div>
