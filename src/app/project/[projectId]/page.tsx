@@ -94,11 +94,8 @@ export default function ProjectPage() {
   }
 
   const handleSelectFolder = (folder: FolderType | null) => {
-    // Set selected folder state for immediate UI feedback if needed,
-    // though loadProjectData will ultimately set it based on URL.
-    setSelectedFolder(folder); 
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
-    router.push(targetPath, { scroll: false }); // Use router.push to add to history
+    router.push(targetPath, { scroll: false }); 
   };
 
   const handleCreateFolder = () => {
@@ -125,9 +122,7 @@ export default function ProjectPage() {
     setNewFolderParentContext(null);
     toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created and selected.`, {folderName: newFolder.name})});
     
-    // Navigate to the new folder by calling handleSelectFolder, which uses router.push
     handleSelectFolder(newFolder); 
-    // loadProjectData() will be triggered by the URL change caused by router.push
   };
 
 
@@ -142,19 +137,18 @@ export default function ProjectPage() {
   };
 
   const handleFolderDeleted = (deletedFolder: FolderType) => {
-    loadProjectData(); // Reloads data based on current URL
-    // If the deleted folder was selected, navigate to its parent or project root
+    loadProjectData(); 
     if (selectedFolder && selectedFolder.id === deletedFolder.id) {
         const parentFolder = deletedFolder.parentId ? allProjectFolders.find(f => f.id === deletedFolder.parentId) : null;
-        handleSelectFolder(parentFolder); // This will use router.push
+        handleSelectFolder(parentFolder); 
     }
   };
 
   const handleFolderUpdated = (updatedFolder: FolderType) => {
-    loadProjectData(); // Reloads based on current URL, which should reflect the updated folder's context if selected
+    loadProjectData(); 
     if (selectedFolder && selectedFolder.id === updatedFolder.id) {
       const reloadedFolder = LocalStorageService.getFolders().find(f => f.id === updatedFolder.id);
-      setSelectedFolder(reloadedFolder || null); // Update local state, URL is already correct or will be by loadProjectData
+      setSelectedFolder(reloadedFolder || null); 
     }
     if (project) {
       const updatedProjectData = {
@@ -169,14 +163,14 @@ export default function ProjectPage() {
 
   const handleEditAsset = (asset: Asset) => {
     const editUrl = `/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
-    router.push(editUrl); // Use push for navigating to edit asset page
+    router.push(editUrl); 
   };
 
   const handleDeleteAsset = (assetToDelete: Asset) => {
     if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
       LocalStorageService.deleteAsset(assetToDelete.id);
       toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-      loadProjectData(); // Refresh assets for current view
+      loadProjectData(); 
     }
   };
 
@@ -203,47 +197,55 @@ export default function ProjectPage() {
           <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
           <p className="text-muted-foreground text-sm sm:text-base line-clamp-2 sm:line-clamp-none">{project.description}</p>
         </div>
-        <Link href={newAssetHref} passHref legacyBehavior>
-            <Button
-              className="w-full sm:w-auto"
-              title={t('newAsset', 'New Asset')}
-            >
-              <FilePlus className="mr-2 h-5 w-5" />
-              {t('newAsset', 'New Asset')}
-            </Button>
-          </Link>
+        <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
+            {!isMobile && (
+              <Button 
+                variant="default" 
+                size="default" 
+                onClick={() => openNewFolderDialog(selectedFolder)} 
+                title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                className="w-full sm:w-auto"
+              >
+                <FolderPlus className="mr-2 h-4 w-4" />
+                {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+              </Button>
+            )}
+            <Link href={newAssetHref} passHref legacyBehavior>
+                <Button
+                  className="w-full sm:w-auto"
+                  size="default"
+                  title={t('newAsset', 'New Asset')}
+                >
+                  <FilePlus className="mr-2 h-5 w-5" />
+                  {t('newAsset', 'New Asset')}
+                </Button>
+              </Link>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
-             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3">
-                <CardTitle className="text-base sm:text-lg flex flex-wrap items-center">
-                {breadcrumbItems.map((item, index) => (
-                    <React.Fragment key={item.id || `project_root_${project.id}`}>
-                    <span
-                        className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                        onClick={() => {
-                        if (item.type === 'project') {
-                            handleSelectFolder(null);
-                        } else if (item.id) {
-                            const folderToSelect = allProjectFolders.find(f => f.id === item.id);
-                            if (folderToSelect) handleSelectFolder(folderToSelect);
-                        }
-                        }}
-                        title={t('clickToNavigateTo', 'Click to navigate to {name}', { name: item.name })}
-                    >
-                        {item.name}
-                    </span>
-                    {index < breadcrumbItems.length - 1 && <span className="mx-1.5 text-muted-foreground">{t('breadcrumbSeparator', '>')}</span>}
-                    </React.Fragment>
-                ))}
-                </CardTitle>
-                {!isMobile && (
-                    <Button variant="default" size="lg" onClick={() => openNewFolderDialog(selectedFolder)} title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}>
-                        <FolderPlus className="mr-2 h-4 w-4" /> {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
-                    </Button>
-                )}
-            </div>
+            <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
+            {breadcrumbItems.map((item, index) => (
+                <React.Fragment key={item.id || `project_root_${project.id}`}>
+                <span
+                    className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                    onClick={() => {
+                    if (item.type === 'project') {
+                        handleSelectFolder(null);
+                    } else if (item.id) {
+                        const folderToSelect = allProjectFolders.find(f => f.id === item.id);
+                        if (folderToSelect) handleSelectFolder(folderToSelect);
+                    }
+                    }}
+                    title={t('clickToNavigateTo', 'Click to navigate to {name}', { name: item.name })}
+                >
+                    {item.name}
+                </span>
+                {index < breadcrumbItems.length - 1 && <span className="mx-1.5 text-muted-foreground">{t('breadcrumbSeparator', '>')}</span>}
+                </React.Fragment>
+            ))}
+            </CardTitle>
             {selectedFolder ?
                 <CardDescription>{t('contentsOfFolder', 'Contents of "{folderName}"', {folderName: selectedFolder.name})}</CardDescription>
                 :
@@ -283,11 +285,11 @@ export default function ProjectPage() {
       </Card>
 
       {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0 p-3 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2">
+        <div className="fixed bottom-0 left-0 right-0 p-2 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2">
           <Button
             onClick={() => openNewFolderDialog(selectedFolder)}
             className="flex-1"
-            size="lg"
+            size="default"
           >
             <FolderPlus className="mr-2 h-5 w-5" />
             {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
@@ -295,7 +297,7 @@ export default function ProjectPage() {
           <Link href={newAssetHref} passHref legacyBehavior>
             <Button
               className="flex-1"
-              size="lg"
+              size="default"
               title={t('newAsset', 'New Asset')}
             >
               <FilePlus className="mr-2 h-5 w-5" />
@@ -348,3 +350,4 @@ export default function ProjectPage() {
     </div>
   );
 }
+
