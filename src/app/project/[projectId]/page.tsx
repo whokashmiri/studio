@@ -88,25 +88,17 @@ export default function ProjectPage() {
     loadProjectData();
   }, [loadProjectData]);
 
-  // This effect updates the URL when selectedFolder changes internally (e.g., user clicks a folder)
-  useEffect(() => {
-    if (project && typeof window !== 'undefined') {
-      const targetPath = `/project/${project.id}${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
-      const currentBrowserPath = window.location.pathname + window.location.search;
-      if (currentBrowserPath !== targetPath) {
-        router.replace(targetPath, { scroll: false });
-      }
-    }
-  }, [selectedFolder, project, router]);
-
 
   if (!project) {
     return <div className="container mx-auto p-4 text-center">{t('loadingProjectContext', 'Loading project context...')}</div>;
   }
 
   const handleSelectFolder = (folder: FolderType | null) => {
-    setSelectedFolder(folder);
-    // The useEffect above will handle router.replace
+    // Set selected folder state for immediate UI feedback if needed,
+    // though loadProjectData will ultimately set it based on URL.
+    setSelectedFolder(folder); 
+    const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
+    router.push(targetPath, { scroll: false }); // Use router.push to add to history
   };
 
   const handleCreateFolder = () => {
@@ -132,8 +124,10 @@ export default function ProjectPage() {
     setIsNewFolderDialogOpen(false);
     setNewFolderParentContext(null);
     toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created and selected.`, {folderName: newFolder.name})});
-    loadProjectData(); // Reload data to get new folder
-    setSelectedFolder(newFolder); // Directly select the new folder
+    
+    // Navigate to the new folder by calling handleSelectFolder, which uses router.push
+    handleSelectFolder(newFolder); 
+    // loadProjectData() will be triggered by the URL change caused by router.push
   };
 
 
@@ -148,18 +142,19 @@ export default function ProjectPage() {
   };
 
   const handleFolderDeleted = (deletedFolder: FolderType) => {
-    loadProjectData();
+    loadProjectData(); // Reloads data based on current URL
+    // If the deleted folder was selected, navigate to its parent or project root
     if (selectedFolder && selectedFolder.id === deletedFolder.id) {
         const parentFolder = deletedFolder.parentId ? allProjectFolders.find(f => f.id === deletedFolder.parentId) : null;
-        setSelectedFolder(parentFolder || null);
+        handleSelectFolder(parentFolder); // This will use router.push
     }
   };
 
   const handleFolderUpdated = (updatedFolder: FolderType) => {
-    loadProjectData();
+    loadProjectData(); // Reloads based on current URL, which should reflect the updated folder's context if selected
     if (selectedFolder && selectedFolder.id === updatedFolder.id) {
       const reloadedFolder = LocalStorageService.getFolders().find(f => f.id === updatedFolder.id);
-      setSelectedFolder(reloadedFolder || null);
+      setSelectedFolder(reloadedFolder || null); // Update local state, URL is already correct or will be by loadProjectData
     }
     if (project) {
       const updatedProjectData = {
@@ -174,14 +169,14 @@ export default function ProjectPage() {
 
   const handleEditAsset = (asset: Asset) => {
     const editUrl = `/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
-    router.push(editUrl);
+    router.push(editUrl); // Use push for navigating to edit asset page
   };
 
   const handleDeleteAsset = (assetToDelete: Asset) => {
     if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
       LocalStorageService.deleteAsset(assetToDelete.id);
       toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-      loadProjectData();
+      loadProjectData(); // Refresh assets for current view
     }
   };
 
