@@ -9,6 +9,7 @@ import type { Company, Project, ProjectStatus } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { FolderPlus, CheckCircle, Star, Clock, Sparkles, ArrowLeft } from 'lucide-react';
 import { ProjectCard } from './project-card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/contexts/language-context';
 import { useToast } from '@/hooks/use-toast';
 
@@ -42,8 +43,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
       if (activeTab === 'new' && a.createdAt && b.createdAt) {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
-      // Fallback sort by name if dates are equal or not primary sort key for the tab
-      if (a.isFavorite && !b.isFavorite && activeTab === 'favorite') return -1; // Favorites first within favorite tab
+      if (a.isFavorite && !b.isFavorite && activeTab === 'favorite') return -1; 
       if (!a.isFavorite && b.isFavorite && activeTab === 'favorite') return 1;
       return (a.name || '').localeCompare(b.name || '');
     });
@@ -61,23 +61,22 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
 
   const handleProjectUpdated = (updatedProject: Project) => {
     setProjects(LocalStorageService.getProjects());
-    // If the updated project was the one being edited, clear editingProject
     if (editingProject && editingProject.id === updatedProject.id) {
         setEditingProject(null);
     }
   };
 
   const handleToggleFavorite = (projectToToggle: Project) => {
-    const updatedProject = {
+    const updatedProjectData = {
       ...projectToToggle,
       isFavorite: !projectToToggle.isFavorite,
-      lastAccessed: new Date().toISOString(), // Update lastAccessed time
+      lastAccessed: new Date().toISOString(), 
     };
-    LocalStorageService.updateProject(updatedProject);
-    setProjects(LocalStorageService.getProjects()); // Refresh the list
+    LocalStorageService.updateProject(updatedProjectData);
+    setProjects(currentProjects => currentProjects.map(p => p.id === updatedProjectData.id ? updatedProjectData : p));
     toast({
-      title: updatedProject.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
-      description: `Project "${updatedProject.name}" status updated.`,
+      title: updatedProjectData.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
+      description: `Project "${updatedProjectData.name}" status updated.`,
     });
   };
   
@@ -114,16 +113,18 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
         {tabItems.map(item => (
           <TabsContent key={item.value} value={item.value} className="mt-6">
             {filteredProjects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {filteredProjects.map((project) => (
-                  <ProjectCard 
-                    key={project.id} 
-                    project={project} 
-                    onEditProject={handleOpenEditModal}
-                    onToggleFavorite={handleToggleFavorite} 
-                  />
-                ))}
-              </div>
+              <ScrollArea className="max-h-[60vh] pr-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {filteredProjects.map((project) => (
+                    <ProjectCard 
+                      key={project.id} 
+                      project={project} 
+                      onEditProject={handleOpenEditModal}
+                      onToggleFavorite={handleToggleFavorite} 
+                    />
+                  ))}
+                </div>
+              </ScrollArea>
             ) : (
               <div className="text-center py-12">
                 <p className="text-lg text-muted-foreground">{t('noProjectsFound', 'No projects found in this category.')}</p>
@@ -133,7 +134,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
         ))}
       </Tabs>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t md:static md:bg-transparent md:p-0 md:border-none md:flex md:justify-end">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40 md:static md:bg-transparent md:p-0 md:border-none md:flex md:justify-end">
         <Button size="lg" onClick={() => setIsNewModalOpen(true)} className="w-full md:w-auto shadow-lg md:shadow-none">
           <FolderPlus className="mr-2 h-5 w-5" />
           {t('createNewProject', 'Create New Project')}
