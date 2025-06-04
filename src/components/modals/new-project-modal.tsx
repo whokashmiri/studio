@@ -36,9 +36,7 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     }
 
     setIsLoading(true);
-    // Simulate API call if needed, though localStorage is synchronous
-    // await new Promise(resolve => setTimeout(resolve, 1000)); // Removed for faster UX with localStorage
-
+    
     const now = new Date().toISOString();
     const newProject: Project = {
       id: `proj_${Date.now()}`,
@@ -53,16 +51,15 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
 
     LocalStorageService.addProject(newProject);
     
-    onProjectCreated(newProject); // Callback to update parent state
+    onProjectCreated(newProject); 
     setIsLoading(false);
     setProjectName('');
-    onClose(); // Close modal
+    onClose(); 
     
     toast({
       title: "Project Created",
       description: `Project "${newProject.name}" has been successfully created.`,
     });
-    // Redirect to the new project page
     router.push(`/project/${newProject.id}`);
   };
 
@@ -70,17 +67,17 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) {
         onClose();
-        setProjectName(''); // Reset field if dialog is closed
+        setProjectName(''); 
       }
     }}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-headline">{t('createNewProject', 'Create New Project')}</DialogTitle>
           <DialogDescription>
             Enter a name for your new inspection project. You can organize assets and folders within it later.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 flex-grow overflow-y-auto">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="project-name" className="text-right">
               {t('projectName', 'Project Name')}

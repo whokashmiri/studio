@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { FolderGrid } from '@/components/folder-tree'; // Updated import
+import { FolderGrid } from '@/components/folder-tree';
 import type { Project, Folder as FolderType, Asset as AssetType, ProjectStatus } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { Home, FolderPlus, FilePlus } from 'lucide-react';
@@ -192,10 +192,10 @@ export default function ProjectPage() {
               onClick={(e) => {
                 if (!canCreateAsset) {
                   e.preventDefault();
-                  toast({ title: t('noFolderSelectedForAssetTitle', "No Folder Selected"), description: t('noFolderSelectedForAssetDesc', "Please create or select a folder before adding an asset.") });
+                  toast({ title: t('noFolderSelectedForAssetTitle', "Folder Required for Asset"), description: t('noFolderSelectedForAssetDesc', "Please create or select a folder before adding an asset.") });
                 }
               }}
-              title={!canCreateAsset ? t('selectFolderForAssetTooltip', "Select a folder to add an asset") : t('newAsset', 'New Asset')}
+              title={!canCreateAsset ? t('selectFolderForAssetTooltip', "Select or create a folder to add an asset") : t('newAsset', 'New Asset')}
             >
               <FilePlus className="mr-2 h-5 w-5" />
               {t('newAsset', 'New Asset')}
@@ -282,10 +282,10 @@ export default function ProjectPage() {
               onClick={(e) => {
                 if (!canCreateAsset) {
                   e.preventDefault();
-                  toast({ title: t('noFolderSelectedForAssetTitle', "No Folder Selected"), description: t('noFolderSelectedForAssetDesc', "Please create or select a folder before adding an asset.") });
+                  toast({ title: t('noFolderSelectedForAssetTitle', "Folder Required for Asset"), description: t('noFolderSelectedForAssetDesc', "Please create or select a folder before adding an asset.") });
                 }
               }}
-              title={!canCreateAsset ? t('selectFolderForAssetTooltip', "Select a folder to add an asset") : t('newAsset', 'New Asset')}
+              title={!canCreateAsset ? t('selectFolderForAssetTooltip', "Select or create a folder to add an asset") : t('newAsset', 'New Asset')}
             >
               <FilePlus className="mr-2 h-5 w-5" />
               {t('newAsset', 'New Asset')}
@@ -301,13 +301,13 @@ export default function ProjectPage() {
         }
         setIsNewFolderDialogOpen(isOpen);
       }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
                 {newFolderParentContext ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: newFolderParentContext.name }) : t('addNewFolderToRoot', 'Add New Folder to Root')}
             </DialogTitle>
           </DialogHeader>
-          <div>
+          <div className="flex-grow overflow-y-auto py-4 space-y-2">
             <Label htmlFor="new-folder-name">{t('folderName', 'Folder Name')}</Label>
             <Input 
               id="new-folder-name" 
@@ -337,4 +337,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-

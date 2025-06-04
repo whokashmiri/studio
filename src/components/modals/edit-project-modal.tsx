@@ -76,14 +76,14 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
         onClose();
       }
     }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-headline">{t('editProjectTitle', 'Edit Project')}</DialogTitle>
           <DialogDescription>
             {t('editProjectDesc', 'Update the details for your project.')}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 flex-grow overflow-y-auto">
           <div className="space-y-2">
             <Label htmlFor="edit-project-name">
               {t('projectName', 'Project Name')}

@@ -34,8 +34,8 @@ export default function NewAssetPage() {
   const [assetDescription, setAssetDescription] = useState('');
   const [assetSummary, setAssetSummary] = useState<string | undefined>(undefined);
   
-  const [photos, setPhotos] = useState<File[]>([]); // For new File objects
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); // For URL.createObjectURL or existing URLs
+  const [photos, setPhotos] = useState<File[]>([]); 
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); 
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   
   const { toast } = useToast();
@@ -83,7 +83,6 @@ export default function NewAssetPage() {
     loadProjectAndAsset();
   }, [loadProjectAndAsset]);
 
-  // Effect to automatically move to description step in edit mode if asset name is present
   useEffect(() => {
     if (isEditMode && assetName && currentStep === 'name') {
       setCurrentStep('description');
@@ -398,12 +397,12 @@ export default function NewAssetPage() {
             setIsPhotoModalOpen(true);
           }
       }}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-headline">{isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
             <DialogDescription>{t('takeOrUploadPhotosPrompt', `You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.`, {MAX_PHOTOS: MAX_PHOTOS})}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4 max-h-[calc(80vh-12rem)] overflow-y-auto"> {/* Adjusted for scrollability */}
+          <div className="space-y-4 py-4 flex-grow overflow-y-auto">
             <div className="flex flex-col sm:flex-row gap-2">
             <Button 
                 variant="outline" 
@@ -464,7 +463,7 @@ export default function NewAssetPage() {
             )}
 
             {photoPreviews.length >= MAX_PHOTOS && !showCameraPreview && ( 
-                 <Alert variant="default" className="border-yellow-500 text-yellow-700"> {/* Consider a less intrusive variant if default is too strong */}
+                 <Alert variant="default" className="border-yellow-500 text-yellow-700">
                     <AlertTriangle className="h-4 w-4 !text-yellow-600" />
                     <AlertDescription>
                        {t('maxPhotosReached', `You have reached the maximum of ${MAX_PHOTOS} photos.`)}
@@ -493,11 +492,11 @@ export default function NewAssetPage() {
                 <p className="text-sm text-muted-foreground text-center py-4">{t('noPhotosAddedYet', 'No photos added yet.')}</p>
              )}
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 pt-4 border-t"> {/* Added pt-4 and border-t */}
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 pt-4 border-t">
              <Button variant="outline" onClick={handlePhotosSubmittedOrSkipped} className="w-full sm:w-auto">
                 {photoPreviews.length > 0 || isEditMode ? t('confirmPhotosAndContinue', 'Confirm Photos & Continue') : t('skipPhotosAndNext', 'Skip Photos & Next')}
              </Button>
-             <Button onClick={handlePhotosSubmittedOrSkipped} disabled={photoPreviews.length === 0 && !isEditMode} className="w-full sm:w-auto"> {/* Allow continue if editing even with 0 photos */}
+             <Button onClick={handlePhotosSubmittedOrSkipped} disabled={photoPreviews.length === 0 && !isEditMode} className="w-full sm:w-auto">
                 <Save className="mr-2 h-4 w-4" /> {isEditMode ? t('saveChangesAndContinue', 'Save Changes & Continue') : t('savePhotosAndContinue', 'Save Photos & Continue')}
              </Button>
           </DialogFooter>
@@ -506,5 +505,3 @@ export default function NewAssetPage() {
     </div>
   );
 }
-
-    
