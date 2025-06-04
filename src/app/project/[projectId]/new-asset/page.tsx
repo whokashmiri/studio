@@ -397,7 +397,7 @@ export default function NewAssetPage() {
             setIsPhotoModalOpen(true);
           }
       }}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-headline">{isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3', 'Step 2 of 3:')} {t('addPhotosFor', 'Add Photos for')} "{assetName}"</DialogTitle>
             <DialogDescription>{t('takeOrUploadPhotosPrompt', `You can take new photos or upload from your gallery. Max {MAX_PHOTOS} photos.`, {MAX_PHOTOS: MAX_PHOTOS})}</DialogDescription>

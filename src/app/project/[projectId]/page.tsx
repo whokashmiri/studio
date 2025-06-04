@@ -39,7 +39,7 @@ export default function ProjectPage() {
   const { toast } = useToast();
   const { t } = useLanguage();
   const isMobile = useIsMobile();
-
+  
   const getFolderPath = useCallback((folderId: string | null, currentProject: Project | null, allFolders: FolderType[]): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
     const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
     if (!currentProject) return path;
@@ -53,6 +53,7 @@ export default function ProjectPage() {
     path.unshift({ id: null, name: currentProject.name, type: 'project' }); 
     return path;
   }, []);
+
 
   const loadProjectData = useCallback(() => {
     if (projectId) {
@@ -301,7 +302,7 @@ export default function ProjectPage() {
         }
         setIsNewFolderDialogOpen(isOpen);
       }}>
-        <DialogContent className="max-h-[85vh] flex flex-col">
+        <DialogContent className="max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
                 {newFolderParentContext ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: newFolderParentContext.name }) : t('addNewFolderToRoot', 'Add New Folder to Root')}

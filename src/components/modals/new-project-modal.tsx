@@ -70,7 +70,7 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
         setProjectName(''); 
       }
     }}>
-      <DialogContent className="sm:max-w-[425px] max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-[425px] max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-headline">{t('createNewProject', 'Create New Project')}</DialogTitle>
           <DialogDescription>

@@ -76,7 +76,7 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
         onClose();
       }
     }}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-headline">{t('editProjectTitle', 'Edit Project')}</DialogTitle>
           <DialogDescription>
