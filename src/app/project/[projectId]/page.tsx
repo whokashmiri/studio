@@ -34,6 +34,7 @@ export default function ProjectPage() {
   
   const [editingFolder, setEditingFolder] = useState<FolderType | null>(null);
   const [isEditFolderModalOpen, setIsEditFolderModalOpen] = useState(false);
+  const [newFolderParentContext, setNewFolderParentContext] = useState<FolderType | null>(null);
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -104,9 +105,6 @@ export default function ProjectPage() {
       id: `folder_${Date.now()}`,
       name: newFolderName,
       projectId: project.id,
-      // Parent ID is determined by `selectedFolder` state when dialog was opened.
-      // If `newFolderParentContext` (see openNewFolderDialog) is null, parentId is null (root).
-      // Else, parentId is `newFolderParentContext.id`.
       parentId: newFolderParentContext ? newFolderParentContext.id : null,
     };
 
@@ -124,14 +122,13 @@ export default function ProjectPage() {
     
     setNewFolderName('');
     setIsNewFolderDialogOpen(false);
-    setNewFolderParentContext(null); // Reset context
+    setNewFolderParentContext(null); 
     toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created and selected.`, {folderName: newFolder.name})});
   };
   
-  const [newFolderParentContext, setNewFolderParentContext] = useState<FolderType | null>(null);
 
   const openNewFolderDialog = (parentContextForNewDialog: FolderType | null) => {
-    setNewFolderParentContext(parentContextForNewDialog); // Store the parent context for when "Confirm" is clicked
+    setNewFolderParentContext(parentContextForNewDialog); 
     setIsNewFolderDialogOpen(true); 
   };
 
@@ -142,7 +139,6 @@ export default function ProjectPage() {
   
   const handleFolderDeleted = (deletedFolder: FolderType) => {
     setAllProjectFolders(currentFolders => currentFolders.filter(f => f.id !== deletedFolder.id));
-    // If the deleted folder was selected, navigate up or to root
     if (selectedFolder && selectedFolder.id === deletedFolder.id) {
       const parentFolder = deletedFolder.parentId ? allProjectFolders.find(f => f.id === deletedFolder.parentId) : null;
       setSelectedFolder(parentFolder || null);
@@ -234,7 +230,7 @@ export default function ProjectPage() {
                 </CardTitle>
                 {!isMobile && (
                     <Button variant="default" size="lg" onClick={() => openNewFolderDialog(selectedFolder)} title={selectedFolder ? t('addSubfolderTitle', 'Add subfolder to {folderName}', {folderName: selectedFolder.name}) : t('addRootFolderTitle', 'Add folder to project root')}>
-                        <FolderPlus className="mr-2 h-4 w-4" /> {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addNewFolderToRoot', 'Add Folder to Root')}
+                        <FolderPlus className="mr-2 h-4 w-4" /> {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
                     </Button>
                 )}
             </div>
@@ -253,15 +249,12 @@ export default function ProjectPage() {
             onDeleteFolder={handleFolderDeleted}
             projectId={project.id}
         />
-        {allProjectFolders.length === 0 && ( // This checks if there are ANY folders in the project at all
+        {allProjectFolders.length === 0 && ( 
             <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">{t('noFoldersInProjectStart', 'This project has no folders yet.')}</p>
                 {isMobile ? (
                      <p className="text-sm text-muted-foreground">{t('useFabToAddFolderMobile', 'Use the "Add New Folder" button below to get started.')}</p>
                 ) : (
-                    // The button in the header now serves this purpose. We can refine this message.
-                    // Or, if selectedFolder is null and foldersToDisplay is empty (meaning root is empty)
-                    // this area will show FolderGrid's "This folder is empty." message.
                     <Button variant="outline" onClick={() => openNewFolderDialog(null)}>
                         <FolderPlus className="mr-2 h-4 w-4" /> {t('createNewFolderInRootButton', 'Create First Folder in Project Root')}
                     </Button>
@@ -304,7 +297,7 @@ export default function ProjectPage() {
       <Dialog open={isNewFolderDialogOpen} onOpenChange={(isOpen) => {
         if (!isOpen) {
           setNewFolderName(''); 
-          setNewFolderParentContext(null); // Reset context if dialog is closed
+          setNewFolderParentContext(null); 
         }
         setIsNewFolderDialogOpen(isOpen);
       }}>
@@ -344,3 +337,4 @@ export default function ProjectPage() {
     </div>
   );
 }
+
