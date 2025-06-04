@@ -12,11 +12,12 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ProjectCardProps {
   project: Project;
+  assetCount: number; // New prop for asset count
   onEditProject: (project: Project) => void;
   onToggleFavorite: (project: Project) => void;
 }
 
-export function ProjectCard({ project, onEditProject, onToggleFavorite }: ProjectCardProps) {
+export function ProjectCard({ project, assetCount, onEditProject, onToggleFavorite }: ProjectCardProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
   
@@ -25,9 +26,7 @@ export function ProjectCard({ project, onEditProject, onToggleFavorite }: Projec
       case 'done': return 'default';
       case 'new': return 'secondary'; 
       case 'recent': return 'outline';
-      // Favorite is handled by the star icon, so we don't need a specific badge variant for it here.
-      // If a project is 'favorite' and also 'recent', 'recent' badge will show.
-      default: return 'outline'; // Default to outline if status is 'favorite' but we want to show e.g. 'recent'
+      default: return 'outline'; 
     }
   };
 
@@ -52,6 +51,10 @@ export function ProjectCard({ project, onEditProject, onToggleFavorite }: Projec
                 <CardTitle className="text-base font-headline leading-tight group-hover:text-primary transition-colors">
                   {project.name}
                 </CardTitle>
+                 {/* Display asset count instead of description */}
+                <p className="text-xs text-muted-foreground pt-0.5">
+                  {t('totalAssets', '{count} Assets', { count: assetCount })}
+                </p>
               </div>
               <div className="flex items-center shrink-0">
                 {isMobile && (
@@ -87,9 +90,6 @@ export function ProjectCard({ project, onEditProject, onToggleFavorite }: Projec
                 </Button>
               </div>
             </div>
-            <CardDescription className="text-xs line-clamp-1 pt-0.5">
-                {project.description || t('noDescriptionAvailable', 'No description available.')}
-            </CardDescription>
           </CardHeader>
           <CardContent className="flex-grow p-3 pt-1.5 flex items-end">
             {!isMobile && (

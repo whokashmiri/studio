@@ -143,8 +143,8 @@ const translations: Record<Language, Record<string, string>> = {
     
     deleteAssetTitle: "Delete Asset",
     editFolderTitle: "Edit folder {folderName}",
-    addRootFolderTitle: "Add Folder to Project Root",
-    addSubfolderTitle: "Add subfolder to {folderName}",
+    addRootFolderTitle: "New Folder",
+    addSubfolderTitle: "New subfolder to {folderName}",
     projectRoot: "Project Root",
     noTopLevelFolders: "No top-level folders created yet.",
     folderNameRequiredTitle: "Folder Name Required",
@@ -215,6 +215,7 @@ const translations: Record<Language, Record<string, string>> = {
     deleteAssetConfirmationDesc: "Are you sure you want to delete asset \"{assetName}\"?",
     assetDeletedTitle: "Asset Deleted",
     assetDeletedDesc: "Asset \"{assetName}\" has been deleted.",
+    totalAssets: "{count} Assets",
 
   },
   ar: {
@@ -417,6 +418,7 @@ const translations: Record<Language, Record<string, string>> = {
     deleteAssetConfirmationDesc: "هل أنت متأكد أنك تريد حذف الأصل \"{assetName}\"؟",
     assetDeletedTitle: "تم حذف الأصل",
     assetDeletedDesc: "تم حذف الأصل \"{assetName}\".",
+    totalAssets: "{count} أصول",
   },
 };
 
