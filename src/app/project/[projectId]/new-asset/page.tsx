@@ -319,7 +319,7 @@ export default function NewAssetPage() {
             </div>
 
             {photoPreviews.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+              <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
                 {photoPreviews.map((src, index) => (
                   <div key={index} className="relative group">
                     <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index+1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
@@ -354,3 +354,5 @@ export default function NewAssetPage() {
   );
 }
 
+
+    
