@@ -168,6 +168,7 @@ const translations: Record<Language, Record<string, string>> = {
     noFoldersInProject: "This project has no folders yet.",
     noFoldersInProjectStart: "This project has no folders yet.",
     useFabToAddFolderMobile: "Use the \"Add New Folder\" button below to get started.",
+    useFabToCreateContentMobile: "Use the buttons below to add a folder or asset.",
     createNewFolderInRootButton: "Create First Folder in Project Root",
     selectFolderForAssetTooltip: "Select or create a folder to add an asset",
     noFolderSelectedForAssetTitle: "Folder Required for Asset",
@@ -188,7 +189,8 @@ const translations: Record<Language, Record<string, string>> = {
     folderNotEmptyDesc: "Cannot delete folder. Please delete all subfolders and assets first.",
     folderDeletedTitle: "Folder Deleted",
     folderDeletedDesc: "Folder \"{folderName}\" has been deleted.",
-    folderIsEmpty: "This folder is empty.",
+    folderIsEmpty: "This folder is empty. Add a subfolder or asset.",
+    projectRootIsEmpty: "This project is empty. Add a folder or asset to get started.",
     addSubfolderToCurrent: "Add subfolder here", 
     expandFolder: "Expand folder",
     collapseFolder: "Collapse folder",
@@ -377,6 +379,7 @@ const translations: Record<Language, Record<string, string>> = {
     noFoldersInProject: "هذا المشروع لا يحتوي على مجلدات بعد.",
     noFoldersInProjectStart: "هذا المشروع لا يحتوي على مجلدات بعد.",
     useFabToAddFolderMobile: "استخدم زر \"إضافة مجلد جديد\" أدناه للبدء.",
+    useFabToCreateContentMobile: "استخدم الأزرار أدناه لإضافة مجلد أو أصل.",
     createNewFolderInRootButton: "إنشاء أول مجلد في جذر المشروع",
     selectFolderForAssetTooltip: "حدد أو أنشئ مجلدًا لإضافة أصل إليه",
     noFolderSelectedForAssetTitle: "المجلد مطلوب للأصل",
@@ -397,7 +400,8 @@ const translations: Record<Language, Record<string, string>> = {
     folderNotEmptyDesc: "لا يمكن حذف المجلد. يرجى حذف جميع المجلدات الفرعية والأصول أولاً.",
     folderDeletedTitle: "تم حذف المجلد",
     folderDeletedDesc: "تم حذف المجلد \"{folderName}\".",
-    folderIsEmpty: "هذا المجلد فارغ.",
+    folderIsEmpty: "هذا المجلد فارغ. أضف مجلدًا فرعيًا أو أصلًا.",
+    projectRootIsEmpty: "هذا المشروع فارغ. أضف مجلدًا أو أصلًا للبدء.",
     addSubfolderToCurrent: "إضافة مجلد فرعي هنا",
     expandFolder: "توسيع المجلد",
     collapseFolder: "طي المجلد",
@@ -469,3 +473,5 @@ export function useLanguage() {
   }
   return context;
 }
+
+    
