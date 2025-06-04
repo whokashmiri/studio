@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus } from 'lucide-react';
-import type { Project, Asset, ProjectStatus } from '@/data/mock-data';
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2 } from 'lucide-react';
+import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
@@ -31,6 +31,7 @@ export default function NewAssetPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentStep, setCurrentStep] = useState<AssetCreationStep>('name');
   const [project, setProject] = useState<Project | null>(null);
+  const [currentFolder, setCurrentFolder] = useState<Folder | null>(null);
   const [assetName, setAssetName] = useState('');
   const [assetDescription, setAssetDescription] = useState('');
   const [assetSummary, setAssetSummary] = useState<string | undefined>(undefined);
@@ -46,6 +47,8 @@ export default function NewAssetPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null); 
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -56,10 +59,18 @@ export default function NewAssetPage() {
       const allProjects = LocalStorageService.getProjects();
       const foundProject = allProjects.find(p => p.id === projectId);
       setProject(foundProject || null);
+
       if (!foundProject) {
         toast({ title: t('projectNotFound', "Project Not Found"), variant: "destructive" });
         router.push('/');
         return;
+      }
+
+      if (folderId) {
+        const foundFolder = LocalStorageService.getFolders().find(f => f.id === folderId && f.projectId === projectId);
+        setCurrentFolder(foundFolder || null);
+      } else {
+        setCurrentFolder(null);
       }
 
       if (assetIdToEdit) {
@@ -140,7 +151,7 @@ export default function NewAssetPage() {
         reader.readAsDataURL(file);
       });
     }
-    event.target.value = ''; 
+    event.target.value = ''; // Clear input to allow re-uploading the same file
   };
 
   const handleCapturePhotoFromStream = () => {
@@ -253,7 +264,7 @@ export default function NewAssetPage() {
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
               <CardTitle className="text-xl sm:text-2xl font-headline">{pageTitle} {t('forProject', 'for')} {project.name}</CardTitle>
-              {folderId && <CardDescription>{t('inFolder', 'In folder:')} {LocalStorageService.getFolders().find(f=>f.id === folderId)?.name || t('unknownFolder', 'Unknown Folder')}</CardDescription>}
+              {currentFolder && <CardDescription>{t('inFolder', 'In folder:')} {currentFolder.name}</CardDescription>}
               <CardDescription>{t('step1Of3', 'Step 1 of 3:')} {t('enterAssetNamePrompt', 'Enter the asset name.')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -266,10 +277,29 @@ export default function NewAssetPage() {
                   placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
                 />
               </div>
+               {photoPreviews.length === 0 && (
+                 <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                    <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1">
+                        <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
+                    </Button>
+                    <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1">
+                        <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
+                    </Button>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        id="gallery-input-name-step"
+                        ref={galleryInputRef}
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                    />
+                 </div>
+               )}
             </CardContent>
             <CardFooter className="flex justify-end">
               <Button onClick={handleNameSubmit}>
-                {t('nextAddManagePhotos', 'Next: Add/Manage Photos')} <ArrowRight className="ml-2 h-4 w-4" />
+                {photoPreviews.length > 0 ? t('nextAddManagePhotos', 'Next: Add/Manage Photos') : t('nextStepDescription', 'Next: Description')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
           </Card>
@@ -363,7 +393,7 @@ export default function NewAssetPage() {
             <DialogTitle className="text-xl sm:text-2xl font-headline">
                 {isEditMode ? t('editAssetPhotosTitle', 'Edit Photos for') : t('step2Of3ManagePhotos', 'Step 2 of 3: Manage Photos for')} "{assetName}"
             </DialogTitle>
-            <DialogDescription>{t('manageAssetPhotosDesc', "Take new photos with the custom camera, upload from gallery, or remove existing photos.")}</DialogDescription>
+            <DialogDescription>{t('takeOrUploadPhotosPromptNoLimit', "You can take new photos using your device camera or upload from your gallery.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4 flex-grow overflow-y-auto">
             <div className="flex flex-col sm:flex-row gap-2">
@@ -376,14 +406,14 @@ export default function NewAssetPage() {
               <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto">
                 <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
-              <input 
-                type="file" 
-                accept="image/*" 
-                multiple 
-                id="gallery-input-modal" 
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                id="gallery-input-modal"
                 ref={galleryInputRef}
-                className="hidden" 
-                onChange={handlePhotoUpload} 
+                className="hidden"
+                onChange={handlePhotoUpload}
               />
             </div>
 
@@ -421,12 +451,11 @@ export default function NewAssetPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Custom Camera UI Dialog */}
       <Dialog open={isCustomCameraOpen} onOpenChange={setIsCustomCameraOpen}>
-        <DialogContent className="p-0 m-0 w-full h-full max-w-full max-h-full sm:w-[calc(100%-2rem)] sm:h-[calc(100%-2rem)] sm:max-w-4xl sm:max-h-[90vh] sm:rounded-lg overflow-hidden flex flex-col bg-black text-white">
-          <DialogHeader>
-            <DialogTitle className="sr-only">{t('customCameraViewTitle', 'Custom Camera View')}</DialogTitle>
-          </DialogHeader>
+         <DialogContent className="p-0 m-0 w-full h-full max-w-full max-h-full sm:w-[calc(100%-2rem)] sm:h-[calc(100%-2rem)] sm:max-w-4xl sm:max-h-[90vh] sm:rounded-lg overflow-hidden flex flex-col bg-black text-white">
+           <DialogHeader>
+             <DialogTitle className="sr-only">{t('customCameraViewTitle', 'Custom Camera View')}</DialogTitle>
+           </DialogHeader>
           <div className="relative flex-grow w-full h-full flex items-center justify-center">
             {hasCameraPermission === false && (
               <Alert variant="destructive" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 max-w-md z-20">
@@ -496,6 +525,4 @@ export default function NewAssetPage() {
     </div>
   );
 }
-    
-
     
