@@ -1,3 +1,4 @@
+
 "use client";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -69,30 +70,28 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
         setProjectName(''); 
       }
     }}>
-      <DialogContent className="sm:max-w-full max-h-[90vh] flex flex-col">
+      <DialogContent className="w-full max-h-[90vh] flex flex-col p-4 sm:p-6 sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-headline">{t('createNewProject', 'Create New Project')}</DialogTitle>
           <DialogDescription>
             Enter a name for your new inspection project.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-2 py-2 flex-grow overflow-y-auto">
-          <div className="grid grid-cols-2 items-center gap-2">
-            {/* <Label htmlFor="project-name" className="text-right">
+        <div className="grid grid-cols-2 items-center gap-2 flex-grow overflow-y-auto">
+          {/* <Label htmlFor="project-name" className="text-right">
               {t('projectName')}
             </Label> */}
-            <Input
-              id="project-name"
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              className="col-span-2"
-              type="text"
-              placeholder="e.g., Spring Mall Inspection"
-              disabled={isLoading}
-            />
-          </div>
+          <Input
+            id="project-name"
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+            className="col-span-2"
+            type="text"
+            placeholder="e.g., Spring Mall Inspection"
+            disabled={isLoading}
+          />
         </div>
-        <DialogFooter className="flex flex-row justify-end space-x-2">
+        <DialogFooter className="pt-2.5 flex flex-row justify-end space-x-2">
           <Button variant="outline" onClick={() => { onClose(); setProjectName('');}} disabled={isLoading}>
             {t('cancel', 'Cancel')}
           </Button>
@@ -104,3 +103,4 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     </Dialog>
   );
 }
+
