@@ -469,12 +469,11 @@ export default function NewAssetPage() {
                   />
                 </div>
             </CardContent>
-            <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-4">
+            <CardFooter className="flex flex-row justify-between items-center gap-2 pt-4">
               <Button variant="outline" onClick={() => setCurrentStep('photos_and_name')}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToPhotosName', 'Back to Photos & Name')}
+                {t('backToPhotosName', 'Back to Photos & Name')}
               </Button>
               <Button onClick={handleSaveAsset} size="lg">
-                <Save className="mr-2 h-4 w-4" />
                 {isEditMode ? t('updateAssetButton', "Update Asset") : t('saveAssetButton', 'Save Asset')}
               </Button>
             </CardFooter>
@@ -571,7 +570,7 @@ export default function NewAssetPage() {
         }}>
          <DialogContent className="p-0 m-0 w-full h-full max-w-full max-h-full sm:w-[calc(100%-2rem)] sm:h-[calc(100%-2rem)] sm:max-w-4xl sm:max-h-[90vh] sm:rounded-lg overflow-hidden flex flex-col bg-black text-white">
            <DialogHeader>
-             <DialogTitle className="sr-only">{t('customCameraViewTitle', 'Custom Camera View')}</DialogTitle>
+             <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
            </DialogHeader>
           <div className="relative flex-grow w-full h-full flex items-center justify-center">
             {hasCameraPermission === false && (
