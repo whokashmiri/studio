@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Edit, Trash2, ImageOff } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import Image from 'next/image'; // Using next/image for optimization
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
 interface AssetCardProps {
   asset: Asset;
@@ -15,10 +17,13 @@ interface AssetCardProps {
 
 export function AssetCard({ asset, onEditAsset, onDeleteAsset }: AssetCardProps) {
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
 
-  // Combine voice and text descriptions if available, otherwise show a default message.
   const getDescriptionText = () => {
+    if (asset.textDescription && asset.voiceDescription) {
+      return asset.textDescription.length > 50 ? `${asset.textDescription.substring(0, 50)}... (voice available)` : `${asset.textDescription} (voice available)`;
+    }
     if (asset.textDescription) return asset.textDescription;
     if (asset.voiceDescription) return t('voiceDescriptionOnly', 'Voice description available');
     return t('noDescriptionAvailable', 'No description available.');
@@ -52,25 +57,25 @@ export function AssetCard({ asset, onEditAsset, onDeleteAsset }: AssetCardProps)
           )}
         </div>
         <div className="flex gap-2 mt-auto">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex-1"
+          <Button
+            variant="outline"
+            size={isMobile ? "icon" : "sm"}
+            className={cn(!isMobile && "flex-1")}
             onClick={() => onEditAsset(asset)}
             title={t('editAssetButton', 'Edit Asset')}
           >
-            <Edit className="mr-1.5 h-3.5 w-3.5" />
-            {t('edit', 'Edit')}
+            <Edit className={cn(isMobile ? "h-4 w-4" : "mr-1.5 h-3.5 w-3.5")} />
+            {!isMobile && t('edit', 'Edit')}
           </Button>
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            className="flex-1"
+          <Button
+            variant="destructive"
+            size={isMobile ? "icon" : "sm"}
+            className={cn(!isMobile && "flex-1")}
             onClick={() => onDeleteAsset(asset)}
             title={t('deleteAssetButton', 'Delete Asset')}
           >
-            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-            {t('delete', 'Delete')}
+            <Trash2 className={cn(isMobile ? "h-4 w-4" : "mr-1.5 h-3.5 w-3.5")} />
+            {!isMobile && t('delete', 'Delete')}
           </Button>
         </div>
       </CardContent>
