@@ -3,10 +3,15 @@
 import type { Asset } from '@/data/mock-data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, ImageOff } from 'lucide-react';
+import { Edit3, Trash2, ImageOff, MoreVertical } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useLanguage } from '@/contexts/language-context';
-import Image from 'next/image'; // Using next/image for optimization
-import { useIsMobile } from '@/hooks/use-mobile';
+import Image from 'next/image'; 
 import { cn } from '@/lib/utils';
 
 interface AssetCardProps {
@@ -17,12 +22,12 @@ interface AssetCardProps {
 
 export function AssetCard({ asset, onEditAsset, onDeleteAsset }: AssetCardProps) {
   const { t } = useLanguage();
-  const isMobile = useIsMobile();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
 
   const getDescriptionText = () => {
     if (asset.textDescription && asset.voiceDescription) {
-      return asset.textDescription.length > 50 ? `${asset.textDescription.substring(0, 50)}... (voice available)` : `${asset.textDescription} (voice available)`;
+      const baseText = asset.textDescription.length > 30 ? `${asset.textDescription.substring(0, 30)}...` : asset.textDescription;
+      return t('textAndVoiceDescShort', '{text} (voice available)', { text: baseText });
     }
     if (asset.textDescription) return asset.textDescription;
     if (asset.voiceDescription) return t('voiceDescriptionOnly', 'Voice description available');
@@ -31,13 +36,43 @@ export function AssetCard({ asset, onEditAsset, onDeleteAsset }: AssetCardProps)
 
   return (
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200 group">
-      <CardHeader className="p-3 pb-1.5 relative">
-        <CardTitle className="text-base font-headline leading-tight group-hover:text-primary transition-colors truncate">
-          {asset.name}
-        </CardTitle>
-        <CardDescription className="text-xs line-clamp-1 pt-0.5">
-            {getDescriptionText()}
-        </CardDescription>
+      <CardHeader className="p-3 pb-1.5 flex flex-row justify-between items-start gap-2">
+        <div className="flex-grow min-w-0">
+          <CardTitle className="text-base font-headline leading-tight group-hover:text-primary transition-colors truncate" title={asset.name}>
+            {asset.name}
+          </CardTitle>
+          <CardDescription className="text-xs line-clamp-1 pt-0.5" title={getDescriptionText()}>
+              {getDescriptionText()}
+          </CardDescription>
+        </div>
+        <div className="shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => e.stopPropagation()} 
+              >
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">{t('assetActions', 'Asset actions')}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onClick={() => onEditAsset(asset)}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                {t('editAssetButton', 'Edit Asset')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDeleteAsset(asset)}
+                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t('deleteAssetButton', 'Delete Asset')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardHeader>
       <CardContent className="p-3 pt-0 flex-grow flex flex-col justify-between">
         <div className="aspect-video w-full relative mb-2 rounded-md overflow-hidden bg-muted">
@@ -56,28 +91,7 @@ export function AssetCard({ asset, onEditAsset, onDeleteAsset }: AssetCardProps)
             </div>
           )}
         </div>
-        <div className="flex gap-2 mt-auto">
-          <Button
-            variant="outline"
-            size={isMobile ? "icon" : "sm"}
-            className={cn(!isMobile && "flex-1")}
-            onClick={() => onEditAsset(asset)}
-            title={t('editAssetButton', 'Edit Asset')}
-          >
-            <Edit className={cn(isMobile ? "h-4 w-4" : "mr-1.5 h-3.5 w-3.5")} />
-            {!isMobile && t('edit', 'Edit')}
-          </Button>
-          <Button
-            variant="destructive"
-            size={isMobile ? "icon" : "sm"}
-            className={cn(!isMobile && "flex-1")}
-            onClick={() => onDeleteAsset(asset)}
-            title={t('deleteAssetButton', 'Delete Asset')}
-          >
-            <Trash2 className={cn(isMobile ? "h-4 w-4" : "mr-1.5 h-3.5 w-3.5")} />
-            {!isMobile && t('delete', 'Delete')}
-          </Button>
-        </div>
+        {/* Action buttons removed from here */}
       </CardContent>
     </Card>
   );
