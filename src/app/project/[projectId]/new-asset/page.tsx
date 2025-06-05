@@ -284,10 +284,11 @@ export default function NewAssetPage() {
       setCurrentStep('photos_and_name');
       return;
     }
-    if (!assetVoiceDescription.trim() && !assetTextDescription.trim()) {
-      toast({ title: t('descriptionRequiredForSaveTitle', 'Description Required'), description: t('descriptionRequiredForSaveDesc', 'Please provide at least one form of description (voice or text).'), variant: "destructive" });
-      return;
-    }
+    // Removed validation for descriptions:
+    // if (!assetVoiceDescription.trim() && !assetTextDescription.trim()) {
+    //   toast({ title: t('descriptionRequiredForSaveTitle', 'Description Required'), description: t('descriptionRequiredForSaveDesc', 'Please provide at least one form of description (voice or text).'), variant: "destructive" });
+    //   return;
+    // }
 
     const updatedProjectData = {
       ...project,
@@ -303,8 +304,8 @@ export default function NewAssetPage() {
       projectId: project.id,
       folderId: folderId,
       photos: photoPreviews, 
-      voiceDescription: assetVoiceDescription,
-      textDescription: assetTextDescription,
+      voiceDescription: assetVoiceDescription.trim() ? assetVoiceDescription : undefined,
+      textDescription: assetTextDescription.trim() ? assetTextDescription : undefined,
       createdAt: isEditMode && assetIdToEdit ? LocalStorageService.getAssets().find(a=>a.id===assetIdToEdit)?.createdAt || new Date().toISOString() : new Date().toISOString(),
       updatedAt: new Date().toISOString(), 
     };
@@ -641,3 +642,4 @@ export default function NewAssetPage() {
     </div>
   );
 }
+
