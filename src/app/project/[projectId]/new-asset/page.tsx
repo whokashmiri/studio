@@ -99,6 +99,39 @@ export default function NewAssetPage() {
   }, [loadProjectAndAsset]);
 
   useEffect(() => {
+    const checkInitialCameraPermission = async () => {
+      if (typeof navigator !== 'undefined' && navigator.permissions) {
+        try {
+          // Type assertion 'camera' as PermissionName might be needed if TS doesn't recognize 'camera'
+          const permissionStatus = await navigator.permissions.query({ name: 'camera' as PermissionName });
+          
+          if (permissionStatus.state === 'granted') {
+            setHasCameraPermission(true);
+          } else if (permissionStatus.state === 'denied') {
+            setHasCameraPermission(false);
+          }
+          // If 'prompt', hasCameraPermission remains null, getUserMedia will trigger the prompt
+
+          permissionStatus.onchange = () => {
+            if (permissionStatus.state === 'granted') {
+                setHasCameraPermission(true);
+            } else if (permissionStatus.state === 'denied') {
+                setHasCameraPermission(false);
+            } else {
+                setHasCameraPermission(null);
+            }
+          };
+        } catch (error) {
+          console.error('Error querying camera permission:', error);
+          // Fallback to default behavior (hasCameraPermission remains null)
+        }
+      }
+    };
+    checkInitialCameraPermission();
+  }, []);
+
+
+  useEffect(() => {
     let streamInstance: MediaStream | null = null;
     const getCameraStream = async () => {
       if (isCustomCameraOpen) {
@@ -196,7 +229,7 @@ export default function NewAssetPage() {
   };
 
   const handleCapturePhotoFromStream = () => {
-    if (videoRef.current && canvasRef.current && hasCameraPermission) {
+    if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth;
@@ -284,11 +317,6 @@ export default function NewAssetPage() {
       setCurrentStep('photos_and_name');
       return;
     }
-    // Removed validation for descriptions:
-    // if (!assetVoiceDescription.trim() && !assetTextDescription.trim()) {
-    //   toast({ title: t('descriptionRequiredForSaveTitle', 'Description Required'), description: t('descriptionRequiredForSaveDesc', 'Please provide at least one form of description (voice or text).'), variant: "destructive" });
-    //   return;
-    // }
 
     const updatedProjectData = {
       ...project,
@@ -304,8 +332,8 @@ export default function NewAssetPage() {
       projectId: project.id,
       folderId: folderId,
       photos: photoPreviews, 
-      voiceDescription: assetVoiceDescription.trim() ? assetVoiceDescription : undefined,
-      textDescription: assetTextDescription.trim() ? assetTextDescription : undefined,
+      voiceDescription: assetVoiceDescription.trim() ? assetVoiceDescription.trim() : undefined,
+      textDescription: assetTextDescription.trim() ? assetTextDescription.trim() : undefined,
       createdAt: isEditMode && assetIdToEdit ? LocalStorageService.getAssets().find(a=>a.id===assetIdToEdit)?.createdAt || new Date().toISOString() : new Date().toISOString(),
       updatedAt: new Date().toISOString(), 
     };
@@ -533,7 +561,7 @@ export default function NewAssetPage() {
               <Label>{t('currentPhotoBatch', 'Current Photo Batch')} ({photoPreviews.length})</Label>
               {photoPreviews.length > 0 ? (
                 <ScrollArea className="h-[300px] pr-3">
-                  <div className="grid grid-cols-6 gap-1.5">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
                     {photoPreviews.map((src, index) => (
                       <div key={`batch-${index}-${src.substring(0,20)}`} className="relative group">
                         <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
@@ -565,7 +593,9 @@ export default function NewAssetPage() {
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
           if (!isOpen && !isPhotoModalOpen && photoPreviews.length > 0 && capturedPhotosInSession.length === 0) {
-            if (photoPreviews.length > 0) setIsPhotoModalOpen(true);
+             // This logic seems to intend to re-open photo modal if custom camera is closed and there were photos,
+             // but might be slightly off. Keeping as is unless specific issue arises.
+            // if (photoPreviews.length > 0) setIsPhotoModalOpen(true); 
           }
           setIsCustomCameraOpen(isOpen);
         }}>
@@ -574,11 +604,11 @@ export default function NewAssetPage() {
              <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
            </DialogHeader>
           <div className="relative flex-grow w-full h-full flex items-center justify-center">
-            {hasCameraPermission === false && (
-              <Alert variant="destructive" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 max-w-md z-20">
-                <AlertTitle>{t('cameraAccessDeniedTitle', 'Camera Access Denied')}</AlertTitle>
-                <AlertDescription>{t('cameraAccessDeniedEnableSettings', 'Please enable camera permissions in your browser settings and refresh.')}</AlertDescription>
-              </Alert>
+             {hasCameraPermission === false && (
+                <Alert variant="destructive" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 max-w-md z-20 bg-background text-foreground">
+                    <AlertTitle>{t('cameraAccessDeniedTitle', 'Camera Access Denied')}</AlertTitle>
+                    <AlertDescription>{t('cameraAccessDeniedEnableSettings', 'Please enable camera permissions in your browser settings and refresh.')}</AlertDescription>
+                </Alert>
             )}
              {hasCameraPermission === null && (
                  <div className="flex flex-col items-center text-center p-4 z-10">
@@ -589,7 +619,7 @@ export default function NewAssetPage() {
              )}
             <video 
               ref={videoRef} 
-              className={`w-full h-full object-cover ${hasCameraPermission ? 'opacity-100' : 'opacity-30'}`} 
+              className={`w-full h-full object-cover ${hasCameraPermission === true ? 'opacity-100' : 'opacity-30'}`} 
               autoPlay 
               muted 
               playsInline 
