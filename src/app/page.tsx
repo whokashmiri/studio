@@ -1,79 +1,62 @@
 
 "use client";
-import { useState, useEffect } from 'react';
-import { CompanySelector } from '@/components/company-selector';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProjectDashboard } from '@/components/project-dashboard';
-import type { Company } from '@/data/mock-data';
+import type { Company } from '@/data/mock-data'; // Keep Company type for ProjectDashboard prop
 import { useAuth } from '@/contexts/auth-context';
-import { Button } from '@/components/ui/button';
-import { LogIn } from 'lucide-react';
-import * as LocalStorageService from '@/lib/local-storage-service';
-
-const SELECTED_COMPANY_ID_KEY = 'assetInspectorPro_selectedCompanyId_session'; // Use sessionStorage
+import { Loader2 } from 'lucide-react';
 
 export default function HomePage() {
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-  const { user, login } = useAuth(); 
+  const { user } = useAuth();
+  const router = useRouter();
 
-  // Effect to load selected company from sessionStorage on initial load
   useEffect(() => {
-    if (user && typeof window !== 'undefined') { // Ensure user is logged in and window is available
-      const storedCompanyId = sessionStorage.getItem(SELECTED_COMPANY_ID_KEY);
-      if (storedCompanyId) {
-        const companies = LocalStorageService.getCompanies(); // Assumes this is safe to call client-side
-        const company = companies.find(c => c.id === storedCompanyId);
-        if (company) {
-          setSelectedCompany(company);
-        } else {
-          // Stored company ID is invalid, clear it
-          sessionStorage.removeItem(SELECTED_COMPANY_ID_KEY);
-        }
-      }
+    if (user?.isLoading === false && !user) {
+      router.push('/login');
     }
-  }, [user]); // Rerun if user logs in/out
+  }, [user, router]);
 
-  const handleSelectCompany = (company: Company) => {
-    setSelectedCompany(company);
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(SELECTED_COMPANY_ID_KEY, company.id);
-    }
-  };
-
-  const handleClearCompany = () => {
-    setSelectedCompany(null);
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem(SELECTED_COMPANY_ID_KEY);
-    }
-  };
-
-  // Mock login function if user is null
-  const handleDemoLogin = () => {
-    login({ id: 'inspector1', name: 'John Doe', avatarUrl: 'https://placehold.co/100x100.png' });
-  };
-
-  if (!user) {
+  if (user?.isLoading || !user) {
     return (
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-4 font-headline">Welcome to Asset Inspector Pro</h1>
-        <p className="text-md sm:text-lg text-muted-foreground mb-8">Please log in to manage your inspections.</p>
-        <Button size="lg" onClick={handleDemoLogin}>
-          <LogIn className="mr-2 h-5 w-5" /> Demo Login
-        </Button>
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-lg text-muted-foreground mt-4">Loading user data...</p>
       </div>
     );
   }
-  
+
+  // User is logged in and data is loaded (including companyId and companyName)
+  if (!user.companyId || !user.companyName) {
+     // This case should ideally not happen if signup and login flows correctly populate company info
+    return (
+      <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
+        <p className="text-lg text-destructive">Company information not found for your account.</p>
+        <p className="text-md text-muted-foreground">Please contact support or try signing up again.</p>
+      </div>
+    );
+  }
+
+  // Construct the company object for ProjectDashboard
+  const currentCompany: Company = {
+    id: user.companyId,
+    name: user.companyName,
+  };
+
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-      {!selectedCompany ? (
-        <CompanySelector onSelectCompany={handleSelectCompany} />
-      ) : (
-        <ProjectDashboard
-          company={selectedCompany}
-          onClearCompany={handleClearCompany} // Use the new handler
-        />
-      )}
+      <ProjectDashboard
+        company={currentCompany}
+        onClearCompany={() => {
+          // This function might need to be re-evaluated.
+          // For now, clearing company means logging out or choosing another,
+          // but with one company per user, this might just be logout.
+          // For simplicity, let's assume ProjectDashboard won't call this if not needed.
+          // Or, it could trigger logout.
+          console.warn("onClearCompany called. Implement redirection or logout if necessary.");
+          // router.push('/some-other-place-or-logout');
+        }}
+      />
     </div>
   );
 }
-

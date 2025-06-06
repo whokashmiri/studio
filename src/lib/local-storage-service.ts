@@ -1,9 +1,8 @@
 
 "use client";
-import type { Company, Project, Folder, Asset, ProjectStatus } from '@/data/mock-data';
-import { mockCompanies, mockProjects, mockFolders, mockAssets } from '@/data/mock-data';
+import type { Project, Folder, Asset } from '@/data/mock-data';
+import { mockProjects, mockFolders, mockAssets } from '@/data/mock-data'; // mockCompanies removed
 
-const COMPANIES_KEY = 'assetInspectorPro_companies';
 const PROJECTS_KEY = 'assetInspectorPro_projects';
 const FOLDERS_KEY = 'assetInspectorPro_folders';
 const ASSETS_KEY = 'assetInspectorPro_assets';
@@ -11,7 +10,7 @@ const ASSETS_KEY = 'assetInspectorPro_assets';
 // Helper to get an item from localStorage or initialize it
 function getItem<T>(key: string, initialData: T[]): T[] {
   if (typeof window === 'undefined') {
-    return initialData; // Return mock data during SSR or if window is not available
+    return initialData; 
   }
   try {
     const item = window.localStorage.getItem(key);
@@ -23,7 +22,6 @@ function getItem<T>(key: string, initialData: T[]): T[] {
     }
   } catch (error) {
     console.error(`Error reading from localStorage key "${key}":`, error);
-    // Fallback to initialData and try to set it again in case of parse error on corrupted data
     try {
       window.localStorage.setItem(key, JSON.stringify(initialData));
     } catch (setError) {
@@ -36,21 +34,13 @@ function getItem<T>(key: string, initialData: T[]): T[] {
 // Helper to set an item in localStorage
 function setItem<T>(key: string, data: T[]): void {
   if (typeof window === 'undefined') {
-    return; // Do nothing during SSR
+    return;
   }
   try {
     window.localStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
     console.error(`Error writing to localStorage key "${key}":`, error);
   }
-}
-
-// Companies
-export function getCompanies(): Company[] {
-  return getItem<Company>(COMPANIES_KEY, mockCompanies);
-}
-export function saveCompanies(companies: Company[]): void {
-  setItem<Company>(COMPANIES_KEY, companies);
 }
 
 // Projects
@@ -102,12 +92,10 @@ export function updateFolder(updatedFolder: Folder): void {
   }
 }
 
-export function deleteFolder(folderId: string): void { // Kept simple delete for now
+export function deleteFolder(folderId: string): void { 
   let folders = getFolders();
   const updatedFolders = folders.filter(f => f.id !== folderId);
   saveFolders(updatedFolders);
-  // Note: This simple delete does not handle subfolders or assets within the folder.
-  // deleteFolderCascade should be used for that.
 }
 
 export function deleteFolderCascade(folderId: string): void {
@@ -117,7 +105,6 @@ export function deleteFolderCascade(folderId: string): void {
   const foldersToDeleteIds: string[] = [];
   const queue: string[] = [folderId];
   
-  // Find all subfolders to delete
   while (queue.length > 0) {
     const currentFolderId = queue.shift()!;
     foldersToDeleteIds.push(currentFolderId);
@@ -125,11 +112,9 @@ export function deleteFolderCascade(folderId: string): void {
     children.forEach(child => queue.push(child.id));
   }
   
-  // Filter out deleted folders
   const updatedFolders = allFolders.filter(f => !foldersToDeleteIds.includes(f.id));
   saveFolders(updatedFolders);
   
-  // Filter out assets within deleted folders
   const updatedAssets = allAssets.filter(a => a.folderId === null || !foldersToDeleteIds.includes(a.folderId));
   saveAssets(updatedAssets);
 }
