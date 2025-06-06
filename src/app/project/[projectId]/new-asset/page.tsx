@@ -98,37 +98,37 @@ export default function NewAssetPage() {
     loadProjectAndAsset();
   }, [loadProjectAndAsset]);
 
-  useEffect(() => {
-    const checkInitialCameraPermission = async () => {
-      if (typeof navigator !== 'undefined' && navigator.permissions) {
-        try {
-          // Type assertion 'camera' as PermissionName might be needed if TS doesn't recognize 'camera'
-          const permissionStatus = await navigator.permissions.query({ name: 'camera' as PermissionName });
+  // useEffect(() => {
+  //   const checkInitialCameraPermission = async () => {
+  //     if (typeof navigator !== 'undefined' && navigator.permissions) {
+  //       try {
+  //         // Type assertion 'camera' as PermissionName might be needed if TS doesn't recognize 'camera'
+  //         const permissionStatus = await navigator.permissions.query({ name: 'camera' as PermissionName });
           
-          if (permissionStatus.state === 'granted') {
-            setHasCameraPermission(true);
-          } else if (permissionStatus.state === 'denied') {
-            setHasCameraPermission(false);
-          }
-          // If 'prompt', hasCameraPermission remains null, getUserMedia will trigger the prompt
+  //         if (permissionStatus.state === 'granted') {
+  //           setHasCameraPermission(true);
+  //         } else if (permissionStatus.state === 'denied') {
+  //           setHasCameraPermission(false);
+  //         }
+  //         // If 'prompt', hasCameraPermission remains null, getUserMedia will trigger the prompt
 
-          permissionStatus.onchange = () => {
-            if (permissionStatus.state === 'granted') {
-                setHasCameraPermission(true);
-            } else if (permissionStatus.state === 'denied') {
-                setHasCameraPermission(false);
-            } else {
-                setHasCameraPermission(null);
-            }
-          };
-        } catch (error) {
-          console.error('Error querying camera permission:', error);
-          // Fallback to default behavior (hasCameraPermission remains null)
-        }
-      }
-    };
-    checkInitialCameraPermission();
-  }, []);
+  //         permissionStatus.onchange = () => {
+  //           if (permissionStatus.state === 'granted') {
+  //               setHasCameraPermission(true);
+  //           } else if (permissionStatus.state === 'denied') {
+  //               setHasCameraPermission(false);
+  //           } else {
+  //               setHasCameraPermission(null);
+  //           }
+  //         };
+  //       } catch (error) {
+  //         console.error('Error querying camera permission:', error);
+  //         // Fallback to default behavior (hasCameraPermission remains null)
+  //       }
+  //     }
+  //   };
+  //   checkInitialCameraPermission();
+  // }, []);
 
 
   useEffect(() => {
