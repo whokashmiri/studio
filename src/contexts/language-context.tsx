@@ -17,6 +17,11 @@ const translations: Record<Language, Record<string, string>> = {
   en: {
     appName: "Asset Inspector Pro",
     selectCompany: "Select a Company",
+    selectCompanyDesc: "Choose a company profile to manage its inspection projects.",
+    noCompaniesAvailable: "No companies available.",
+    currentCompany: "Current Company",
+    switchCompany: "Switch Company",
+    selectCompanyPrompt: "Select Company",
     done: "Done",
     favorite: "Favorite",
     recent: "Recent",
@@ -93,8 +98,7 @@ const translations: Record<Language, Record<string, string>> = {
     assetNamePlaceholder: "e.g., Main Entrance Column",
     inFolder: "In folder:",
     forProject: "for",
-    noCompaniesAvailable: "No companies available. Please check the data source.",
-    
+        
     listening: "Listening...",
         
     cameraErrorTitle: "Camera Error",
@@ -195,7 +199,7 @@ const translations: Record<Language, Record<string, string>> = {
     capturePhoto: "Capture Photo",
     sessionPhotoPreviewAlt: "Session Preview {number}",
     doneWithSession: "Done", // Generic done
-    doneWithSessionAddPhotos: "Done ({count})",
+    doneWithSessionAddPhotos: "Done ({count}) - Add to Batch",
     currentPhotoBatch: "Current Photo Batch",
     customCameraViewTitle: "Custom Camera View",
     customCameraDialogTitle: "Camera",
@@ -223,6 +227,11 @@ const translations: Record<Language, Record<string, string>> = {
   ar: {
     appName: "مفتش الأصول برو",
     selectCompany: "اختر شركة",
+    selectCompanyDesc: "اختر ملف تعريف شركة لإدارة مشاريع الفحص الخاصة بها.",
+    noCompaniesAvailable: "لا توجد شركات متاحة.",
+    currentCompany: "الشركة الحالية",
+    switchCompany: "تبديل الشركة",
+    selectCompanyPrompt: "اختر شركة",
     done: "مكتمل",
     favorite: "مفضل",
     recent: "الأخيرة",
@@ -298,8 +307,7 @@ const translations: Record<Language, Record<string, string>> = {
     assetNamePlaceholder: "مثال: عمود المدخل الرئيسي",
     inFolder: "في المجلد:",
     forProject: "لمشروع",
-    noCompaniesAvailable: "لا توجد شركات متاحة. يرجى التحقق من مصدر البيانات.",
-    
+        
     listening: "يستمع...",
         
     cameraErrorTitle: "خطأ في الكاميرا",

@@ -1,16 +1,16 @@
 
 "use client";
 import Link from 'next/link';
-import { Building, LogIn, LogOut, UserCircle, Settings, Loader2 } from 'lucide-react'; // Added icons
+import { Building, LogOut, UserCircle, Briefcase } from 'lucide-react';
 import { LanguageToggle } from '@/components/language-toggle';
 import { useAuth } from '@/contexts/auth-context';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/language-context';
 
 export function Header() {
-  const { user, logout } = useAuth();
+  const { user, clearCompany } = useAuth();
   const { t } = useLanguage();
 
   return (
@@ -22,51 +22,38 @@ export function Header() {
         </Link>
         <div className="flex items-center gap-2 sm:gap-4">
           <LanguageToggle />
-          {user?.isLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : user ? (
+          {user.isLoading ? (
+            <Briefcase className="h-5 w-5 animate-pulse" />
+          ) : user.companyId && user.companyName ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name || 'User'} data-ai-hint="user avatar" />}
-                    <AvatarFallback>{user.name ? user.name.substring(0, 1).toUpperCase() : <UserCircle className="h-5 w-5"/>}</AvatarFallback>
+                    <AvatarFallback>
+                        <Briefcase className="h-5 w-5"/>
+                    </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name || user.email}</p>
-                    {user.name && <p className="text-xs leading-none text-muted-foreground">
-                      {user.email}
-                    </p>}
-                     {user.companyName && <p className="text-xs leading-none text-muted-foreground pt-1">
-                      Company: {user.companyName}
-                    </p>}
+                    <p className="text-sm font-medium leading-none">{t('currentCompany', 'Current Company')}</p>
+                    <p className="text-xs leading-none text-muted-foreground pt-1">
+                      {user.companyName}
+                    </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem disabled> {/* Replace with actual link or functionality */}
-                  <UserCircle className="mr-2 h-4 w-4" />
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled> {/* Replace with actual link or functionality */}
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>
+                <DropdownMenuItem onClick={clearCompany}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  Log out
+                  {t('switchCompany', 'Switch Company')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-             <Button variant="outline" asChild>
-                <Link href="/login">
-                    <LogIn className="mr-0 sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Login</span>
-                </Link>
+             <Button variant="outline" onClick={() => { /* Potentially trigger company selection if needed, or just rely on homepage */ }}>
+                <UserCircle className="mr-0 sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">{t('selectCompanyPrompt', 'Select Company')}</span>
              </Button> 
           )}
         </div>

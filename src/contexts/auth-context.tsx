@@ -2,152 +2,85 @@
 "use client";
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  Auth, 
-  User as FirebaseUser, 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  signOut as firebaseSignOut,
-  createUserWithEmailAndPassword // Only for client-side if not using API
-} from 'firebase/auth';
-import { doc, getDoc, Firestore } from 'firebase/firestore';
-import { auth as firebaseClientAuth, db as firebaseClientDb } from '@/lib/firebase/config'; // Client SDK
 import { useRouter } from 'next/navigation';
+import type { Company } from '@/data/mock-data'; // Ensure Company type is available
+import { mockCompanies } from '@/data/mock-data'; // For finding company name by ID
 
+const SELECTED_COMPANY_ID_KEY = 'selectedCompanyId';
+const SELECTED_COMPANY_NAME_KEY = 'selectedCompanyName';
 
-interface User {
-  uid: string;
-  email: string | null;
-  name: string | null; // displayName from Firebase Auth
-  avatarUrl?: string | null; // photoURL from Firebase Auth
-  companyId?: string; 
-  companyName?: string;
-  isLoading: boolean; // To track initial auth state loading
+interface UserState {
+  isLoading: boolean;
+  companyId: string | null;
+  companyName: string | null;
 }
 
 interface AuthContextType {
-  user: User | null;
-  login: (email: string, pass: string) => Promise<FirebaseUser | null>;
-  signup: (email: string, pass: string, companyName: string) => Promise<{uid: string; companyId: string} | null>;
-  logout: () => Promise<void>;
+  user: UserState;
+  selectCompany: (company: Company) => void;
+  clearCompany: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Start as true
+  const [user, setUser] = useState<UserState>({
+    isLoading: true,
+    companyId: null,
+    companyName: null,
+  });
   const router = useRouter();
 
   useEffect(() => {
-    if (!firebaseClientAuth || !firebaseClientDb) {
-      console.warn("Firebase client auth or db not available in AuthProvider.");
-      setIsLoading(false);
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(firebaseClientAuth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // User is signed in, fetch additional profile data
-        const userProfileRef = doc(firebaseClientDb, "users", firebaseUser.uid);
-        try {
-          const userProfileSnap = await getDoc(userProfileRef);
-          if (userProfileSnap.exists()) {
-            const userProfileData = userProfileSnap.data();
-            setUser({
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              name: firebaseUser.displayName,
-              avatarUrl: firebaseUser.photoURL,
-              companyId: userProfileData.companyId,
-              companyName: userProfileData.companyName,
-              isLoading: false,
-            });
-          } else {
-            // User exists in Auth, but no profile in Firestore (should not happen with proper signup)
-            console.warn("User profile not found in Firestore for UID:", firebaseUser.uid);
-            setUser({ 
-              uid: firebaseUser.uid, 
-              email: firebaseUser.email, 
-              name: firebaseUser.displayName, 
-              avatarUrl: firebaseUser.photoURL,
-              isLoading: false,
-            });
-          }
-        } catch (error) {
-            console.error("Error fetching user profile:", error);
-            setUser({ 
-              uid: firebaseUser.uid, 
-              email: firebaseUser.email, 
-              name: firebaseUser.displayName, 
-              avatarUrl: firebaseUser.photoURL,
-              isLoading: false, // Still set loading to false
-            });
-        }
+    try {
+      const storedCompanyId = localStorage.getItem(SELECTED_COMPANY_ID_KEY);
+      const storedCompanyName = localStorage.getItem(SELECTED_COMPANY_NAME_KEY);
+      if (storedCompanyId && storedCompanyName) {
+        setUser({
+          isLoading: false,
+          companyId: storedCompanyId,
+          companyName: storedCompanyName,
+        });
       } else {
-        // User is signed out
-        setUser(null);
+        setUser(prev => ({ ...prev, isLoading: false }));
       }
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
+    } catch (error) {
+      console.error("Error reading company from localStorage:", error);
+      setUser(prev => ({ ...prev, isLoading: false }));
+    }
   }, []);
 
-  const login = async (email: string, pass: string): Promise<FirebaseUser | null> => {
-    if (!firebaseClientAuth) throw new Error("Firebase auth not initialized");
+  const selectCompany = (company: Company) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(firebaseClientAuth, email, pass);
-      // onAuthStateChanged will handle setting the user state with profile data
-      return userCredential.user;
-    } catch (error) {
-      console.error("Login error:", error);
-      throw error; // Re-throw to be caught by the form
-    }
-  };
-
-  const signup = async (email: string, pass: string, companyName: string): Promise<{uid: string; companyId: string} | null> => {
-    try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass, companyName }),
+      localStorage.setItem(SELECTED_COMPANY_ID_KEY, company.id);
+      localStorage.setItem(SELECTED_COMPANY_NAME_KEY, company.name);
+      setUser({
+        isLoading: false,
+        companyId: company.id,
+        companyName: company.name,
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Signup failed');
-      }
-      // After successful API signup, Firebase Auth state should change.
-      // To ensure immediate login feel, attempt client-side login if API doesn't auto-sign-in.
-      // However, onAuthStateChanged should pick up the new user if backend creates it properly.
-      // For simplicity, we rely on onAuthStateChanged. The API returns uid and companyId.
-      // Optionally, trigger a manual sign-in here if needed, or just let onAuthStateChanged handle it.
-      await login(email, pass); // Attempt to login the user client-side after server-side creation
-      return data; // uid, companyId
     } catch (error) {
-      console.error("Signup error:", error);
-      throw error;
+      console.error("Error saving company to localStorage:", error);
     }
   };
 
-  const logout = async () => {
-    if (!firebaseClientAuth) throw new Error("Firebase auth not initialized");
+  const clearCompany = () => {
     try {
-      await firebaseSignOut(firebaseClientAuth);
-      // onAuthStateChanged will set user to null
-      router.push('/login'); // Redirect to login page after logout
+      localStorage.removeItem(SELECTED_COMPANY_ID_KEY);
+      localStorage.removeItem(SELECTED_COMPANY_NAME_KEY);
+      setUser({
+        isLoading: false,
+        companyId: null,
+        companyName: null,
+      });
+      router.push('/'); // Navigate to home which should show CompanySelector
     } catch (error) {
-      console.error("Logout error:", error);
-      throw error;
+      console.error("Error clearing company from localStorage:", error);
     }
   };
   
-  // Provide a user object that includes the isLoading state for the initial check
-  const contextUser = user ? { ...user, isLoading } : (isLoading ? { isLoading: true, uid: '', email: null, name: null } : null);
-
-
   return (
-    <AuthContext.Provider value={{ user: contextUser as User | null, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, selectCompany, clearCompany }}>
       {children}
     </AuthContext.Provider>
   );

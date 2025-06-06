@@ -1,11 +1,15 @@
 
 "use client";
-import type { Project, Folder, Asset } from '@/data/mock-data';
-import { mockProjects, mockFolders, mockAssets } from '@/data/mock-data'; // mockCompanies removed
+import type { Project, Folder, Asset, Company } from '@/data/mock-data';
+import { mockProjects, mockFolders, mockAssets, mockCompanies } from '@/data/mock-data';
 
 const PROJECTS_KEY = 'assetInspectorPro_projects';
 const FOLDERS_KEY = 'assetInspectorPro_folders';
 const ASSETS_KEY = 'assetInspectorPro_assets';
+// Note: Companies are primarily from mock-data, localStorage might only store selected company ID.
+// We'll keep getCompanies here for completeness if it was ever used for dynamic storage.
+const COMPANIES_KEY = 'assetInspectorPro_companies';
+
 
 // Helper to get an item from localStorage or initialize it
 function getItem<T>(key: string, initialData: T[]): T[] {
@@ -42,6 +46,17 @@ function setItem<T>(key: string, data: T[]): void {
     console.error(`Error writing to localStorage key "${key}":`, error);
   }
 }
+
+// Companies (Primarily from mock-data, but these functions allow for localStorage override if needed)
+export function getCompanies(): Company[] {
+  // Typically, for this reverted setup, mockCompanies would be used directly by CompanySelector.
+  // This function could be used if companies were meant to be editable/dynamic via localStorage.
+  return getItem<Company>(COMPANIES_KEY, mockCompanies);
+}
+export function saveCompanies(companies: Company[]): void {
+  setItem<Company>(COMPANIES_KEY, companies);
+}
+
 
 // Projects
 export function getProjects(): Project[] {
