@@ -556,20 +556,17 @@ export default function NewAssetPage() {
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
           if (!isOpen) {
-            // If closing camera and there are session photos, consider if photo modal should open
             if (capturedPhotosInSession.length > 0 && photoPreviews.length === 0) {
-                // If no main previews yet, but session photos exist, maybe open manage photos
-                // setIsPhotoModalOpen(true); // This might be too aggressive
+                // setIsPhotoModalOpen(true); // Potentially open manage photos if batch is empty but session has photos
             }
           }
           setIsCustomCameraOpen(isOpen);
         }}>
-         <DialogContent className="p-0 m-0 fixed inset-0 w-screen h-screen z-[60] flex flex-col bg-black text-white shadow-none border-none rounded-none">
+         <DialogContent variant="fullscreen" className="bg-black text-white">
            <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
-           {/* Full screen camera UI, no default DialogHeader or X close button from DialogContent needed here */}
            <div className="flex-1 flex flex-col overflow-hidden">
             {/* Video preview area */}
-            <div className="flex-1 relative bg-neutral-900"> {/* Fallback bg */}
+            <div className="flex-1 relative bg-neutral-900"> 
               <video 
                 ref={videoRef} 
                 className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hasCameraPermission === true ? 'opacity-100' : 'opacity-0'}`} 
@@ -577,7 +574,6 @@ export default function NewAssetPage() {
                 muted 
                 playsInline 
               />
-              {/* Permission denied alert */}
               {hasCameraPermission === false && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10">
                     <Alert variant="destructive" className="bg-white/5 text-white border-red-500/30 max-w-md backdrop-blur-sm">
@@ -586,7 +582,6 @@ export default function NewAssetPage() {
                     </Alert>
                 </div>
               )}
-              {/* Initializing camera alert */}
               {hasCameraPermission === null && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 text-center">
                       <CircleDotDashed className="w-12 h-12 sm:w-16 sm:h-16 animate-spin mb-3 sm:mb-4 text-neutral-400" />
@@ -598,7 +593,6 @@ export default function NewAssetPage() {
 
             {/* Controls bar at the bottom */}
             <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
-              {/* Captured photos preview row */}
               {capturedPhotosInSession.length > 0 && (
                 <ScrollArea className="w-full mb-3 sm:mb-4 max-h-[70px] sm:max-h-[80px] whitespace-nowrap">
                   <div className="flex space-x-2 pb-1">
@@ -620,7 +614,6 @@ export default function NewAssetPage() {
                 </ScrollArea>
               )}
 
-              {/* Main action buttons */}
               <div className="flex items-center justify-between">
                 <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/10 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base">
                   {t('cancel', 'Cancel')}
