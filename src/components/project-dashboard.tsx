@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { NewProjectModal } from '@/components/modals/new-project-modal';
 import { EditProjectModal } from '@/components/modals/edit-project-modal';
-import type { Company, Project, ProjectStatus, Asset } from '@/data/mock-data'; // Added Asset
+import type { Company, Project, ProjectStatus, Asset } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { FolderPlus, CheckCircle, Star, Clock, Sparkles, ArrowLeft } from 'lucide-react';
 import { ProjectCard } from './project-card';
@@ -23,15 +23,15 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [allAssets, setAllAssets] = useState<Asset[]>([]); // New state for all assets
+  const [allAssets, setAllAssets] = useState<Asset[]>([]);
   const [activeTab, setActiveTab] = useState<ProjectStatus | 'favorite'>('recent');
   const { t } = useLanguage();
   const { toast } = useToast();
 
   useEffect(() => {
     setProjects(LocalStorageService.getProjects());
-    setAllAssets(LocalStorageService.getAssets()); // Load all assets on mount/company change
-  }, [company.id]); 
+    setAllAssets(LocalStorageService.getAssets());
+  }, [company.id]);
 
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
@@ -45,16 +45,27 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
       if (activeTab === 'new' && a.createdAt && b.createdAt) {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
-      if (a.isFavorite && !b.isFavorite && activeTab === 'favorite') return -1; 
+      if (a.isFavorite && !b.isFavorite && activeTab === 'favorite') return -1;
       if (!a.isFavorite && b.isFavorite && activeTab === 'favorite') return 1;
       return (a.name || '').localeCompare(b.name || '');
     });
   }, [projects, company.id, activeTab]);
-  
+
+  const projectAssetCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allAssets.forEach(asset => {
+      if (asset.projectId) {
+        counts[asset.projectId] = (counts[asset.projectId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [allAssets]);
+
   const handleProjectCreated = (newProject: Project) => {
     setProjects(LocalStorageService.getProjects());
-    // No need to reload allAssets here unless project creation affects assets globally
-    setActiveTab('recent'); 
+    // Assets might not have changed, but if project creation implies adding some, reload them:
+    // setAllAssets(LocalStorageService.getAssets()); // Uncomment if new projects can have default assets
+    setActiveTab('recent');
   };
 
   const handleOpenEditModal = (project: Project) => {
@@ -64,6 +75,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
 
   const handleProjectUpdated = (updatedProject: Project) => {
     setProjects(LocalStorageService.getProjects());
+    // Asset counts don't change when a project is updated (unless assets are moved/deleted as part of it)
     if (editingProject && editingProject.id === updatedProject.id) {
         setEditingProject(null);
     }
@@ -73,7 +85,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
     const updatedProjectData = {
       ...projectToToggle,
       isFavorite: !projectToToggle.isFavorite,
-      lastAccessed: new Date().toISOString(), 
+      lastAccessed: new Date().toISOString(),
     };
     LocalStorageService.updateProject(updatedProjectData);
     setProjects(currentProjects => currentProjects.map(p => p.id === updatedProjectData.id ? updatedProjectData : p));
@@ -82,7 +94,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
       description: `Project "${updatedProjectData.name}" status updated.`,
     });
   };
-  
+
   const tabItems: { value: ProjectStatus | 'favorite'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
     { value: 'recent', labelKey: 'recent', defaultLabel: 'Recent', icon: Clock },
     { value: 'favorite', labelKey: 'favorite', defaultLabel: 'Favorite', icon: Star },
@@ -91,7 +103,7 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
   ];
 
   return (
-    <div className="space-y-6 pb-20 md:pb-0"> 
+    <div className="space-y-6 pb-20 md:pb-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <Button variant="outline" size="sm" onClick={onClearCompany} className="mb-2 sm:mb-0">
@@ -116,17 +128,17 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
         {tabItems.map(item => (
           <TabsContent key={item.value} value={item.value} className="mt-6">
             {filteredProjects.length > 0 ? (
-              <ScrollArea className="h-[calc(100vh-20rem)] sm:h-[calc(100vh-18rem)] md:h-[60vh] pr-3"> 
+              <ScrollArea className="h-[calc(100vh-20rem)] sm:h-[calc(100vh-18rem)] md:h-[60vh] pr-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {filteredProjects.map((project) => {
-                    const projectAssetCount = allAssets.filter(asset => asset.projectId === project.id).length;
+                    const projectAssetCount = projectAssetCounts[project.id] || 0;
                     return (
-                      <ProjectCard 
-                        key={project.id} 
-                        project={project} 
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
                         assetCount={projectAssetCount}
                         onEditProject={handleOpenEditModal}
-                        onToggleFavorite={handleToggleFavorite} 
+                        onToggleFavorite={handleToggleFavorite}
                       />
                     );
                   })}
@@ -168,3 +180,5 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
     </div>
   );
 }
+
+    
