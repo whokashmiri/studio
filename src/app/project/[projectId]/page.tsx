@@ -51,7 +51,7 @@ export default function ProjectPage() {
     if (!currentProject) return path;
 
     let current: FolderType | undefined | null = folderId ? foldersMap.get(folderId) : null;
-    if (current && current.projectId !== currentProject.id) current = null; // Ensure folder belongs to current project
+    if (current && current.projectId !== currentProject.id) current = null; 
 
     while (current) {
       path.unshift({ id: current.id, name: current.name, type: 'folder' });
@@ -77,12 +77,12 @@ export default function ProjectPage() {
         const assetsForThisProject = allAssetsFromStorage.filter(a => a.projectId === projectId);
 
         if (currentUrlFolderId) {
-          const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); // Use projectFolders for consistency
+          const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); 
           setSelectedFolder(folderFromUrl || null);
           setCurrentAssets(assetsForThisProject.filter(a => a.folderId === currentUrlFolderId));
         } else {
           setSelectedFolder(null);
-          setCurrentAssets(assetsForThisProject.filter(a => !a.folderId)); // Assets at project root
+          setCurrentAssets(assetsForThisProject.filter(a => !a.folderId)); 
         }
 
       } else {
@@ -107,7 +107,7 @@ export default function ProjectPage() {
       if (selectedFolder) {
         return folder.parentId === selectedFolder.id;
       }
-      return folder.parentId === null; // Root folders
+      return folder.parentId === null; 
     });
   }, [allProjectFolders, selectedFolder]);
 
@@ -145,7 +145,7 @@ export default function ProjectPage() {
     setNewFolderParentContext(null);
     toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created and selected.`, {folderName: newFolder.name})});
     
-    loadProjectData(); // Reload data to reflect new folder immediately for breadcrumbs etc.
+    loadProjectData(); 
     handleSelectFolder(newFolder); 
   };
 
@@ -171,7 +171,7 @@ export default function ProjectPage() {
   const handleFolderUpdated = (updatedFolder: FolderType) => {
     loadProjectData(); 
     if (selectedFolder && selectedFolder.id === updatedFolder.id) {
-      const reloadedFolder = LocalStorageService.getFolders().find(f => f.id === updatedFolder.id); // Re-fetch specifically, or trust loadProjectData
+      const reloadedFolder = LocalStorageService.getFolders().find(f => f.id === updatedFolder.id); 
       setSelectedFolder(reloadedFolder || null); 
     }
     if (project) {
@@ -210,7 +210,11 @@ export default function ProjectPage() {
             <Home className="mr-1 h-4 w-4" /> {t('allProjects', 'All Projects')}
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
-          <p className="text-muted-foreground text-sm sm:text-base line-clamp-2 sm:line-clamp-none">{project.description}</p>
+          {/* Project description display removed 
+          {project.description && (
+            <p className="text-muted-foreground text-sm sm:text-base line-clamp-2 sm:line-clamp-none">{project.description}</p>
+          )}
+          */}
         </div>
         <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
             {!isMobile && (
@@ -251,7 +255,7 @@ export default function ProjectPage() {
                     if (item.type === 'project') {
                         handleSelectFolder(null);
                     } else if (item.id) {
-                        const folderToSelect = foldersMap.get(item.id); // Use map for quick lookup
+                        const folderToSelect = foldersMap.get(item.id); 
                         if (folderToSelect) handleSelectFolder(folderToSelect);
                     }
                     }}
@@ -263,11 +267,6 @@ export default function ProjectPage() {
                 </React.Fragment>
             ))}
             </CardTitle>
-            {selectedFolder ?
-                <CardDescription>{t('contentsOfFolder', 'Contents of "{folderName}"', {folderName: selectedFolder.name})}</CardDescription>
-                :
-                <CardDescription>{t('projectRootContents', 'Project Root - Folders & Assets')}</CardDescription>
-            }
         </CardHeader>
         <CardContent>
         <FolderTreeDisplay
@@ -337,7 +336,7 @@ export default function ProjectPage() {
                 {newFolderParentContext ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: newFolderParentContext.name }) : t('addRootFolderTitle', 'Add Folder to Project Root')}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-grow overflow-y-auto pt-4 pb-0 space-y-2">
+          <div className="pt-4 pb-0 space-y-2 flex-grow overflow-y-auto">
             <Label htmlFor="new-folder-name">{t('folderName', 'Folder Name')}</Label>
             <Input
               id="new-folder-name"

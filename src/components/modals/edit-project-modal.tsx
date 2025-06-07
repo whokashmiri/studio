@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+// import { Textarea } from '@/components/ui/textarea'; // Textarea removed
 import { Switch } from '@/components/ui/switch';
 import type { Project } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
@@ -21,7 +21,7 @@ interface EditProjectModalProps {
 
 export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }: EditProjectModalProps) {
   const [projectName, setProjectName] = useState('');
-  const [projectDescription, setProjectDescription] = useState('');
+  // const [projectDescription, setProjectDescription] = useState(''); // projectDescription state removed
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -30,7 +30,7 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
   useEffect(() => {
     if (project) {
       setProjectName(project.name);
-      setProjectDescription(project.description || '');
+      // setProjectDescription(project.description || ''); // projectDescription handling removed
       setIsFavorite(project.isFavorite || false);
     }
   }, [project]);
@@ -51,9 +51,10 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
     const updatedProject: Project = {
       ...project,
       name: projectName,
-      description: projectDescription,
+      // description: projectDescription, // projectDescription assignment removed
+      description: project.description, // Keep existing description if not editable
       isFavorite: isFavorite,
-      lastAccessed: new Date().toISOString(), // Update lastAccessed on edit
+      lastAccessed: new Date().toISOString(), 
     };
 
     LocalStorageService.updateProject(updatedProject);
@@ -83,7 +84,7 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
             {t('editProjectDesc', 'Update the details for your project.')}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 pt-4 pb-0 flex-grow overflow-y-auto">
+        <div className="pt-4 pb-0 flex-grow overflow-y-auto space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-project-name">
               {t('projectName', 'Project Name')}
@@ -96,6 +97,7 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
               disabled={isLoading}
             />
           </div>
+          {/* Project Description Textarea and Label Removed
           <div className="space-y-2">
             <Label htmlFor="edit-project-description">
               {t('projectDescription', 'Project Description')}
@@ -109,6 +111,7 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
               disabled={isLoading}
             />
           </div>
+          */}
           <div className="flex items-center space-x-2">
             <Switch
               id="edit-project-favorite"
