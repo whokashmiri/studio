@@ -203,18 +203,13 @@ export default function ProjectPage() {
   const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && currentAssets.length === 0;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-24 md:pb-8">
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-4 pb-24 md:pb-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <Link href="/" className="text-sm text-primary hover:underline flex items-center">
             <Home className="mr-1 h-4 w-4" /> {t('allProjects', 'All Projects')}
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
-          {/* Project description display removed 
-          {project.description && (
-            <p className="text-muted-foreground text-sm sm:text-base line-clamp-2 sm:line-clamp-none">{project.description}</p>
-          )}
-          */}
         </div>
         <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
             {!isMobile && (
@@ -366,3 +361,4 @@ export default function ProjectPage() {
     </div>
   );
 }
+
