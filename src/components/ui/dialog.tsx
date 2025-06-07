@@ -39,8 +39,8 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] z-50 grid w-full translate-x-[-50%]", // Common horizontal centering and base
-        "top-[10vh]", // Mobile: position towards the top (changed from 5vh to 10vh)
+        "fixed left-[50%] z-50 grid translate-x-[-50%]", // Common horizontal centering and base
+        "top-[20vh]", // Mobile: position towards the top
         "sm:top-[50%] sm:translate-y-[-50%]", // SM and up: vertically center
         "w-full sm:w-auto sm:max-w-lg", // Mobile full width, SM and up: width constraints
         "gap-4 border bg-background p-4 sm:p-6 shadow-lg duration-200",
