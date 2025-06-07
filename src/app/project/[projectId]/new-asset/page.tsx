@@ -564,9 +564,8 @@ export default function NewAssetPage() {
         }}>
          <DialogContent variant="fullscreen" className="bg-black text-white">
            <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
-           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Video preview area */}
-            <div className="flex-1 relative bg-neutral-900"> 
+            {/* Video preview area - direct child of DialogContent, takes flex-1 */}
+            <div className="flex-1 relative bg-neutral-900 overflow-hidden"> 
               <video 
                 ref={videoRef} 
                 className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hasCameraPermission === true ? 'opacity-100' : 'opacity-0'}`} 
@@ -591,7 +590,7 @@ export default function NewAssetPage() {
               )}
             </div>
 
-            {/* Controls bar at the bottom */}
+            {/* Controls bar at the bottom - direct child of DialogContent, takes natural height */}
             <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
               {capturedPhotosInSession.length > 0 && (
                 <ScrollArea className="w-full mb-3 sm:mb-4 max-h-[70px] sm:max-h-[80px] whitespace-nowrap">
@@ -636,7 +635,6 @@ export default function NewAssetPage() {
                 </Button>
               </div>
             </div>
-           </div>
         </DialogContent>
       </Dialog>
     </div>
