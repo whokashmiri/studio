@@ -565,6 +565,7 @@ export default function NewAssetPage() {
           setIsCustomCameraOpen(isOpen);
         }}>
          <DialogContent className="p-0 m-0 fixed inset-0 w-screen h-screen z-[60] flex flex-col bg-black text-white shadow-none border-none rounded-none">
+           <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
            {/* Full screen camera UI, no default DialogHeader or X close button from DialogContent needed here */}
            <div className="flex-1 flex flex-col overflow-hidden">
             {/* Video preview area */}
