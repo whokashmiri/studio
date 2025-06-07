@@ -240,7 +240,7 @@ export default function ProjectPage() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="pt-3 px-4 pb-0 md:pt-4 md:px-6 md:pb-0">
             <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
             {breadcrumbItems.map((item, index) => (
                 <React.Fragment key={item.id || `project_root_${project.id}`}>
@@ -325,7 +325,7 @@ export default function ProjectPage() {
         }
         setIsNewFolderDialogOpen(isOpen);
       }}>
-        <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
                 {newFolderParentContext ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: newFolderParentContext.name }) : t('addRootFolderTitle', 'Add Folder to Project Root')}
@@ -340,7 +340,7 @@ export default function ProjectPage() {
               placeholder={t('folderNamePlaceholder', "e.g., Inspection Area 1")}
             />
           </div>
-          <DialogFooter className="flex flex-row justify-end space-x-2">
+          <DialogFooter>
             <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); setNewFolderParentContext(null); }}>{t('cancel', 'Cancel')}</Button>
             <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>{t('confirm', 'Confirm')}</Button>
           </DialogFooter>
