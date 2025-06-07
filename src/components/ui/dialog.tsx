@@ -40,15 +40,15 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         "fixed left-[50%] z-50 grid w-full translate-x-[-50%]", // Common horizontal centering and base
-        "top-[5vh]", // Mobile: position towards the top
+        "top-[10vh]", // Mobile: position towards the top (changed from 5vh to 10vh)
         "sm:top-[50%] sm:translate-y-[-50%]", // SM and up: vertically center
-        "sm:w-auto sm:max-w-lg", // SM and up: width constraints
+        "w-full sm:w-auto sm:max-w-lg", // Mobile full width, SM and up: width constraints
         "gap-4 border bg-background p-4 sm:p-6 shadow-lg duration-200",
         // Animations: Apply slide-from-top only for sm screens where it's centered.
         // For mobile, rely on fade/zoom.
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-        "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:sm:slide-in-from-top-[48%]", // Combined open animations
-        "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:sm:slide-out-to-top-[48%]", // Combined close animations
+        "data-[state=open]:sm:slide-in-from-left-1/2 data-[state=open]:sm:slide-in-from-top-[48%]", // Combined open animations (SM up)
+        "data-[state=closed]:sm:slide-out-to-left-1/2 data-[state=closed]:sm:slide-out-to-top-[48%]", // Combined close animations (SM up)
         "max-h-[90vh] flex flex-col",
         className
       )}
