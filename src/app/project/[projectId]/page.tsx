@@ -203,7 +203,7 @@ export default function ProjectPage() {
   const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && currentAssets.length === 0;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-4 pb-24 md:pb-8">
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24 md:pb-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <Link href="/" className="text-sm text-primary hover:underline flex items-center">
