@@ -158,6 +158,7 @@ const translations: Record<Language, Record<string, string>> = {
     folderUpdatedDesc: "Folder \"{folderName}\" has been successfully updated.",
     editFolderModalTitle: "Edit Folder Name",
     editFolderDesc: "Update the name for your folder.",
+    editFolderDescContextual: "Update the name for folder: {folderName}",
     updateFolderButton: "Update Folder",
     
     viewRootAssetsTitle: "View assets in project root",
@@ -367,6 +368,7 @@ const translations: Record<Language, Record<string, string>> = {
     folderUpdatedDesc: "تم تحديث المجلد \"{folderName}\" بنجاح.",
     editFolderModalTitle: "تعديل اسم المجلد",
     editFolderDesc: "قم بتحديث اسم المجلد الخاص بك.",
+    editFolderDescContextual: "تحديث اسم المجلد: {folderName}",
     updateFolderButton: "تحديث المجلد",
     
     viewRootAssetsTitle: "عرض الأصول في جذر المشروع",
@@ -470,3 +472,4 @@ export function useLanguage() {
   }
   return context;
 }
+

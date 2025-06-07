@@ -45,7 +45,7 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
       status: 'recent' as ProjectStatus,
       createdAt: now,
       lastAccessed: now,
-      description: `Newly created project: ${projectName}`,
+      description: '', // Set to empty string as requested
       isFavorite: false,
     };
 
@@ -103,3 +103,4 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     </Dialog>
   );
 }
+

@@ -71,7 +71,7 @@ export function EditFolderModal({ isOpen, onClose, folder, onFolderUpdated }: Ed
         <DialogHeader>
           <DialogTitle className="font-headline">{t('editFolderModalTitle', 'Edit Folder Name')}</DialogTitle>
           <DialogDescription>
-            {t('editFolderDesc', 'Update the name for your folder.')} "{folder.name}"
+            {t('editFolderDescContextual', 'Update the name for folder: {folderName}', { folderName: folder.name })}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 pt-4 pb-0 flex-grow overflow-y-auto">
@@ -100,3 +100,4 @@ export function EditFolderModal({ isOpen, onClose, folder, onFolderUpdated }: Ed
     </Dialog>
   );
 }
+
