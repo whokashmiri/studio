@@ -225,16 +225,18 @@ export default function ProjectPage() {
                 {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
               </Button>
             )}
-            <Link href={newAssetHref} passHref legacyBehavior>
-                <Button
-                  className="w-full sm:w-auto"
-                  size="default"
-                  title={t('newAsset', 'New Asset')}
-                >
-                  <FilePlus className="mr-2 h-5 w-5" />
-                  {t('newAsset', 'New Asset')}
-                </Button>
-              </Link>
+            {!isMobile && (
+              <Link href={newAssetHref} passHref legacyBehavior>
+                  <Button
+                    className="w-full sm:w-auto"
+                    size="default"
+                    title={t('newAsset', 'New Asset')}
+                  >
+                    <FilePlus className="mr-2 h-5 w-5" />
+                    {t('newAsset', 'New Asset')}
+                  </Button>
+                </Link>
+            )}
         </div>
       </div>
 
