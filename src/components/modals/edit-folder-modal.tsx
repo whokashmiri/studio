@@ -74,7 +74,7 @@ export function EditFolderModal({ isOpen, onClose, folder, onFolderUpdated }: Ed
             {t('editFolderDesc', 'Update the name for your folder.')} "{folder.name}"
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 pt-4 pb-0 flex-grow overflow-y-auto">
           <div className="space-y-2">
             <Label htmlFor="edit-folder-name">
               {t('folderName', 'Folder Name')}

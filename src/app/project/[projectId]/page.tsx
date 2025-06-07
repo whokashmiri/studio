@@ -337,7 +337,7 @@ export default function ProjectPage() {
                 {newFolderParentContext ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: newFolderParentContext.name }) : t('addRootFolderTitle', 'Add Folder to Project Root')}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-grow overflow-y-auto py-4 space-y-2">
+          <div className="flex-grow overflow-y-auto pt-4 pb-0 space-y-2">
             <Label htmlFor="new-folder-name">{t('folderName', 'Folder Name')}</Label>
             <Input
               id="new-folder-name"
@@ -367,4 +367,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-

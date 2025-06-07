@@ -91,7 +91,7 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
             disabled={isLoading}
           />
         </div>
-        <DialogFooter className="pt-2.5 flex flex-row justify-end space-x-2">
+        <DialogFooter className="flex flex-row justify-end space-x-2">
           <Button variant="outline" onClick={() => { onClose(); setProjectName('');}} disabled={isLoading}>
             {t('cancel', 'Cancel')}
           </Button>
@@ -103,4 +103,3 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     </Dialog>
   );
 }
-

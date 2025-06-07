@@ -83,7 +83,7 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
             {t('editProjectDesc', 'Update the details for your project.')}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4 flex-grow overflow-y-auto">
+        <div className="grid gap-4 pt-4 pb-0 flex-grow overflow-y-auto">
           <div className="space-y-2">
             <Label htmlFor="edit-project-name">
               {t('projectName', 'Project Name')}
@@ -133,4 +133,3 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
     </Dialog>
   );
 }
-
