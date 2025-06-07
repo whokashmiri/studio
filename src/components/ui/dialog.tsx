@@ -44,17 +44,17 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         variant === 'fullscreen'
-          ? "fixed z-50 flex flex-col inset-0 w-screen h-screen p-0 border-none shadow-none rounded-none bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95" // Fullscreen base styles + basic animations
+          ? "fixed z-50 flex flex-col inset-0 w-screen h-svh p-0 border-none shadow-none rounded-none bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95" // Fullscreen base styles + basic animations, using h-svh
           : [ // Default styles
-              "fixed left-[50%] z-50 translate-x-[-50%]",
-              "top-[20vh]",
+              "fixed left-[50%] z-50 flex flex-col translate-x-[-50%]",
+              "top-[20vh]", // Adjusted from 5vh to 10vh, then to 20vh
               "sm:top-[50%] sm:translate-y-[-50%]",
               "w-full sm:w-auto sm:max-w-lg",
               "border bg-background p-4 sm:p-6 shadow-lg duration-200",
               "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
               "data-[state=open]:sm:slide-in-from-left-1/2 data-[state=open]:sm:slide-in-from-top-[48%]",
               "data-[state=closed]:sm:slide-out-to-left-1/2 data-[state=closed]:sm:slide-out-to-top-[48%]",
-              "max-h-[90vh] flex flex-col",
+              "max-h-[90vh]", 
             ],
         className
       )}

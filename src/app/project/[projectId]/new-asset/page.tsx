@@ -102,6 +102,7 @@ export default function NewAssetPage() {
     let streamInstance: MediaStream | null = null;
     const getCameraStream = async () => {
       if (isCustomCameraOpen) {
+        setHasCameraPermission(null); // Show "Initializing Camera..." message
         try {
           streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
           setMediaStream(streamInstance);
@@ -127,7 +128,7 @@ export default function NewAssetPage() {
       }
       setMediaStream(null);
     };
-  }, [isCustomCameraOpen, toast, t]);
+  }, [isCustomCameraOpen]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -556,9 +557,7 @@ export default function NewAssetPage() {
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
           if (!isOpen) {
-            if (capturedPhotosInSession.length > 0 && photoPreviews.length === 0) {
-                // setIsPhotoModalOpen(true); // Potentially open manage photos if batch is empty but session has photos
-            }
+            // Logic for when camera is closed can go here if needed
           }
           setIsCustomCameraOpen(isOpen);
         }}>
