@@ -204,7 +204,7 @@ export default function ProjectPage() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24 md:pb-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
         <div>
           <Link href="/" className="text-sm text-primary hover:underline flex items-center">
             <Home className="mr-1 h-4 w-4" /> {t('allProjects', 'All Projects')}
