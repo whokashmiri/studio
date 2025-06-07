@@ -98,39 +98,6 @@ export default function NewAssetPage() {
     loadProjectAndAsset();
   }, [loadProjectAndAsset]);
 
-  // useEffect(() => {
-  //   const checkInitialCameraPermission = async () => {
-  //     if (typeof navigator !== 'undefined' && navigator.permissions) {
-  //       try {
-  //         // Type assertion 'camera' as PermissionName might be needed if TS doesn't recognize 'camera'
-  //         const permissionStatus = await navigator.permissions.query({ name: 'camera' as PermissionName });
-          
-  //         if (permissionStatus.state === 'granted') {
-  //           setHasCameraPermission(true);
-  //         } else if (permissionStatus.state === 'denied') {
-  //           setHasCameraPermission(false);
-  //         }
-  //         // If 'prompt', hasCameraPermission remains null, getUserMedia will trigger the prompt
-
-  //         permissionStatus.onchange = () => {
-  //           if (permissionStatus.state === 'granted') {
-  //               setHasCameraPermission(true);
-  //           } else if (permissionStatus.state === 'denied') {
-  //               setHasCameraPermission(false);
-  //           } else {
-  //               setHasCameraPermission(null);
-  //           }
-  //         };
-  //       } catch (error) {
-  //         console.error('Error querying camera permission:', error);
-  //         // Fallback to default behavior (hasCameraPermission remains null)
-  //       }
-  //     }
-  //   };
-  //   checkInitialCameraPermission();
-  // }, []);
-
-
   useEffect(() => {
     let streamInstance: MediaStream | null = null;
     const getCameraStream = async () => {
@@ -145,12 +112,8 @@ export default function NewAssetPage() {
         } catch (error) {
           console.error('Error accessing camera:', error);
           setHasCameraPermission(false);
-          toast({
-            variant: 'destructive',
-            title: t('cameraAccessDeniedTitle', 'Camera Access Denied'),
-            description: t('cameraAccessDeniedDesc', 'Please enable camera permissions in your browser settings to use this app.'),
-          });
-          setIsCustomCameraOpen(false); 
+          // Toast for camera access denied is now shown inside the full-screen camera UI
+          // if the permission state is false.
         }
       }
     };
@@ -243,7 +206,7 @@ export default function NewAssetPage() {
          toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
       }
     } else {
-      toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('cameraNotReadyError', "Camera not ready or permission denied."), variant: "destructive" });
+      // Error is typically handled by disabled state of button or in-camera UI alert for permission
     }
   };
 
@@ -592,50 +555,61 @@ export default function NewAssetPage() {
       </Dialog>
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
-          if (!isOpen && !isPhotoModalOpen && photoPreviews.length > 0 && capturedPhotosInSession.length === 0) {
-             // This logic seems to intend to re-open photo modal if custom camera is closed and there were photos,
-             // but might be slightly off. Keeping as is unless specific issue arises.
-            // if (photoPreviews.length > 0) setIsPhotoModalOpen(true); 
+          if (!isOpen) {
+            // If closing camera and there are session photos, consider if photo modal should open
+            if (capturedPhotosInSession.length > 0 && photoPreviews.length === 0) {
+                // If no main previews yet, but session photos exist, maybe open manage photos
+                // setIsPhotoModalOpen(true); // This might be too aggressive
+            }
           }
           setIsCustomCameraOpen(isOpen);
         }}>
-         <DialogContent className="p-0 m-0 w-full h-full max-w-full max-h-full sm:w-[calc(100%-2rem)] sm:h-[calc(100%-2rem)] sm:max-w-4xl sm:max-h-[90vh] sm:rounded-lg overflow-hidden flex flex-col bg-black text-white">
-           <DialogHeader>
-             <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
-           </DialogHeader>
-          <div className="relative flex-grow w-full h-full flex items-center justify-center">
-             {hasCameraPermission === false && (
-                <Alert variant="destructive" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 max-w-md z-20 bg-background text-foreground">
-                    <AlertTitle>{t('cameraAccessDeniedTitle', 'Camera Access Denied')}</AlertTitle>
-                    <AlertDescription>{t('cameraAccessDeniedEnableSettings', 'Please enable camera permissions in your browser settings and refresh.')}</AlertDescription>
-                </Alert>
-            )}
-             {hasCameraPermission === null && (
-                 <div className="flex flex-col items-center text-center p-4 z-10">
-                    <CircleDotDashed className="w-16 h-16 animate-spin mb-4 text-gray-400" />
-                    <p className="text-lg text-gray-300">{t('initializingCamera', 'Initializing Camera...')}</p>
-                    <p className="text-sm text-gray-500">{t('allowCameraAccessPrompt', 'Please allow camera access when prompted.')}</p>
-                 </div>
-             )}
-            <video 
-              ref={videoRef} 
-              className={`w-full h-full object-cover ${hasCameraPermission === true ? 'opacity-100' : 'opacity-30'}`} 
-              autoPlay 
-              muted 
-              playsInline 
-            />
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-black bg-opacity-50 z-10">
+         <DialogContent className="p-0 m-0 fixed inset-0 w-screen h-screen z-[60] flex flex-col bg-black text-white shadow-none border-none rounded-none">
+           {/* Full screen camera UI, no default DialogHeader or X close button from DialogContent needed here */}
+           <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Video preview area */}
+            <div className="flex-1 relative bg-neutral-900"> {/* Fallback bg */}
+              <video 
+                ref={videoRef} 
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hasCameraPermission === true ? 'opacity-100' : 'opacity-0'}`} 
+                autoPlay 
+                muted 
+                playsInline 
+              />
+              {/* Permission denied alert */}
+              {hasCameraPermission === false && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10">
+                    <Alert variant="destructive" className="bg-white/5 text-white border-red-500/30 max-w-md backdrop-blur-sm">
+                        <AlertTitle>{t('cameraAccessDeniedTitle', 'Camera Access Denied')}</AlertTitle>
+                        <AlertDescription>{t('cameraAccessDeniedEnableSettings', 'Please enable camera permissions in your browser settings and refresh.')}</AlertDescription>
+                    </Alert>
+                </div>
+              )}
+              {/* Initializing camera alert */}
+              {hasCameraPermission === null && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 text-center">
+                      <CircleDotDashed className="w-12 h-12 sm:w-16 sm:h-16 animate-spin mb-3 sm:mb-4 text-neutral-400" />
+                      <p className="text-base sm:text-lg text-neutral-300">{t('initializingCamera', 'Initializing Camera...')}</p>
+                      <p className="text-xs sm:text-sm text-neutral-500">{t('allowCameraAccessPrompt', 'Please allow camera access when prompted.')}</p>
+                  </div>
+              )}
+            </div>
+
+            {/* Controls bar at the bottom */}
+            <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
+              {/* Captured photos preview row */}
               {capturedPhotosInSession.length > 0 && (
-                <ScrollArea className="w-full mb-3 max-h-24 whitespace-nowrap">
-                  <div className="flex space-x-2 pb-2">
+                <ScrollArea className="w-full mb-3 sm:mb-4 max-h-[70px] sm:max-h-[80px] whitespace-nowrap">
+                  <div className="flex space-x-2 pb-1">
                     {capturedPhotosInSession.map((src, index) => (
-                      <div key={`session-preview-${index}`} className="relative h-16 w-16 shrink-0">
-                        <img src={src} alt={t('sessionPhotoPreviewAlt', `Session Preview ${index + 1}`, {number: index + 1})} data-ai-hint="session photo" className="h-full w-full object-cover rounded-md" />
+                      <div key={`session-preview-${index}`} className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-md overflow-hidden border-2 border-neutral-600">
+                        <img src={src} alt={t('sessionPhotoPreviewAlt', `Session Preview ${index + 1}`, {number: index + 1})} data-ai-hint="session photo" className="h-full w-full object-cover" />
                         <Button 
                           variant="destructive" 
                           size="icon" 
-                          className="absolute -top-1 -right-1 h-5 w-5"
+                          className="absolute -top-1 -right-1 h-5 w-5 bg-black/60 hover:bg-red-600/80 border-none p-0"
                           onClick={() => removePhotoFromSession(index)}
+                          aria-label={t('removePhotoTitle', "Remove photo")}
                         >
                           <X className="h-3 w-3" />
                         </Button>
@@ -644,29 +618,31 @@ export default function NewAssetPage() {
                   </div>
                 </ScrollArea>
               )}
-              <div className="flex items-center justify-around">
-                <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/20">
+
+              {/* Main action buttons */}
+              <div className="flex items-center justify-between">
+                <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/10 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base">
                   {t('cancel', 'Cancel')}
                 </Button>
                 <Button 
                   onClick={handleCapturePhotoFromStream} 
                   disabled={!hasCameraPermission || mediaStream === null}
-                  className="w-16 h-16 rounded-full bg-white text-black hover:bg-gray-200 focus:ring-4 focus:ring-white/50 flex items-center justify-center p-0"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white text-black hover:bg-neutral-200 focus:ring-4 focus:ring-white/50 flex items-center justify-center p-0 border-2 border-neutral-700 shadow-xl disabled:bg-neutral-600 disabled:opacity-70"
                   aria-label={t('capturePhoto', 'Capture Photo')}
                 >
-                  <Camera className="w-8 h-8" />
+                  <Camera className="w-7 h-7 sm:w-9 sm:h-9" />
                 </Button>
                 <Button 
-                  variant="ghost" 
+                  variant={capturedPhotosInSession.length > 0 ? "default" : "ghost"}
                   onClick={handleAddSessionPhotosToBatch} 
                   disabled={capturedPhotosInSession.length === 0}
-                  className="text-white hover:bg-white/20"
+                  className={`py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base transition-colors duration-150 ${capturedPhotosInSession.length > 0 ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'text-white hover:bg-white/10'}`}
                 >
-                   {t('doneWithSessionAddPhotos', 'Done ({count}) - Add to Batch', { count: capturedPhotosInSession.length })}
+                   {t('doneWithSessionAddPhotos', 'Add ({count})', { count: capturedPhotosInSession.length })}
                 </Button>
               </div>
             </div>
-          </div>
+           </div>
         </DialogContent>
       </Dialog>
     </div>
