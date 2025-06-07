@@ -39,8 +39,17 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full sm:w-auto sm:max-w-lg translate-x-[-50%] translate-y-[calc(-50%_-_20px)] sm:translate-y-[calc(-50%_-_35px)] gap-4 border bg-background p-4 sm:p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        "max-h-[90vh] flex flex-col", 
+        "fixed left-[50%] z-50 grid w-full translate-x-[-50%]", // Common horizontal centering and base
+        "top-[5vh]", // Mobile: position towards the top
+        "sm:top-[50%] sm:translate-y-[-50%]", // SM and up: vertically center
+        "sm:w-auto sm:max-w-lg", // SM and up: width constraints
+        "gap-4 border bg-background p-4 sm:p-6 shadow-lg duration-200",
+        // Animations: Apply slide-from-top only for sm screens where it's centered.
+        // For mobile, rely on fade/zoom.
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+        "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:sm:slide-in-from-top-[48%]", // Combined open animations
+        "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:sm:slide-out-to-top-[48%]", // Combined close animations
+        "max-h-[90vh] flex flex-col",
         className
       )}
       {...props}
@@ -75,7 +84,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-4", 
+      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-4",
       className
     )}
     {...props}
@@ -122,4 +131,3 @@ export {
   DialogTitle,
   DialogDescription,
 }
-
