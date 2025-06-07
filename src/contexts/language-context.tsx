@@ -200,7 +200,7 @@ const translations: Record<Language, Record<string, string>> = {
     capturePhoto: "Capture Photo",
     sessionPhotoPreviewAlt: "Session Preview {number}",
     doneWithSession: "Done", // Generic done
-    doneWithSessionAddPhotos: "Done ({count}) - Add to Batch",
+    doneWithSessionAddPhotos: "Done ({count})",
     currentPhotoBatch: "Current Photo Batch",
     customCameraViewTitle: "Custom Camera View",
     customCameraDialogTitle: "Camera",
