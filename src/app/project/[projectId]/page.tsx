@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -40,19 +40,27 @@ export default function ProjectPage() {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
 
-  const getFolderPath = useCallback((folderId: string | null, currentProject: Project | null, allFoldersForPath: FolderType[]): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
+  const foldersMap = useMemo(() => {
+    const map = new Map<string, FolderType>();
+    allProjectFolders.forEach(folder => map.set(folder.id, folder));
+    return map;
+  }, [allProjectFolders]);
+
+  const getFolderPath = useCallback((folderId: string | null, currentProject: Project | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
     const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
     if (!currentProject) return path;
 
-    let current: FolderType | undefined | null = folderId ? allFoldersForPath.find(f => f.id === folderId && f.projectId === currentProject.id) : null;
+    let current: FolderType | undefined | null = folderId ? foldersMap.get(folderId) : null;
+    if (current && current.projectId !== currentProject.id) current = null; // Ensure folder belongs to current project
 
     while (current) {
       path.unshift({ id: current.id, name: current.name, type: 'folder' });
-      current = current.parentId ? allFoldersForPath.find(f => f.id === current.parentId && f.projectId === currentProject.id) : null;
+      const parentCand = current.parentId ? foldersMap.get(current.parentId) : null;
+      current = (parentCand && parentCand.projectId === currentProject.id) ? parentCand : null;
     }
     path.unshift({ id: null, name: currentProject.name, type: 'project' });
     return path;
-  }, []);
+  }, [foldersMap]);
 
 
   const loadProjectData = useCallback(() => {
@@ -69,7 +77,7 @@ export default function ProjectPage() {
         const assetsForThisProject = allAssetsFromStorage.filter(a => a.projectId === projectId);
 
         if (currentUrlFolderId) {
-          const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId);
+          const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); // Use projectFolders for consistency
           setSelectedFolder(folderFromUrl || null);
           setCurrentAssets(assetsForThisProject.filter(a => a.folderId === currentUrlFolderId));
         } else {
@@ -87,6 +95,21 @@ export default function ProjectPage() {
   useEffect(() => {
     loadProjectData();
   }, [loadProjectData]);
+
+
+  const breadcrumbItems = useMemo(() => {
+    if (!project) return [];
+    return getFolderPath(selectedFolder?.id || null, project);
+  }, [project, selectedFolder, getFolderPath]);
+  
+  const foldersToDisplayInGrid = useMemo(() => {
+    return allProjectFolders.filter(folder => {
+      if (selectedFolder) {
+        return folder.parentId === selectedFolder.id;
+      }
+      return folder.parentId === null; // Root folders
+    });
+  }, [allProjectFolders, selectedFolder]);
 
 
   if (!project) {
@@ -122,6 +145,7 @@ export default function ProjectPage() {
     setNewFolderParentContext(null);
     toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created and selected.`, {folderName: newFolder.name})});
     
+    loadProjectData(); // Reload data to reflect new folder immediately for breadcrumbs etc.
     handleSelectFolder(newFolder); 
   };
 
@@ -139,7 +163,7 @@ export default function ProjectPage() {
   const handleFolderDeleted = (deletedFolder: FolderType) => {
     loadProjectData(); 
     if (selectedFolder && selectedFolder.id === deletedFolder.id) {
-        const parentFolder = deletedFolder.parentId ? allProjectFolders.find(f => f.id === deletedFolder.parentId) : null;
+        const parentFolder = deletedFolder.parentId ? foldersMap.get(deletedFolder.parentId) : null;
         handleSelectFolder(parentFolder); 
     }
   };
@@ -147,7 +171,7 @@ export default function ProjectPage() {
   const handleFolderUpdated = (updatedFolder: FolderType) => {
     loadProjectData(); 
     if (selectedFolder && selectedFolder.id === updatedFolder.id) {
-      const reloadedFolder = LocalStorageService.getFolders().find(f => f.id === updatedFolder.id);
+      const reloadedFolder = LocalStorageService.getFolders().find(f => f.id === updatedFolder.id); // Re-fetch specifically, or trust loadProjectData
       setSelectedFolder(reloadedFolder || null); 
     }
     if (project) {
@@ -175,15 +199,6 @@ export default function ProjectPage() {
   };
 
   const newAssetHref = `/project/${project.id}/new-asset${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
-
-  const breadcrumbItems = project ? getFolderPath(selectedFolder?.id || null, project, allProjectFolders) : [];
-
-  const foldersToDisplayInGrid = allProjectFolders.filter(folder => {
-    if (selectedFolder) {
-      return folder.parentId === selectedFolder.id;
-    }
-    return folder.parentId === null; // Root folders
-  });
 
   const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && currentAssets.length === 0;
 
@@ -234,7 +249,7 @@ export default function ProjectPage() {
                     if (item.type === 'project') {
                         handleSelectFolder(null);
                     } else if (item.id) {
-                        const folderToSelect = allProjectFolders.find(f => f.id === item.id);
+                        const folderToSelect = foldersMap.get(item.id); // Use map for quick lookup
                         if (folderToSelect) handleSelectFolder(folderToSelect);
                     }
                     }}
