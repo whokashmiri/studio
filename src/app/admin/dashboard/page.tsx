@@ -7,12 +7,13 @@ import type { Project, AuthenticatedUser, MockStoredUser, Asset } from '@/data/m
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Loader2, ShieldAlert, Users, Briefcase, UserCheck, UserSearch } from 'lucide-react';
+import { Loader2, ShieldAlert, Users, Briefcase, UserCheck, UserSearch, FolderOpen } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { ProjectCard } from '@/components/project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AssignProjectUsersModal } from '@/components/modals/assign-project-users-modal'; // Import the new modal
+import { AssignProjectUsersModal } from '@/components/modals/assign-project-users-modal';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 const MOCK_USERS_KEY = 'mockUsers';
 
@@ -68,18 +69,16 @@ export default function AdminDashboardPage() {
   }, [allAssets]);
 
   const handleEditProject = (project: Project) => {
-    // Placeholder for actual edit functionality if needed beyond assignment
     toast({ title: t('actionNotImplemented', "Action Not Implemented"), description: t('editProjectAdminPlaceholder', "Project editing from admin dashboard is a placeholder.")});
   };
 
   const handleToggleFavorite = (project: Project) => {
-    // Placeholder or could be implemented if admins manage favorites
     const updatedProject = { ...project, isFavorite: !project.isFavorite };
     LocalStorageService.updateProject(updatedProject);
-    loadAdminData(); // Refresh projects
+    loadAdminData(); 
     toast({
         title: updatedProject.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
-        description: `Project "${updatedProject.name}" favorite status updated.`,
+        description: t('projectFavoriteStatusUpdatedDesc',`Project "${updatedProject.name}" favorite status updated.`, {projectName: updatedProject.name}),
       });
   };
 
@@ -92,8 +91,6 @@ export default function AdminDashboardPage() {
     setCompanyProjects(prevProjects => 
       prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
     );
-    // Optionally re-fetch all projects if more complex updates are involved
-    // loadAdminData(); 
   };
 
 
@@ -140,7 +137,7 @@ export default function AdminDashboardPage() {
             <Briefcase className="h-6 w-6 text-primary" />
             {t('companyProjectsTitle', 'Company Projects')} ({companyProjects.length})
           </CardTitle>
-          <CardDescription>{t('companyProjectsDescAdmin', 'All projects associated with your company.')}</CardDescription>
+          <CardDescription>{t('companyProjectsDescAdmin', 'All projects associated with your company. Use the "Assign Users" button on each project card to manage assignments.')}</CardDescription>
         </CardHeader>
         <CardContent>
           {companyProjects.length > 0 ? (
@@ -155,14 +152,14 @@ export default function AdminDashboardPage() {
                         assetCount={projectAssetCount}
                         onEditProject={handleEditProject} 
                         onToggleFavorite={handleToggleFavorite}
-                        onAssignUsers={handleOpenAssignUsersModal} // Pass the new handler
+                        onAssignUsers={handleOpenAssignUsersModal}
                       />
                   );
                 })}
               </div>
             </ScrollArea>
           ) : (
-            <p className="text-muted-foreground">{t('noProjectsFound', 'No projects found in this category.')}</p>
+            <p className="text-muted-foreground">{t('noProjectsFound', 'No projects found for this company.')}</p>
           )}
         </CardContent>
       </Card>
@@ -174,23 +171,50 @@ export default function AdminDashboardPage() {
               <UserCheck className="h-6 w-6 text-accent" />
               {t('inspectorsTitle', 'Inspectors')} ({inspectors.length})
             </CardTitle>
-             <CardDescription>{t('inspectorsDescAdmin', 'List of all inspectors in your company.')}</CardDescription>
+             <CardDescription>{t('inspectorsDescAdmin', 'List of all inspectors in your company and their assigned projects.')}</CardDescription>
           </CardHeader>
           <CardContent>
             {inspectors.length > 0 ? (
-              <ScrollArea className="h-[250px] pr-2">
-                <ul className="space-y-3">
-                  {inspectors.map(inspector => (
-                    <li key={inspector.id} className="flex items-center space-x-3 p-2 border rounded-md hover:bg-muted/50">
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback>{getInitials(inspector.email)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{inspector.email}</p>
-                        <p className="text-xs text-muted-foreground truncate">{t(inspector.role.toLowerCase() + 'Role', inspector.role)}</p>
-                      </div>
-                    </li>
-                  ))}
+              <ScrollArea className="h-[350px] pr-2">
+                <ul className="space-y-4">
+                  {inspectors.map(inspector => {
+                    const assignedProjectsToInspector = companyProjects.filter(
+                      p => p.assignedInspectorId === inspector.id
+                    );
+                    return (
+                      <li key={inspector.id} className="flex flex-col space-y-2 p-3 border rounded-md hover:bg-muted/50">
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback>{getInitials(inspector.email)}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{inspector.email}</p>
+                            <p className="text-xs text-muted-foreground truncate">{t(inspector.role.toLowerCase() + 'Role', inspector.role)}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-1 flex items-center">
+                            <FolderOpen className="h-3 w-3 mr-1.5"/>
+                            {t('assignedProjectsListTitle', 'Assigned Projects:')}
+                          </h4>
+                          {assignedProjectsToInspector.length > 0 ? (
+                            <ul className="list-disc list-inside pl-2 space-y-0.5">
+                              {assignedProjectsToInspector.map(p => (
+                                <li key={p.id} className="text-xs text-foreground truncate">
+                                  {p.name} 
+                                  {p.status === 'new' && <Badge variant="outline" className="ml-1.5 text-xs px-1.5 py-0 h-auto leading-tight">{t('new', 'New')}</Badge>}
+                                  {p.status === 'recent' && <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0 h-auto leading-tight">{t('recent', 'Recent')}</Badge>}
+                                  {p.status === 'done' && <Badge variant="default" className="ml-1.5 text-xs px-1.5 py-0 h-auto leading-tight">{t('done', 'Done')}</Badge>}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-muted-foreground pl-2">{t('noProjectsAssigned', 'No projects currently assigned.')}</p>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </ScrollArea>
             ) : (
@@ -205,23 +229,50 @@ export default function AdminDashboardPage() {
                 <UserSearch className="h-6 w-6 text-secondary-foreground" /> 
                 {t('valuatorsTitle', 'Valuators')} ({valuators.length})
             </CardTitle>
-            <CardDescription>{t('valuatorsDescAdmin', 'List of all valuators in your company.')}</CardDescription>
+            <CardDescription>{t('valuatorsDescAdmin', 'List of all valuators in your company and their assigned projects.')}</CardDescription>
           </CardHeader>
           <CardContent>
             {valuators.length > 0 ? (
-               <ScrollArea className="h-[250px] pr-2">
-                <ul className="space-y-3">
-                  {valuators.map(valuator => (
-                    <li key={valuator.id} className="flex items-center space-x-3 p-2 border rounded-md hover:bg-muted/50">
-                      <Avatar className="h-9 w-9">
-                         <AvatarFallback>{getInitials(valuator.email)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{valuator.email}</p>
-                        <p className="text-xs text-muted-foreground truncate">{t(valuator.role.toLowerCase() + 'Role', valuator.role)}</p>
-                      </div>
-                    </li>
-                  ))}
+               <ScrollArea className="h-[350px] pr-2">
+                <ul className="space-y-4">
+                  {valuators.map(valuator => {
+                     const assignedProjectsToValuator = companyProjects.filter(
+                      p => p.assignedValuatorId === valuator.id
+                    );
+                    return (
+                      <li key={valuator.id} className="flex flex-col space-y-2 p-3 border rounded-md hover:bg-muted/50">
+                         <div className="flex items-center space-x-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback>{getInitials(valuator.email)}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{valuator.email}</p>
+                            <p className="text-xs text-muted-foreground truncate">{t(valuator.role.toLowerCase() + 'Role', valuator.role)}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-1 flex items-center">
+                            <FolderOpen className="h-3 w-3 mr-1.5"/>
+                            {t('assignedProjectsListTitle', 'Assigned Projects:')}
+                          </h4>
+                          {assignedProjectsToValuator.length > 0 ? (
+                            <ul className="list-disc list-inside pl-2 space-y-0.5">
+                              {assignedProjectsToValuator.map(p => (
+                                 <li key={p.id} className="text-xs text-foreground truncate">
+                                  {p.name}
+                                  {p.status === 'new' && <Badge variant="outline" className="ml-1.5 text-xs px-1.5 py-0 h-auto leading-tight">{t('new', 'New')}</Badge>}
+                                  {p.status === 'recent' && <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0 h-auto leading-tight">{t('recent', 'Recent')}</Badge>}
+                                  {p.status === 'done' && <Badge variant="default" className="ml-1.5 text-xs px-1.5 py-0 h-auto leading-tight">{t('done', 'Done')}</Badge>}
+                                 </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-muted-foreground pl-2">{t('noProjectsAssigned', 'No projects currently assigned.')}</p>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </ScrollArea>
             ) : (
