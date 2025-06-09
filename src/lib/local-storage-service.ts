@@ -1,166 +1,96 @@
 
 "use client";
 import type { Project, Folder, Asset, Company } from '@/data/mock-data';
-import { mockProjects, mockFolders, mockAssets, mockCompanies } from '@/data/mock-data';
+// Mock data imports (like mockProjects, mockFolders) are removed as they are no longer used as fallbacks here.
+// Type imports are still necessary.
 
-const PROJECTS_KEY = 'assetInspectorPro_projects';
-const FOLDERS_KEY = 'assetInspectorPro_folders';
-const ASSETS_KEY = 'assetInspectorPro_assets';
-// Note: Companies are primarily from mock-data, localStorage might only store selected company ID.
-// We'll keep getCompanies here for completeness if it was ever used for dynamic storage.
-const COMPANIES_KEY = 'assetInspectorPro_companies';
-
-
-// Helper to get an item from localStorage or initialize it
-function getItem<T>(key: string, initialData: T[]): T[] {
-  if (typeof window === 'undefined') {
-    return initialData; 
-  }
-  try {
-    const item = window.localStorage.getItem(key);
-    if (item) {
-      return JSON.parse(item) as T[];
-    } else {
-      window.localStorage.setItem(key, JSON.stringify(initialData));
-      return initialData;
-    }
-  } catch (error) {
-    console.error(`Error reading from localStorage key "${key}":`, error);
-    try {
-      window.localStorage.setItem(key, JSON.stringify(initialData));
-    } catch (setError) {
-      console.error(`Error setting localStorage key "${key}" after read error:`, setError);
-    }
-    return initialData;
-  }
-}
-
-// Helper to set an item in localStorage
-function setItem<T>(key: string, data: T[]): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  try {
-    window.localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
-    console.error(`Error writing to localStorage key "${key}":`, error);
-  }
-}
-
-// Companies (Primarily from mock-data, but these functions allow for localStorage override if needed)
+// Companies
 export function getCompanies(): Company[] {
-  // Typically, for this reverted setup, mockCompanies would be used directly by CompanySelector.
-  // This function could be used if companies were meant to be editable/dynamic via localStorage.
-  return getItem<Company>(COMPANIES_KEY, mockCompanies);
+  // TODO: Implement with Firestore
+  console.warn("getCompanies is not implemented with Firestore. Returning empty array.");
+  return [];
 }
 export function saveCompanies(companies: Company[]): void {
-  setItem<Company>(COMPANIES_KEY, companies);
+  // TODO: Implement with Firestore
+  console.warn("saveCompanies is not implemented with Firestore. This is a no-op.");
 }
 
 
 // Projects
 export function getProjects(): Project[] {
-  return getItem<Project>(PROJECTS_KEY, mockProjects);
+  // TODO: Implement with Firestore
+  console.warn("getProjects is not implemented with Firestore. Returning empty array.");
+  return [];
 }
 export function saveProjects(projects: Project[]): void {
-  setItem<Project>(PROJECTS_KEY, projects);
+  // TODO: Implement with Firestore
+  console.warn("saveProjects is not implemented with Firestore. This is a no-op.");
 }
 
 export function addProject(newProject: Project): void {
-  const projects = getProjects();
-  saveProjects([...projects, newProject]);
+  // TODO: Implement with Firestore
+  console.warn("addProject is not implemented with Firestore. This is a no-op.");
 }
 
 export function updateProject(updatedProject: Project): void {
-  let projects = getProjects();
-  const projectIndex = projects.findIndex(p => p.id === updatedProject.id);
-  if (projectIndex !== -1) {
-    projects[projectIndex] = updatedProject;
-    saveProjects(projects);
-  } else {
-    console.warn(`Project with id ${updatedProject.id} not found for update, adding it instead.`);
-    addProject(updatedProject);
-  }
+  // TODO: Implement with Firestore
+  console.warn("updateProject is not implemented with Firestore. This is a no-op.");
 }
 
 
 // Folders
 export function getFolders(): Folder[] {
-  return getItem<Folder>(FOLDERS_KEY, mockFolders);
+  // TODO: Implement with Firestore
+  console.warn("getFolders is not implemented with Firestore. Returning empty array.");
+  return [];
 }
 export function saveFolders(folders: Folder[]): void {
-  setItem<Folder>(FOLDERS_KEY, folders);
+  // TODO: Implement with Firestore
+  console.warn("saveFolders is not implemented with Firestore. This is a no-op.");
 }
 export function addFolder(newFolder: Folder): void {
-  const folders = getFolders();
-  saveFolders([...folders, newFolder]);
+  // TODO: Implement with Firestore
+  console.warn("addFolder is not implemented with Firestore. This is a no-op.");
 }
 
 export function updateFolder(updatedFolder: Folder): void {
-  let folders = getFolders();
-  const folderIndex = folders.findIndex(f => f.id === updatedFolder.id);
-  if (folderIndex !== -1) {
-    folders[folderIndex] = updatedFolder;
-    saveFolders(folders);
-  } else {
-    console.warn(`Folder with id ${updatedFolder.id} not found for update.`);
-  }
+  // TODO: Implement with Firestore
+  console.warn("updateFolder is not implemented with Firestore. This is a no-op.");
 }
 
-export function deleteFolder(folderId: string): void { 
-  let folders = getFolders();
-  const updatedFolders = folders.filter(f => f.id !== folderId);
-  saveFolders(updatedFolders);
+export function deleteFolder(folderId: string): void {
+  // TODO: Implement with Firestore
+  console.warn("deleteFolder is not implemented with Firestore. This is a no-op.");
 }
 
 export function deleteFolderCascade(folderId: string): void {
-  let allFolders = getFolders();
-  let allAssets = getAssets();
-  
-  const foldersToDeleteIds: string[] = [];
-  const queue: string[] = [folderId];
-  
-  while (queue.length > 0) {
-    const currentFolderId = queue.shift()!;
-    foldersToDeleteIds.push(currentFolderId);
-    const children = allFolders.filter(f => f.parentId === currentFolderId);
-    children.forEach(child => queue.push(child.id));
-  }
-  
-  const updatedFolders = allFolders.filter(f => !foldersToDeleteIds.includes(f.id));
-  saveFolders(updatedFolders);
-  
-  const updatedAssets = allAssets.filter(a => a.folderId === null || !foldersToDeleteIds.includes(a.folderId));
-  saveAssets(updatedAssets);
+  // TODO: Implement with Firestore
+  // This would involve deleting the folder and all its descendant folders and assets.
+  console.warn("deleteFolderCascade is not implemented with Firestore. This is a no-op.");
 }
 
 
 // Assets
 export function getAssets(): Asset[] {
-  return getItem<Asset>(ASSETS_KEY, mockAssets);
+  // TODO: Implement with Firestore
+  console.warn("getAssets is not implemented with Firestore. Returning empty array.");
+  return [];
 }
 export function saveAssets(assets: Asset[]): void {
-  setItem<Asset>(ASSETS_KEY, assets);
+  // TODO: Implement with Firestore
+  console.warn("saveAssets is not implemented with Firestore. This is a no-op.");
 }
 export function addAsset(newAsset: Asset): void {
-  const assets = getAssets();
-  saveAssets([...assets, newAsset]);
+  // TODO: Implement with Firestore
+  console.warn("addAsset is not implemented with Firestore. This is a no-op.");
 }
 
 export function updateAsset(updatedAsset: Asset): void {
-  let assets = getAssets();
-  const assetIndex = assets.findIndex(a => a.id === updatedAsset.id);
-  if (assetIndex !== -1) {
-    assets[assetIndex] = updatedAsset;
-    saveAssets(assets);
-  } else {
-    console.warn(`Asset with id ${updatedAsset.id} not found for update, adding it instead.`);
-    addAsset(updatedAsset);
-  }
+  // TODO: Implement with Firestore
+  console.warn("updateAsset is not implemented with Firestore. This is a no-op.");
 }
 
 export function deleteAsset(assetId: string): void {
-  let assets = getAssets();
-  const updatedAssets = assets.filter(a => a.id !== assetId);
-  saveAssets(updatedAssets);
+  // TODO: Implement with Firestore
+  console.warn("deleteAsset is not implemented with Firestore. This is a no-op.");
 }
