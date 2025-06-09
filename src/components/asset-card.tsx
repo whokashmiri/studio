@@ -1,6 +1,7 @@
 
 "use client";
 import type { Asset } from '@/data/mock-data';
+import React from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit3, Trash2, ImageOff, MoreVertical } from 'lucide-react';
@@ -20,7 +21,7 @@ interface AssetCardProps {
   onDeleteAsset: (asset: Asset) => void;
 }
 
-export function AssetCard({ asset, onEditAsset, onDeleteAsset }: AssetCardProps) {
+export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset }: AssetCardProps) {
   const { t } = useLanguage();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
 
@@ -91,8 +92,10 @@ export function AssetCard({ asset, onEditAsset, onDeleteAsset }: AssetCardProps)
             </div>
           )}
         </div>
-        {/* Action buttons removed from here */}
       </CardContent>
     </Card>
   );
-}
+});
+
+
+    

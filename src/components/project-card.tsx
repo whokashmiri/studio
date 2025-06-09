@@ -1,9 +1,10 @@
 
 "use client";
 import Link from 'next/link';
+import React from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Star, Users, MoreVertical, Trash2, PackageSearch } from 'lucide-react'; // Added MoreVertical, Trash2
+import { Edit, Star, Users, MoreVertical, Trash2, PackageSearch } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,10 +24,10 @@ interface ProjectCardProps {
   onEditProject: (project: Project) => void;
   onToggleFavorite: (project: Project) => void;
   onAssignUsers?: (project: Project) => void;
-  onDeleteProject?: (project: Project) => void; // New prop for delete action
+  onDeleteProject?: (project: Project) => void;
 }
 
-export function ProjectCard({ 
+export const ProjectCard = React.memo(function ProjectCard({ 
   project, 
   assetCount, 
   onEditProject, 
@@ -52,7 +53,6 @@ export function ProjectCard({
     onToggleFavorite(project);
   };
 
-  // Check if any of the admin-specific actions are available
   const hasAdminActions = !!onEditProject || !!onAssignUsers || !!onDeleteProject;
 
   return (
@@ -72,7 +72,7 @@ export function ProjectCard({
                 </p>
               </div>
               <div className="flex items-center shrink-0 space-x-0.5">
-                {isMobile && !hasAdminActions && ( // Only show status badge on mobile if no admin actions dropdown
+                {isMobile && !hasAdminActions && (
                   <Badge 
                     variant={getStatusBadgeVariant(project.status)} 
                     className="capitalize text-xs mr-1"
@@ -143,7 +143,6 @@ export function ProjectCard({
             </div>
           </CardHeader>
           <CardContent className="flex-grow p-3 pt-1.5 flex items-end">
-            {/* Show status badge if not on mobile OR if on mobile and there are admin actions (dropdown used) */}
             {(!isMobile || (isMobile && hasAdminActions)) && (
                <Badge 
                 variant={getStatusBadgeVariant(project.status)} 
@@ -156,4 +155,6 @@ export function ProjectCard({
       </Link>
     </Card>
   );
-}
+});
+
+    

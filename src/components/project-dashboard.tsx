@@ -76,21 +76,23 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
   }, [allAssets]);
 
   const handleProjectCreated = useCallback((newProject: Project) => {
-    setProjects(LocalStorageService.getProjects());
+    setProjects(prevProjects => [...prevProjects, newProject]);
     setActiveTab('new'); 
-  }, [setActiveTab, setProjects]);
+  }, [setActiveTab]);
 
   const handleOpenEditModal = useCallback((project: Project) => {
     setEditingProject(project);
     setIsEditModalOpen(true);
-  }, [setEditingProject, setIsEditModalOpen]);
+  }, []);
 
   const handleProjectUpdated = useCallback((updatedProject: Project) => {
-    setProjects(LocalStorageService.getProjects());
+    setProjects(prevProjects => 
+      prevProjects.map(p => (p.id === updatedProject.id ? updatedProject : p))
+    );
     if (editingProject && editingProject.id === updatedProject.id) {
         setEditingProject(null);
     }
-  }, [editingProject, setProjects, setEditingProject]);
+  }, [editingProject]);
 
   const handleToggleFavorite = useCallback((projectToToggle: Project) => {
     const updatedProjectData = {
@@ -104,7 +106,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
       title: updatedProjectData.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
       description: t('projectFavoriteStatusUpdatedDesc', `Project "${updatedProjectData.name}" favorite status updated.`, { projectName: updatedProjectData.name}),
     });
-  }, [setProjects, t, toast]);
+  }, [t, toast]);
 
   const tabItems: { value: ProjectStatus | 'favorite'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
     { value: 'recent', labelKey: 'recent', defaultLabel: 'Recent', icon: Clock },
@@ -192,3 +194,5 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     </div>
   );
 }
+
+    

@@ -101,14 +101,16 @@ export default function AdminDashboardPage() {
   }, []);
 
   const handleToggleFavorite = useCallback((project: Project) => {
-    const updatedProject = { ...project, isFavorite: !project.isFavorite };
+    const updatedProject = { ...project, isFavorite: !project.isFavorite, lastAccessed: new Date().toISOString() };
     LocalStorageService.updateProject(updatedProject);
-    loadAdminData(); 
+    setCompanyProjects(prevProjects => 
+      prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
+    );
     toast({
         title: updatedProject.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
         description: t('projectFavoriteStatusUpdatedDesc',`Project "${updatedProject.name}" favorite status updated.`, {projectName: updatedProject.name}),
       });
-  }, [loadAdminData, t, toast]);
+  }, [t, toast]);
 
   const handleOpenAssignUsersModal = useCallback((project: Project) => {
     setProjectToAssign(project);
@@ -119,12 +121,15 @@ export default function AdminDashboardPage() {
     setCompanyProjects(prevProjects => 
       prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
     );
-    loadAdminData(); 
-  }, [loadAdminData]);
+    // No need to call loadAdminData, derived states (projectsByInspector, etc.) will update via useMemo
+  }, []);
 
   const handleProjectUpdatedFromEdit = useCallback((updatedProject: Project) => {
-    loadAdminData();
-  }, [loadAdminData]);
+     setCompanyProjects(prevProjects => 
+      prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
+    );
+    // No need to call loadAdminData
+  }, []);
 
   const promptDeleteProject = useCallback((project: Project) => {
     setProjectToDelete(project);
@@ -138,7 +143,7 @@ export default function AdminDashboardPage() {
         title: t('projectDeletedTitle', 'Project Deleted'),
         description: t('projectDeletedDesc', `Project "${projectToDelete.name}" has been deleted.`, { projectName: projectToDelete.name }),
       });
-      loadAdminData(); 
+      loadAdminData(); // Reload all data as assets/folders related to this project are also gone
       setProjectToDelete(null);
       setIsDeleteConfirmOpen(false);
     }
@@ -372,3 +377,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
