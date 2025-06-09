@@ -20,7 +20,7 @@ const translations: Record<Language, Record<string, string>> = {
     selectCompanyDesc: "Choose a company profile to manage its inspection projects.",
     noCompaniesAvailable: "No companies available.",
     currentCompany: "Current Company",
-    switchCompany: "Switch Company",
+    switchCompany: "Switch Company", // Might become obsolete or change context
     selectCompanyPrompt: "Select Company",
     done: "Done",
     favorite: "Favorite",
@@ -44,7 +44,7 @@ const translations: Record<Language, Record<string, string>> = {
     folders: "Folders",
     assets: "Assets",
     addNewFolder: "Add New Folder",
-    addNewFolderToRoot: "Add Folder to Root", 
+    addNewFolderToRoot: "Add Folder to Root",
     addNewSubfolder: "Add New Subfolder",
     addNewSubfolderTo: "Add New Subfolder to \"{parentName}\"",
     folderName: "Folder Name",
@@ -53,7 +53,7 @@ const translations: Record<Language, Record<string, string>> = {
     folderCreatedNavigatedDesc: "Folder \"{folderName}\" created and selected.",
     allProjects: "All Projects",
     assetsIn: "Assets in",
-    assetsInPath: "Path: ", 
+    assetsInPath: "Path: ",
     manageAssetsPrompt: "Manage assets within the selected folder or project root.",
     noAssetsInLocation: "No assets found in this location.",
     inside: "inside",
@@ -64,7 +64,7 @@ const translations: Record<Language, Record<string, string>> = {
     assetNameRequiredDesc: "Please enter a name for the asset.",
     assetSavedTitle: "Asset Saved",
     assetSavedDesc: "Asset \"{assetName}\" has been saved.",
-    
+
     photosRequiredTitle: "Photos Required",
     photosRequiredDesc: "Please add at least one photo for the asset.",
     nextStepDescriptions: "Next: Add Descriptions",
@@ -72,7 +72,7 @@ const translations: Record<Language, Record<string, string>> = {
     addPhotosSectionTitle: "Add Photos",
     managePhotosButton: "Manage Photos",
     morePhotosInModal: "+{count} more. Click \"Manage Photos\" to see all.",
-    
+
     addDetailsForAssetTitle: "Add Details for:",
     stepDescriptionsTitle: "Step 2: Descriptions",
     voiceDescriptionLabel: "Voice Description",
@@ -88,19 +88,19 @@ const translations: Record<Language, Record<string, string>> = {
     unnamedAsset: "Unnamed Asset",
     managePhotosModalTitle: "Manage Photos for Asset:",
     managePhotosModalDesc: "Add more photos using your camera or gallery, or remove existing ones from the batch.",
-    
+
     photosAdded: "Photos Added",
-    editPhotos: "Add/Edit Photos", 
+    editPhotos: "Add/Edit Photos",
     removePhotoTitle: "Remove photo",
-    
+
     backTo: "Back to",
-    enterAssetNamePrompt: "Enter the asset name.", 
+    enterAssetNamePrompt: "Enter the asset name.",
     assetNamePlaceholder: "e.g., Main Entrance Column",
     inFolder: "In folder:",
     forProject: "for",
-        
+
     listening: "Listening...",
-        
+
     cameraErrorTitle: "Camera Error",
     cameraErrorDesc: "Could not access the camera.",
     cameraAccessDeniedTitle: "Camera Access Denied",
@@ -114,7 +114,7 @@ const translations: Record<Language, Record<string, string>> = {
     cameraNotReadyError: "Camera not ready or permission denied.",
     projectNotFound: "Project Not Found",
     loadingProjectContext: "Loading project context...",
-    
+
     previewPhotoAlt: "Preview {number}",
     previewBatchPhotoAlt: "Batch Preview {number}",
     noPhotosInBatch: "No photos in the current batch yet.",
@@ -143,12 +143,12 @@ const translations: Record<Language, Record<string, string>> = {
     updateAssetButton: "Update Asset",
     editAssetDetailsTitle: "Edit Details for:",
     updateDetailsPrompt: "Update the details for this asset.",
-    
-    doneWithPhotos: 'Done with Photos', 
-    
+
+    doneWithPhotos: 'Done with Photos',
+
     deleteAssetTitle: "Delete Asset",
     editFolderTitle: "Edit folder {folderName}",
-    addRootFolderTitle: "New Folder",
+    addRootFolderTitle: "New Folder", // Simpler for general use
     addSubfolderTitle: "New subfolder to {folderName}",
     projectRoot: "Project Root",
     noTopLevelFolders: "No top-level folders created yet.",
@@ -160,7 +160,7 @@ const translations: Record<Language, Record<string, string>> = {
     editFolderDesc: "Update the name for your folder.",
     editFolderDescContextual: "Update the name for folder: {folderName}",
     updateFolderButton: "Update Folder",
-    
+
     viewRootAssetsTitle: "View assets in project root",
     noFoldersInProject: "This project has no folders yet.",
     noFoldersInProjectStart: "This project has no folders yet.",
@@ -170,16 +170,16 @@ const translations: Record<Language, Record<string, string>> = {
     selectFolderForAssetTooltip: "Select or create a folder to add an asset",
     noFolderSelectedForAssetTitle: "Folder Required for Asset",
     noFolderSelectedForAssetDesc: "Please create or select a folder before adding an asset.",
-    breadcrumbSeparator: ">", 
+    breadcrumbSeparator: ">",
     clickToNavigateTo: "Click to navigate to {name}",
     selectOrCreateFolderPrompt: "Select a folder below, or add a new folder to the project root.",
     manageFolderContentsPrompt: "Manage contents of \"{folderName}\", or add a subfolder.",
     contentsOfFolder: "Contents of \"{folderName}\"",
-    projectRootContents: "Project Root - Folders & Assets", 
+    projectRootContents: "Project Root - Folders & Assets",
     folderActions: "Folder actions",
     assetActions: "Asset actions",
-    openFolder: "Open Folder", 
-    selectFolder: "Select Folder", 
+    openFolder: "Open Folder",
+    selectFolder: "Select Folder",
     editFolder: "Edit folder",
     deleteFolder: "Delete folder",
     deleteFolderConfirmation: "Are you sure you want to delete \"{folderName}\"? This action cannot be undone.",
@@ -189,11 +189,11 @@ const translations: Record<Language, Record<string, string>> = {
     folderDeletedDesc: "Folder \"{folderName}\" has been deleted.",
     folderIsEmpty: "This folder is empty. Add a subfolder or asset.",
     projectRootIsEmpty: "This project is empty. Add a folder or asset to get started.",
-    addSubfolderToCurrent: "Add subfolder here", 
+    addSubfolderToCurrent: "Add subfolder here",
     expandFolder: "Expand folder",
     collapseFolder: "Collapse folder",
     viewAssetsInFolder: "View assets in {folderName}",
-    
+
     takePhotosCustomCamera: "Take Photos (Camera)",
     initializingCamera: "Initializing Camera...",
     allowCameraAccessPrompt: "Please allow camera access when prompted.",
@@ -223,6 +223,32 @@ const translations: Record<Language, Record<string, string>> = {
     assetDeletedTitle: "Asset Deleted",
     assetDeletedDesc: "Asset \"{assetName}\" has been deleted.",
     totalAssets: "{count} Assets",
+
+    // Auth translations
+    loginTitle: "Login",
+    loginDesc: "Access your Asset Inspector Pro account.",
+    emailLabel: "Email",
+    passwordLabel: "Password",
+    loginButton: "Login",
+    noAccountPrompt: "Don't have an account?",
+    signUpLink: "Sign up",
+    signupTitle: "Create an Account",
+    signupDesc: "Join Asset Inspector Pro today.",
+    companyNameLabel: "Company Name",
+    companyNamePlaceholder: "Your Company LLC",
+    roleLabel: "Role",
+    selectRolePlaceholder: "Select your role",
+    adminRole: "Admin",
+    inspectorRole: "Inspector",
+    valuationRole: "Valuation",
+    signupButton: "Sign Up",
+    alreadyHaveAccountPrompt: "Already have an account?",
+    loginLink: "Log in",
+    logoutButton: "Logout",
+    loadingUserSession: "Loading user session...",
+    redirectingToLogin: "Redirecting to login...",
+    projectsFor: "Projects for:",
+    companyLabel: "Company:",
 
   },
   ar: {
@@ -298,19 +324,19 @@ const translations: Record<Language, Record<string, string>> = {
     unnamedAsset: "أصل غير مسمى",
     managePhotosModalTitle: "إدارة صور الأصل:",
     managePhotosModalDesc: "أضف المزيد من الصور باستخدام الكاميرا أو المعرض، أو قم بإزالة الموجودة من الدفعة.",
-    
+
     photosAdded: "الصور المضافة",
     editPhotos: "إضافة/تعديل الصور",
     removePhotoTitle: "إزالة الصورة",
-    
+
     backTo: "العودة إلى",
     enterAssetNamePrompt: "أدخل اسم الأصل.",
     assetNamePlaceholder: "مثال: عمود المدخل الرئيسي",
     inFolder: "في المجلد:",
     forProject: "لمشروع",
-        
+
     listening: "يستمع...",
-        
+
     cameraErrorTitle: "خطأ في الكاميرا",
     cameraErrorDesc: "تعذر الوصول إلى الكاميرا.",
     cameraAccessDeniedTitle: "تم رفض الوصول إلى الكاميرا",
@@ -324,7 +350,7 @@ const translations: Record<Language, Record<string, string>> = {
     cameraNotReadyError: "الكاميرا ليست جاهزة أو تم رفض الإذن.",
     projectNotFound: "المشروع غير موجود",
     loadingProjectContext: "جاري تحميل سياق المشروع...",
-    
+
     previewPhotoAlt: "معاينة {number}",
     previewBatchPhotoAlt: "معاينة الدفعة {number}",
     noPhotosInBatch: "لا توجد صور في الدفعة الحالية بعد.",
@@ -353,12 +379,12 @@ const translations: Record<Language, Record<string, string>> = {
     updateAssetButton: "تحديث الأصل",
     editAssetDetailsTitle: "تعديل تفاصيل لـ:",
     updateDetailsPrompt: "قم بتحديث تفاصيل هذا الأصل.",
-    
+
     doneWithPhotos: 'تم الانتهاء من الصور',
-    
+
     deleteAssetTitle: "حذف الأصل",
     editFolderTitle: "تعديل المجلد {folderName}",
-    addRootFolderTitle: "إضافة مجلد إلى جذر المشروع",
+    addRootFolderTitle: "مجلد جديد",
     addSubfolderTitle: "إضافة مجلد فرعي إلى {folderName}",
     projectRoot: "جذر المشروع",
     noTopLevelFolders: "لم يتم إنشاء مجلدات على المستوى الأعلى بعد.",
@@ -370,7 +396,7 @@ const translations: Record<Language, Record<string, string>> = {
     editFolderDesc: "قم بتحديث اسم المجلد الخاص بك.",
     editFolderDescContextual: "تحديث اسم المجلد: {folderName}",
     updateFolderButton: "تحديث المجلد",
-    
+
     viewRootAssetsTitle: "عرض الأصول في جذر المشروع",
     noFoldersInProject: "هذا المشروع لا يحتوي على مجلدات بعد.",
     noFoldersInProjectStart: "هذا المشروع لا يحتوي على مجلدات بعد.",
@@ -380,7 +406,7 @@ const translations: Record<Language, Record<string, string>> = {
     selectFolderForAssetTooltip: "حدد أو أنشئ مجلدًا لإضافة أصل إليه",
     noFolderSelectedForAssetTitle: "المجلد مطلوب للأصل",
     noFolderSelectedForAssetDesc: "يرجى إنشاء أو تحديد مجلد قبل إضافة أصل.",
-    breadcrumbSeparator: "<", 
+    breadcrumbSeparator: "<",
     clickToNavigateTo: "انقر للانتقال إلى {name}",
     selectOrCreateFolderPrompt: "حدد مجلدًا أدناه، أو أضف مجلدًا جديدًا إلى جذر المشروع.",
     manageFolderContentsPrompt: "إدارة محتويات \"{folderName}\"، أو إضافة مجلد فرعي.",
@@ -388,8 +414,8 @@ const translations: Record<Language, Record<string, string>> = {
     projectRootContents: "جذر المشروع - المجلدات والأصول",
     folderActions: "إجراءات المجلد",
     assetActions: "إجراءات الأصل",
-    openFolder: "فتح المجلد", 
-    selectFolder: "تحديد المجلد", 
+    openFolder: "فتح المجلد",
+    selectFolder: "تحديد المجلد",
     editFolder: "تعديل المجلد",
     deleteFolder: "حذف المجلد",
     deleteFolderConfirmation: "هل أنت متأكد أنك تريد حذف \"{folderName}\"؟ لا يمكن التراجع عن هذا الإجراء.",
@@ -403,7 +429,7 @@ const translations: Record<Language, Record<string, string>> = {
     expandFolder: "توسيع المجلد",
     collapseFolder: "طي المجلد",
     viewAssetsInFolder: "عرض الأصول في {folderName}",
-    
+
     takePhotosCustomCamera: "التقاط صور (كاميرا)",
     initializingCamera: "جاري تهيئة الكاميرا...",
     allowCameraAccessPrompt: "يرجى السماح بالوصول إلى الكاميرا عند الطلب.",
@@ -433,6 +459,32 @@ const translations: Record<Language, Record<string, string>> = {
     assetDeletedTitle: "تم حذف الأصل",
     assetDeletedDesc: "تم حذف الأصل \"{assetName}\".",
     totalAssets: "{count} أصول",
+
+    // Auth translations
+    loginTitle: "تسجيل الدخول",
+    loginDesc: "قم بالوصول إلى حساب Asset Inspector Pro الخاص بك.",
+    emailLabel: "البريد الإلكتروني",
+    passwordLabel: "كلمة المرور",
+    loginButton: "تسجيل الدخول",
+    noAccountPrompt: "ليس لديك حساب؟",
+    signUpLink: "انشئ حساب",
+    signupTitle: "إنشاء حساب",
+    signupDesc: "انضم إلى Asset Inspector Pro اليوم.",
+    companyNameLabel: "اسم الشركة",
+    companyNamePlaceholder: "شركتك ذ.م.م",
+    roleLabel: "الدور",
+    selectRolePlaceholder: "اختر دورك",
+    adminRole: "مسؤول",
+    inspectorRole: "مفتش",
+    valuationRole: "مقيم",
+    signupButton: "انشاء حساب",
+    alreadyHaveAccountPrompt: "هل لديك حساب بالفعل؟",
+    loginLink: "تسجيل الدخول",
+    logoutButton: "تسجيل الخروج",
+    loadingUserSession: "جاري تحميل جلسة المستخدم...",
+    redirectingToLogin: "إعادة التوجيه إلى صفحة تسجيل الدخول...",
+    projectsFor: "مشاريع لـ:",
+    companyLabel: "الشركة:",
   },
 };
 
@@ -456,7 +508,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
     return text;
   };
-  
+
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, direction, t }}>
@@ -472,4 +524,3 @@ export function useLanguage() {
   }
   return context;
 }
-

@@ -7,14 +7,14 @@ export interface Company {
 export type ProjectStatus = 'done' | 'favorite' | 'recent' | 'new';
 
 export interface Project {
-  id: string;
+  id:string;
   name: string;
   status: ProjectStatus;
   companyId: string;
-  lastAccessed?: string; 
-  isFavorite?: boolean; 
+  lastAccessed?: string;
+  isFavorite?: boolean;
   createdAt: string;
-  description?: string; // Optional description
+  description?: string;
 }
 
 export interface Folder {
@@ -22,20 +22,38 @@ export interface Folder {
   name: string;
   projectId: string;
   parentId: string | null;
-  children?: Folder[]; 
+  children?: Folder[];
 }
 
 export interface Asset {
   id: string;
   name: string;
   projectId: string;
-  folderId: string | null; // null if asset is at project root
-  photos: string[]; // URLs or paths to photos (Data URLs for localStorage)
-  voiceDescription?: string; // New field for voice-captured description
-  textDescription?: string; // New field for typed description
+  folderId: string | null;
+  photos: string[];
+  voiceDescription?: string;
+  textDescription?: string;
   createdAt: string;
-  updatedAt?: string; // Optional: track updates
+  updatedAt?: string;
 }
+
+// --- NEW User Definitions ---
+export type UserRole = 'Admin' | 'Inspector' | 'Valuation';
+
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  companyId: string;
+  companyName: string;
+  role: UserRole;
+}
+
+// For mock storage, we'll include the password. DO NOT DO THIS IN A REAL APP.
+export interface MockStoredUser extends AuthenticatedUser {
+  password?: string; // Store hashed password in a real app
+}
+// --- END NEW User Definitions ---
+
 
 export const mockCompanies: Company[] = [
   { id: 'comp1', name: 'Innovatech Solutions' },
@@ -64,3 +82,8 @@ export const mockAssets: Asset[] = [
   { id: 'asset1', name: 'Main Entrance Door Frame', projectId: 'proj1', folderId: 'folder1', photos: ['https://placehold.co/600x400.png?ai_hint=door+frame'], textDescription: 'Damage noted on the main entrance door frame, lower right corner. Possible water ingress.', voiceDescription: 'Initial voice report confirms visual damage.', createdAt: new Date().toISOString() },
   { id: 'asset2', name: 'HVAC Unit #3 (Rooftop)', projectId: 'proj1', folderId: 'folder2', photos: ['https://placehold.co/600x400.png?ai_hint=hvac+unit', 'https://placehold.co/600x400.png?ai_hint=rooftop+view'], textDescription: 'Unit appears to be leaking coolant. Rust visible on the casing.', createdAt: new Date().toISOString() },
 ];
+
+// Initialize mock users in localStorage if not present
+if (typeof window !== 'undefined' && !localStorage.getItem('mockUsers')) {
+  localStorage.setItem('mockUsers', JSON.stringify([]));
+}

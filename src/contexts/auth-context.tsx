@@ -1,86 +1,130 @@
 
 "use client";
 import type { ReactNode } from 'react';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Company } from '@/data/mock-data'; // Ensure Company type is available
-import { mockCompanies } from '@/data/mock-data'; // For finding company name by ID
+import type { AuthenticatedUser, MockStoredUser, UserRole } from '@/data/mock-data';
+import { mockCompanies } from '@/data/mock-data'; // For finding company name by ID if needed
 
-const SELECTED_COMPANY_ID_KEY = 'selectedCompanyId';
-const SELECTED_COMPANY_NAME_KEY = 'selectedCompanyName';
+const CURRENT_USER_KEY = 'currentUser';
+const MOCK_USERS_KEY = 'mockUsers';
 
-interface UserState {
+
+interface AuthState {
+  currentUser: AuthenticatedUser | null;
   isLoading: boolean;
-  companyId: string | null;
-  companyName: string | null;
 }
 
-interface AuthContextType {
-  user: UserState;
-  selectCompany: (company: Company) => void;
-  clearCompany: () => void;
+interface AuthContextType extends AuthState {
+  login: (email: string, password?: string) => Promise<{ success: boolean; message?: string }>;
+  signup: (details: Omit<MockStoredUser, 'id' | 'companyId'> & { companyName: string; password?: string }) => Promise<{ success: boolean; message?: string; userId?: string }>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserState>({
+  const [authState, setAuthState] = useState<AuthState>({
+    currentUser: null,
     isLoading: true,
-    companyId: null,
-    companyName: null,
   });
   const router = useRouter();
 
   useEffect(() => {
     try {
-      const storedCompanyId = localStorage.getItem(SELECTED_COMPANY_ID_KEY);
-      const storedCompanyName = localStorage.getItem(SELECTED_COMPANY_NAME_KEY);
-      if (storedCompanyId && storedCompanyName) {
-        setUser({
-          isLoading: false,
-          companyId: storedCompanyId,
-          companyName: storedCompanyName,
-        });
+      const storedUserJson = localStorage.getItem(CURRENT_USER_KEY);
+      if (storedUserJson) {
+        const storedUser = JSON.parse(storedUserJson) as AuthenticatedUser;
+        setAuthState({ currentUser: storedUser, isLoading: false });
       } else {
-        setUser(prev => ({ ...prev, isLoading: false }));
+        setAuthState(prev => ({ ...prev, isLoading: false }));
       }
     } catch (error) {
-      console.error("Error reading company from localStorage:", error);
-      setUser(prev => ({ ...prev, isLoading: false }));
+      console.error("Error reading user from localStorage:", error);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
     }
   }, []);
 
-  const selectCompany = (company: Company) => {
+  const login = useCallback(async (email: string, password?: string): Promise<{ success: boolean; message?: string }> => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
     try {
-      localStorage.setItem(SELECTED_COMPANY_ID_KEY, company.id);
-      localStorage.setItem(SELECTED_COMPANY_NAME_KEY, company.name);
-      setUser({
-        isLoading: false,
-        companyId: company.id,
-        companyName: company.name,
-      });
-    } catch (error) {
-      console.error("Error saving company to localStorage:", error);
-    }
-  };
+      const storedUsersJson = localStorage.getItem(MOCK_USERS_KEY);
+      const storedUsers: MockStoredUser[] = storedUsersJson ? JSON.parse(storedUsersJson) : [];
+      const foundUser = storedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
 
-  const clearCompany = () => {
-    try {
-      localStorage.removeItem(SELECTED_COMPANY_ID_KEY);
-      localStorage.removeItem(SELECTED_COMPANY_NAME_KEY);
-      setUser({
-        isLoading: false,
-        companyId: null,
-        companyName: null,
-      });
-      router.push('/'); // Navigate to home which should show CompanySelector
+      if (foundUser && foundUser.password === password) { // Plain text compare for mock
+        const { password: _, ...userToStore } = foundUser; // Exclude password from currentUser
+        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userToStore));
+        setAuthState({ currentUser: userToStore, isLoading: false });
+        router.push('/');
+        return { success: true };
+      } else {
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+        return { success: false, message: 'Invalid email or password.' };
+      }
     } catch (error) {
-      console.error("Error clearing company from localStorage:", error);
+      console.error("Login error:", error);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return { success: false, message: 'An unexpected error occurred.' };
     }
-  };
+  }, [router]);
+
+  const signup = useCallback(async (details: Omit<MockStoredUser, 'id' | 'companyId'> & { companyName: string; password?: string }): Promise<{ success: boolean; message?: string, userId?: string }> => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
+    try {
+      const storedUsersJson = localStorage.getItem(MOCK_USERS_KEY);
+      const storedUsers: MockStoredUser[] = storedUsersJson ? JSON.parse(storedUsersJson) : [];
+
+      if (storedUsers.some(u => u.email.toLowerCase() === details.email.toLowerCase())) {
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+        return { success: false, message: 'Email already in use.' };
+      }
+      
+      let company = mockCompanies.find(c => c.name.toLowerCase() === details.companyName.toLowerCase());
+      if (!company) {
+        // For simplicity, if company doesn't exist in mockCompanies, we'll create a new one for this user
+        // In a real app, you'd handle company creation/selection more robustly
+        company = { id: `comp_${Date.now()}`, name: details.companyName };
+        // Optionally, add this new company to mockCompanies if you want it listed elsewhere,
+        // but for this mock, it's fine if it only exists tied to this user.
+      }
+
+      const newUser: MockStoredUser = {
+        id: `user_${Date.now()}`,
+        email: details.email,
+        companyId: company.id,
+        companyName: company.name, // Use the found or newly created company name
+        role: details.role,
+        password: details.password, // Store plain text for mock
+      };
+      storedUsers.push(newUser);
+      localStorage.setItem(MOCK_USERS_KEY, JSON.stringify(storedUsers));
+      
+      const { password: _, ...userToStore } = newUser; // Exclude password from currentUser
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userToStore));
+      setAuthState({ currentUser: userToStore, isLoading: false });
+      router.push('/');
+      return { success: true, userId: newUser.id };
+
+    } catch (error) {
+      console.error("Signup error:", error);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return { success: false, message: 'An unexpected error occurred during signup.' };
+    }
+  }, [router]);
+
+  const logout = useCallback(() => {
+    try {
+      localStorage.removeItem(CURRENT_USER_KEY);
+      setAuthState({ currentUser: null, isLoading: false });
+      router.push('/login');
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
+  }, [router]);
   
   return (
-    <AuthContext.Provider value={{ user, selectCompany, clearCompany }}>
+    <AuthContext.Provider value={{ ...authState, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );

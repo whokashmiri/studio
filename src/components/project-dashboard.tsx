@@ -7,7 +7,7 @@ import { NewProjectModal } from '@/components/modals/new-project-modal';
 import { EditProjectModal } from '@/components/modals/edit-project-modal';
 import type { Company, Project, ProjectStatus, Asset } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
-import { FolderPlus, CheckCircle, Star, Clock, Sparkles, ArrowLeft } from 'lucide-react';
+import { FolderPlus, CheckCircle, Star, Clock, Sparkles, LogOut } from 'lucide-react'; // Changed ArrowLeft to LogOut
 import { ProjectCard } from './project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/contexts/language-context';
@@ -15,10 +15,10 @@ import { useToast } from '@/hooks/use-toast';
 
 interface ProjectDashboardProps {
   company: Company;
-  onClearCompany: () => void;
+  onLogout: () => void; // Changed from onClearCompany
 }
 
-export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardProps) {
+export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -63,8 +63,6 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
 
   const handleProjectCreated = (newProject: Project) => {
     setProjects(LocalStorageService.getProjects());
-    // Assets might not have changed, but if project creation implies adding some, reload them:
-    // setAllAssets(LocalStorageService.getAssets()); // Uncomment if new projects can have default assets
     setActiveTab('recent');
   };
 
@@ -75,7 +73,6 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
 
   const handleProjectUpdated = (updatedProject: Project) => {
     setProjects(LocalStorageService.getProjects());
-    // Asset counts don't change when a project is updated (unless assets are moved/deleted as part of it)
     if (editingProject && editingProject.id === updatedProject.id) {
         setEditingProject(null);
     }
@@ -106,12 +103,9 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
     <div className="space-y-6 pb-20 md:pb-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <Button variant="outline" size="sm" onClick={onClearCompany} className="mb-2 sm:mb-0">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {t('selectCompany', 'Select a Company')}
-          </Button>
+          {/* Removed the "Select a Company" button as company is tied to user */}
           <h1 className="text-xl sm:text-2xl font-bold font-headline text-primary">
-            {company.name}
+            {t('projectsFor', 'Projects for:')} {company.name}
           </h1>
         </div>
       </div>
@@ -180,5 +174,3 @@ export function ProjectDashboard({ company, onClearCompany }: ProjectDashboardPr
     </div>
   );
 }
-
-    
