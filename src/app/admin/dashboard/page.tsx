@@ -1,6 +1,6 @@
 
 "use client";
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import type { Project, AuthenticatedUser, MockStoredUser, Asset } from '@/data/mock-data';
@@ -32,10 +32,10 @@ export default function AdminDashboardPage() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [projectToAssign, setProjectToAssign] = useState<Project | null>(null);
 
-  const loadAdminData = () => {
+  const loadAdminData = useCallback(() => {
     if (currentUser && currentUser.role === 'Admin') {
-      const allProjects = LocalStorageService.getProjects();
-      setCompanyProjects(allProjects.filter(p => p.companyId === currentUser.companyId));
+      const allStoredProjects = LocalStorageService.getProjects();
+      setCompanyProjects(allStoredProjects.filter(p => p.companyId === currentUser.companyId));
       setAllAssets(LocalStorageService.getAssets());
 
       const storedUsersJson = localStorage.getItem(MOCK_USERS_KEY);
@@ -46,7 +46,7 @@ export default function AdminDashboardPage() {
       setValuators(companyUsers.filter(u => u.role === 'Valuation'));
       setPageLoading(false);
     }
-  };
+  }, [currentUser]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -56,7 +56,7 @@ export default function AdminDashboardPage() {
         loadAdminData();
       }
     }
-  }, [authLoading, currentUser, router]);
+  }, [authLoading, currentUser, router, loadAdminData]);
 
   const projectAssetCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -67,6 +67,22 @@ export default function AdminDashboardPage() {
     });
     return counts;
   }, [allAssets]);
+
+  const projectsByInspector = useMemo(() => {
+    const map = new Map<string, Project[]>();
+    inspectors.forEach(inspector => {
+      map.set(inspector.id, companyProjects.filter(p => p.assignedInspectorId === inspector.id));
+    });
+    return map;
+  }, [inspectors, companyProjects]);
+
+  const projectsByValuator = useMemo(() => {
+    const map = new Map<string, Project[]>();
+    valuators.forEach(valuator => {
+      map.set(valuator.id, companyProjects.filter(p => p.assignedValuatorId === valuator.id));
+    });
+    return map;
+  }, [valuators, companyProjects]);
 
   const handleEditProject = (project: Project) => {
     toast({ title: t('actionNotImplemented', "Action Not Implemented"), description: t('editProjectAdminPlaceholder', "Project editing from admin dashboard is a placeholder.")});
@@ -88,9 +104,12 @@ export default function AdminDashboardPage() {
   };
 
   const handleProjectAssignmentsUpdated = (updatedProject: Project) => {
+    // Update the specific project in the local state or reload all
     setCompanyProjects(prevProjects => 
       prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
     );
+    // Potentially reload all data if other aspects might change due to assignment
+    // loadAdminData(); 
   };
 
 
@@ -178,9 +197,7 @@ export default function AdminDashboardPage() {
               <ScrollArea className="h-[350px] pr-2">
                 <ul className="space-y-4">
                   {inspectors.map(inspector => {
-                    const assignedProjectsToInspector = companyProjects.filter(
-                      p => p.assignedInspectorId === inspector.id
-                    );
+                    const assignedProjectsToInspector = projectsByInspector.get(inspector.id) || [];
                     return (
                       <li key={inspector.id} className="flex flex-col space-y-2 p-3 border rounded-md hover:bg-muted/50">
                         <div className="flex items-center space-x-3">
@@ -236,9 +253,7 @@ export default function AdminDashboardPage() {
                <ScrollArea className="h-[350px] pr-2">
                 <ul className="space-y-4">
                   {valuators.map(valuator => {
-                     const assignedProjectsToValuator = companyProjects.filter(
-                      p => p.assignedValuatorId === valuator.id
-                    );
+                     const assignedProjectsToValuator = projectsByValuator.get(valuator.id) || [];
                     return (
                       <li key={valuator.id} className="flex flex-col space-y-2 p-3 border rounded-md hover:bg-muted/50">
                          <div className="flex items-center space-x-3">
