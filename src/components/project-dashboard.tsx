@@ -7,18 +7,20 @@ import { NewProjectModal } from '@/components/modals/new-project-modal';
 import { EditProjectModal } from '@/components/modals/edit-project-modal';
 import type { Company, Project, ProjectStatus, Asset } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
-import { FolderPlus, CheckCircle, Star, Clock, Sparkles, LogOut } from 'lucide-react'; // Changed ArrowLeft to LogOut
+import { FolderPlus, CheckCircle, Star, Clock, Sparkles } from 'lucide-react';
 import { ProjectCard } from './project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/contexts/language-context';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
 interface ProjectDashboardProps {
   company: Company;
-  onLogout: () => void; // Changed from onClearCompany
+  onLogout: () => void;
 }
 
 export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
+  const { currentUser } = useAuth(); // Get current user
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -36,20 +38,34 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
       if (p.companyId !== company.id) return false;
+      
       if (activeTab === 'favorite') return p.isFavorite === true;
+
+      if (activeTab === 'new') {
+        if (currentUser?.role === 'Inspector') {
+          return p.assignedInspectorId === currentUser.id && p.status === 'new';
+        }
+        if (currentUser?.role === 'Valuation') {
+          return p.assignedValuatorId === currentUser.id && p.status === 'new';
+        }
+        // For Admins or if no specific role check matches, default to project status 'new'
+        return p.status === 'new';
+      }
+      
       return p.status === activeTab;
     }).sort((a, b) => {
       if (activeTab === 'recent' && a.lastAccessed && b.lastAccessed) {
         return new Date(b.lastAccessed).getTime() - new Date(a.lastAccessed).getTime();
       }
       if (activeTab === 'new' && a.createdAt && b.createdAt) {
+         // For 'new' tab, if assigned, they might be prioritized differently or just by creation date
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
       if (a.isFavorite && !b.isFavorite && activeTab === 'favorite') return -1;
       if (!a.isFavorite && b.isFavorite && activeTab === 'favorite') return 1;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [projects, company.id, activeTab]);
+  }, [projects, company.id, activeTab, currentUser]);
 
   const projectAssetCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -63,7 +79,9 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
 
   const handleProjectCreated = (newProject: Project) => {
     setProjects(LocalStorageService.getProjects());
-    setActiveTab('recent');
+    // If admin creates a project, it goes to their 'new' tab.
+    // If an inspector/valuator somehow creates one (not typical flow here), this logic holds.
+    setActiveTab('new'); 
   };
 
   const handleOpenEditModal = (project: Project) => {
@@ -88,7 +106,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     setProjects(currentProjects => currentProjects.map(p => p.id === updatedProjectData.id ? updatedProjectData : p));
     toast({
       title: updatedProjectData.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
-      description: `Project "${updatedProjectData.name}" status updated.`,
+      description: t('projectFavoriteStatusUpdatedDesc', `Project "${updatedProjectData.name}" favorite status updated.`, { projectName: updatedProjectData.name}),
     });
   };
 
@@ -103,10 +121,10 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     <div className="space-y-6 pb-20 md:pb-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          {/* Removed the "Select a Company" button as company is tied to user */}
           <h1 className="text-xl sm:text-2xl font-bold font-headline text-primary">
             {t('projectsFor', 'Projects for:')} {company.name}
           </h1>
+          {currentUser && <p className="text-sm text-muted-foreground">{t('loggedInAsRole', 'Logged in as: {role}', { role: t(currentUser.role.toLowerCase() + 'Role', currentUser.role) })}</p>}
         </div>
       </div>
 
@@ -122,7 +140,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
         {tabItems.map(item => (
           <TabsContent key={item.value} value={item.value} className="mt-6">
             {filteredProjects.length > 0 ? (
-              <ScrollArea className="h-[calc(100vh-20rem)] sm:h-[calc(100vh-18rem)] md:h-[60vh] pr-3">
+              <ScrollArea className="h-[calc(100vh-22rem)] sm:h-[calc(100vh-20rem)] md:h-[calc(60vh+2rem)] pr-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {filteredProjects.map((project) => {
                     const projectAssetCount = projectAssetCounts[project.id] || 0;
@@ -133,6 +151,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
                         assetCount={projectAssetCount}
                         onEditProject={handleOpenEditModal}
                         onToggleFavorite={handleToggleFavorite}
+                        // onAssignUsers is not typically used by non-admins on their own dashboard
                       />
                     );
                   })}
@@ -140,19 +159,21 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
               </ScrollArea>
             ) : (
               <div className="text-center py-12">
-                <p className="text-lg text-muted-foreground">{t('noProjectsFound', 'No projects found in this category.')}</p>
+                <p className="text-lg text-muted-foreground">{t('noProjectsFoundInTab', 'No projects found in "{tabName}" tab.', {tabName: t(item.labelKey, item.defaultLabel)})}</p>
               </div>
             )}
           </TabsContent>
         ))}
       </Tabs>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40 md:static md:bg-transparent md:p-0 md:border-none md:flex md:justify-end">
-        <Button size="lg" onClick={() => setIsNewModalOpen(true)} className="w-full md:w-auto shadow-lg md:shadow-none">
-          <FolderPlus className="mr-2 h-5 w-5" />
-          {t('createNewProject', 'Create New Project')}
-        </Button>
-      </div>
+      {currentUser?.role === 'Admin' && ( // Only Admins can create new projects from this dashboard
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40 md:static md:bg-transparent md:p-0 md:border-none md:flex md:justify-end">
+          <Button size="lg" onClick={() => setIsNewModalOpen(true)} className="w-full md:w-auto shadow-lg md:shadow-none">
+            <FolderPlus className="mr-2 h-5 w-5" />
+            {t('createNewProject', 'Create New Project')}
+          </Button>
+        </div>
+      )}
 
       <NewProjectModal
         isOpen={isNewModalOpen}

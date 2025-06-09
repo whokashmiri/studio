@@ -6,19 +6,21 @@ import { useAuth } from '@/contexts/auth-context';
 import type { Project, AuthenticatedUser, MockStoredUser, Asset } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Loader2, ShieldAlert, Users, Briefcase, UserCheck, UserSearch } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
-import { ProjectCard } from '@/components/project-card'; // Re-using ProjectCard for consistency
+import { ProjectCard } from '@/components/project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AssignProjectUsersModal } from '@/components/modals/assign-project-users-modal'; // Import the new modal
+import { useToast } from '@/hooks/use-toast';
 
-const MOCK_USERS_KEY = 'mockUsers'; // As defined in auth-context
+const MOCK_USERS_KEY = 'mockUsers';
 
 export default function AdminDashboardPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { t } = useLanguage();
+  const { toast } = useToast();
 
   const [companyProjects, setCompanyProjects] = useState<Project[]>([]);
   const [inspectors, setInspectors] = useState<AuthenticatedUser[]>([]);
@@ -26,24 +28,31 @@ export default function AdminDashboardPage() {
   const [allAssets, setAllAssets] = useState<Asset[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
 
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [projectToAssign, setProjectToAssign] = useState<Project | null>(null);
+
+  const loadAdminData = () => {
+    if (currentUser && currentUser.role === 'Admin') {
+      const allProjects = LocalStorageService.getProjects();
+      setCompanyProjects(allProjects.filter(p => p.companyId === currentUser.companyId));
+      setAllAssets(LocalStorageService.getAssets());
+
+      const storedUsersJson = localStorage.getItem(MOCK_USERS_KEY);
+      const allUsers: MockStoredUser[] = storedUsersJson ? JSON.parse(storedUsersJson) : [];
+      
+      const companyUsers = allUsers.filter(u => u.companyId === currentUser.companyId);
+      setInspectors(companyUsers.filter(u => u.role === 'Inspector'));
+      setValuators(companyUsers.filter(u => u.role === 'Valuation'));
+      setPageLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!authLoading) {
       if (!currentUser || currentUser.role !== 'Admin') {
-        router.push('/'); // Redirect if not admin or not logged in
+        router.push('/'); 
       } else {
-        // Fetch data once admin role is confirmed
-        const allProjects = LocalStorageService.getProjects();
-        setCompanyProjects(allProjects.filter(p => p.companyId === currentUser.companyId));
-        setAllAssets(LocalStorageService.getAssets());
-
-
-        const storedUsersJson = localStorage.getItem(MOCK_USERS_KEY);
-        const allUsers: MockStoredUser[] = storedUsersJson ? JSON.parse(storedUsersJson) : [];
-        
-        const companyUsers = allUsers.filter(u => u.companyId === currentUser.companyId);
-        setInspectors(companyUsers.filter(u => u.role === 'Inspector'));
-        setValuators(companyUsers.filter(u => u.role === 'Valuation'));
-        setPageLoading(false);
+        loadAdminData();
       }
     }
   }, [authLoading, currentUser, router]);
@@ -58,16 +67,33 @@ export default function AdminDashboardPage() {
     return counts;
   }, [allAssets]);
 
-  // Dummy handlers for ProjectCard as admin dashboard might not perform these actions directly on cards
   const handleEditProject = (project: Project) => {
-    // In a real admin scenario, this might navigate to a different edit interface
-    // or open a more comprehensive modal. For now, it's a placeholder.
-    // router.push(`/admin/edit-project/${project.id}`); // Example
-    console.log("Admin wants to edit project:", project.name);
+    // Placeholder for actual edit functionality if needed beyond assignment
+    toast({ title: t('actionNotImplemented', "Action Not Implemented"), description: t('editProjectAdminPlaceholder', "Project editing from admin dashboard is a placeholder.")});
   };
+
   const handleToggleFavorite = (project: Project) => {
-    // Admin might not manage favorites, or it's a different system.
-    console.log("Admin favorite toggle for project:", project.name);
+    // Placeholder or could be implemented if admins manage favorites
+    const updatedProject = { ...project, isFavorite: !project.isFavorite };
+    LocalStorageService.updateProject(updatedProject);
+    loadAdminData(); // Refresh projects
+    toast({
+        title: updatedProject.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
+        description: `Project "${updatedProject.name}" favorite status updated.`,
+      });
+  };
+
+  const handleOpenAssignUsersModal = (project: Project) => {
+    setProjectToAssign(project);
+    setIsAssignModalOpen(true);
+  };
+
+  const handleProjectAssignmentsUpdated = (updatedProject: Project) => {
+    setCompanyProjects(prevProjects => 
+      prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
+    );
+    // Optionally re-fetch all projects if more complex updates are involved
+    // loadAdminData(); 
   };
 
 
@@ -83,8 +109,6 @@ export default function AdminDashboardPage() {
   }
 
   if (!currentUser || currentUser.role !== 'Admin') {
-    // This case should ideally be caught by the useEffect redirect,
-    // but it's good to have a fallback UI.
     return (
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
         <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
@@ -110,7 +134,6 @@ export default function AdminDashboardPage() {
         </CardDescription>
       </CardHeader>
 
-      {/* Company Projects Section */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl font-headline">
@@ -130,8 +153,9 @@ export default function AdminDashboardPage() {
                         key={project.id}
                         project={project}
                         assetCount={projectAssetCount}
-                        onEditProject={handleEditProject} // Pass dummy handlers
-                        onToggleFavorite={handleToggleFavorite} // Pass dummy handlers
+                        onEditProject={handleEditProject} 
+                        onToggleFavorite={handleToggleFavorite}
+                        onAssignUsers={handleOpenAssignUsersModal} // Pass the new handler
                       />
                   );
                 })}
@@ -144,7 +168,6 @@ export default function AdminDashboardPage() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Inspectors Section */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl font-headline">
@@ -176,7 +199,6 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Valuators Section */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl font-headline">
@@ -208,8 +230,16 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+      
+      {projectToAssign && currentUser && (
+        <AssignProjectUsersModal
+          isOpen={isAssignModalOpen}
+          onClose={() => setIsAssignModalOpen(false)}
+          project={projectToAssign}
+          onProjectUpdated={handleProjectAssignmentsUpdated}
+          currentCompanyId={currentUser.companyId}
+        />
+      )}
     </div>
   );
 }
-
-    

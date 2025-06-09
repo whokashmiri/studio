@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Star } from 'lucide-react';
+import { Edit, Star, Users } from 'lucide-react'; // Added Users icon
 import type { Project } from '@/data/mock-data';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/language-context';
@@ -12,12 +12,13 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ProjectCardProps {
   project: Project;
-  assetCount: number; // New prop for asset count
+  assetCount: number; 
   onEditProject: (project: Project) => void;
   onToggleFavorite: (project: Project) => void;
+  onAssignUsers?: (project: Project) => void; // New optional prop
 }
 
-export function ProjectCard({ project, assetCount, onEditProject, onToggleFavorite }: ProjectCardProps) {
+export function ProjectCard({ project, assetCount, onEditProject, onToggleFavorite, onAssignUsers }: ProjectCardProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
   
@@ -42,6 +43,14 @@ export function ProjectCard({ project, assetCount, onEditProject, onToggleFavori
     onEditProject(project);
   };
 
+  const handleAssignUsersClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (onAssignUsers) {
+      onAssignUsers(project);
+    }
+  };
+
   return (
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200">
       <Link href={`/project/${project.id}`} className="flex flex-col flex-grow group cursor-pointer">
@@ -51,7 +60,6 @@ export function ProjectCard({ project, assetCount, onEditProject, onToggleFavori
                 <CardTitle className="text-base font-headline leading-tight group-hover:text-primary transition-colors">
                   {project.name}
                 </CardTitle>
-                 {/* Display asset count instead of description */}
                 <p className="text-xs text-muted-foreground pt-0.5">
                   {t('totalAssets', '{count} Assets', { count: assetCount })}
                 </p>
@@ -64,6 +72,18 @@ export function ProjectCard({ project, assetCount, onEditProject, onToggleFavori
                   >
                     {t(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status, project.status)}
                   </Badge>
+                )}
+                {onAssignUsers && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-primary h-8 w-8"
+                    onClick={handleAssignUsersClick}
+                    title={t('assignUsersButtonTitle', 'Assign Users')}
+                  >
+                    <Users className="h-4 w-4" />
+                    <span className="sr-only">{t('assignUsersButtonTitle', 'Assign Users')}</span>
+                  </Button>
                 )}
                 <Button
                   variant="ghost"

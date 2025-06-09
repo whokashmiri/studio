@@ -20,7 +20,7 @@ const translations: Record<Language, Record<string, string>> = {
     selectCompanyDesc: "Choose a company profile to manage its inspection projects.",
     noCompaniesAvailable: "No companies available.",
     currentCompany: "Current Company",
-    switchCompany: "Switch Company", // Might become obsolete or change context
+    switchCompany: "Switch Company", 
     selectCompanyPrompt: "Select Company",
     done: "Done",
     favorite: "Favorite",
@@ -34,13 +34,14 @@ const translations: Record<Language, Record<string, string>> = {
     save: "Save",
     saving: "Saving...",
     newAsset: "New Asset",
-    takePhotos: "Take Photos", // General term
+    takePhotos: "Take Photos", 
     uploadFromGallery: "Upload from Gallery",
     assetName: "Asset Name",
-    description: "Description", // General term, might be replaced by more specific labels
+    description: "Description", 
     speechToText: "Speech to Text",
     skip: "Skip",
-    noProjectsFound: "No projects found in this category.",
+    noProjectsFound: "No projects found in this category.", // Generic, can be overridden by more specific keys
+    noProjectsFoundInTab: "No projects found in \"{tabName}\" tab.",
     folders: "Folders",
     assets: "Assets",
     addNewFolder: "Add New Folder",
@@ -132,6 +133,7 @@ const translations: Record<Language, Record<string, string>> = {
     unmarkAsFavorite: "Unmark as Favorite",
     markedAsFavorite: "Marked as Favorite",
     unmarkedAsFavorite: "Unmarked as Favorite",
+    projectFavoriteStatusUpdatedDesc: "Project \"{projectName}\" favorite status updated.",
     updateProject: "Update Project",
     projectUpdatedTitle: "Project Updated",
     projectUpdatedDesc: "Project \"{projectName}\" has been successfully updated.",
@@ -148,7 +150,7 @@ const translations: Record<Language, Record<string, string>> = {
 
     deleteAssetTitle: "Delete Asset",
     editFolderTitle: "Edit folder {folderName}",
-    addRootFolderTitle: "New Folder", // Simpler for general use
+    addRootFolderTitle: "New Folder", 
     addSubfolderTitle: "New subfolder to {folderName}",
     projectRoot: "Project Root",
     noTopLevelFolders: "No top-level folders created yet.",
@@ -199,8 +201,8 @@ const translations: Record<Language, Record<string, string>> = {
     allowCameraAccessPrompt: "Please allow camera access when prompted.",
     capturePhoto: "Capture Photo",
     sessionPhotoPreviewAlt: "Session Preview {number}",
-    doneWithSession: "Done", // Generic done
-    doneWithSessionAddPhotos: "Done ({count})",
+    doneWithSession: "Done", 
+    doneWithSessionAddPhotos: "Add ({count})",
     currentPhotoBatch: "Current Photo Batch",
     customCameraViewTitle: "Custom Camera View",
     customCameraDialogTitle: "Camera",
@@ -224,7 +226,6 @@ const translations: Record<Language, Record<string, string>> = {
     assetDeletedDesc: "Asset \"{assetName}\" has been deleted.",
     totalAssets: "{count} Assets",
 
-    // Auth translations
     loginTitle: "Login",
     loginDesc: "Access your Asset Inspector Pro account.",
     emailLabel: "Email",
@@ -249,8 +250,8 @@ const translations: Record<Language, Record<string, string>> = {
     redirectingToLogin: "Redirecting to login...",
     projectsFor: "Projects for:",
     companyLabel: "Company:",
+    loggedInAsRole: "Logged in as: {role}",
 
-    // Admin Dashboard
     adminDashboardTitle: "Admin Dashboard",
     adminDashboardDesc: "Overview of projects and team members for {companyName}.",
     adminDashboardMenuLink: "Admin Dashboard",
@@ -269,7 +270,20 @@ const translations: Record<Language, Record<string, string>> = {
     signupFailedTitle: "Signup Failed",
     signupSuccessTitle: "Signup Successful",
     signupSuccessDesc: "You have been signed up and logged in.",
+    actionNotImplemented: "Action Not Implemented",
+    editProjectAdminPlaceholder: "Project editing from admin dashboard is a placeholder.",
 
+    assignUsersButtonTitle: "Assign Users",
+    assignUsersToProjectTitle: "Assign Users to Project:",
+    assignUsersModalDesc: "Select an inspector and/or a valuator for this project.",
+    assignInspector: "Assign Inspector",
+    assignValuator: "Assign Valuator",
+    selectInspectorPlaceholder: "Select an Inspector",
+    selectValuatorPlaceholder: "Select a Valuator",
+    unassign: "Unassign / None",
+    saveAssignmentsButton: "Save Assignments",
+    assignmentsUpdatedTitle: "Assignments Updated",
+    assignmentsUpdatedDesc: "Assignments for project \"{projectName}\" have been updated.",
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -298,6 +312,7 @@ const translations: Record<Language, Record<string, string>> = {
     speechToText: "تحويل الكلام إلى نص",
     skip: "تخطي",
     noProjectsFound: "لا توجد مشاريع في هذه الفئة.",
+    noProjectsFoundInTab: "لا توجد مشاريع في علامة التبويب \"{tabName}\".",
     folders: "مجلدات",
     assets: "أصول",
     addNewFolder: "إضافة مجلد جديد",
@@ -388,6 +403,7 @@ const translations: Record<Language, Record<string, string>> = {
     unmarkAsFavorite: "إزالة العلامة كمفضل",
     markedAsFavorite: "تم وضع علامة كمفضل",
     unmarkedAsFavorite: "تمت إزالة العلامة كمفضل",
+    projectFavoriteStatusUpdatedDesc: "تم تحديث حالة المفضلة للمشروع \"{projectName}\".",
     updateProject: "تحديث المشروع",
     projectUpdatedTitle: "تم تحديث المشروع",
     projectUpdatedDesc: "تم تحديث المشروع \"{projectName}\" بنجاح.",
@@ -456,7 +472,7 @@ const translations: Record<Language, Record<string, string>> = {
     capturePhoto: "التقاط صورة",
     sessionPhotoPreviewAlt: "معاينة صورة الجلسة {number}",
     doneWithSession: "تم",
-    doneWithSessionAddPhotos: "تم ({count}) - إضافة إلى الدفعة",
+    doneWithSessionAddPhotos: "إضافة ({count})",
     currentPhotoBatch: "دفعة الصور الحالية",
     customCameraViewTitle: "عرض الكاميرا المخصص",
     customCameraDialogTitle: "الكاميرا",
@@ -480,7 +496,6 @@ const translations: Record<Language, Record<string, string>> = {
     assetDeletedDesc: "تم حذف الأصل \"{assetName}\".",
     totalAssets: "{count} أصول",
 
-    // Auth translations
     loginTitle: "تسجيل الدخول",
     loginDesc: "قم بالوصول إلى حساب Asset Inspector Pro الخاص بك.",
     emailLabel: "البريد الإلكتروني",
@@ -505,8 +520,8 @@ const translations: Record<Language, Record<string, string>> = {
     redirectingToLogin: "إعادة التوجيه إلى صفحة تسجيل الدخول...",
     projectsFor: "مشاريع لـ:",
     companyLabel: "الشركة:",
+    loggedInAsRole: "تم تسجيل الدخول كـ: {role}",
     
-    // Admin Dashboard
     adminDashboardTitle: "لوحة تحكم المسؤول",
     adminDashboardDesc: "نظرة عامة على المشاريع وأعضاء الفريق لـ {companyName}.",
     adminDashboardMenuLink: "لوحة تحكم المسؤول",
@@ -525,6 +540,20 @@ const translations: Record<Language, Record<string, string>> = {
     signupFailedTitle: "فشل التسجيل",
     signupSuccessTitle: "تم التسجيل بنجاح",
     signupSuccessDesc: "لقد تم تسجيلك وتسجيل دخولك.",
+    actionNotImplemented: "الإجراء غير مُنفذ",
+    editProjectAdminPlaceholder: "تعديل المشروع من لوحة تحكم المسؤول هو عنصر نائب.",
+
+    assignUsersButtonTitle: "تعيين المستخدمين",
+    assignUsersToProjectTitle: "تعيين مستخدمين للمشروع:",
+    assignUsersModalDesc: "اختر مفتشًا و/أو مقيمًا لهذا المشروع.",
+    assignInspector: "تعيين مفتش",
+    assignValuator: "تعيين مقيم",
+    selectInspectorPlaceholder: "اختر مفتشًا",
+    selectValuatorPlaceholder: "اختر مقيمًا",
+    unassign: "إلغاء التعيين / لا أحد",
+    saveAssignmentsButton: "حفظ التعيينات",
+    assignmentsUpdatedTitle: "تم تحديث التعيينات",
+    assignmentsUpdatedDesc: "تم تحديث التعيينات للمشروع \"{projectName}\".",
   },
 };
 
@@ -564,5 +593,3 @@ export function useLanguage() {
   }
   return context;
 }
-
-    
