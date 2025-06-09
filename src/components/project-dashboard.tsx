@@ -1,6 +1,6 @@
 
 "use client";
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { NewProjectModal } from '@/components/modals/new-project-modal';
@@ -43,13 +43,11 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
 
       if (activeTab === 'new') {
         if (currentUser?.role === 'Inspector') {
-          // Inspector sees new projects assigned to them OR created by them
           return (p.assignedInspectorIds?.includes(currentUser.id) || p.createdByUserId === currentUser.id) && p.status === 'new';
         }
         if (currentUser?.role === 'Valuation') {
           return p.assignedValuatorIds?.includes(currentUser.id) && p.status === 'new';
         }
-        // For Admins or if no specific role check matches, default to project status 'new'
         return p.status === 'new';
       }
       
@@ -77,24 +75,24 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     return counts;
   }, [allAssets]);
 
-  const handleProjectCreated = (newProject: Project) => {
+  const handleProjectCreated = useCallback((newProject: Project) => {
     setProjects(LocalStorageService.getProjects());
     setActiveTab('new'); 
-  };
+  }, [setActiveTab, setProjects]);
 
-  const handleOpenEditModal = (project: Project) => {
+  const handleOpenEditModal = useCallback((project: Project) => {
     setEditingProject(project);
     setIsEditModalOpen(true);
-  };
+  }, [setEditingProject, setIsEditModalOpen]);
 
-  const handleProjectUpdated = (updatedProject: Project) => {
+  const handleProjectUpdated = useCallback((updatedProject: Project) => {
     setProjects(LocalStorageService.getProjects());
     if (editingProject && editingProject.id === updatedProject.id) {
         setEditingProject(null);
     }
-  };
+  }, [editingProject, setProjects, setEditingProject]);
 
-  const handleToggleFavorite = (projectToToggle: Project) => {
+  const handleToggleFavorite = useCallback((projectToToggle: Project) => {
     const updatedProjectData = {
       ...projectToToggle,
       isFavorite: !projectToToggle.isFavorite,
@@ -106,7 +104,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
       title: updatedProjectData.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
       description: t('projectFavoriteStatusUpdatedDesc', `Project "${updatedProjectData.name}" favorite status updated.`, { projectName: updatedProjectData.name}),
     });
-  };
+  }, [setProjects, t, toast]);
 
   const tabItems: { value: ProjectStatus | 'favorite'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
     { value: 'recent', labelKey: 'recent', defaultLabel: 'Recent', icon: Clock },
