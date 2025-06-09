@@ -29,6 +29,7 @@ const translations: Record<Language, Record<string, string>> = {
     edit: "Edit",
     delete: "Delete",
     createNewProject: "Create New Project",
+    createNewProjectDesc: "Enter a name for your new inspection project.",
     projectName: "Project Name",
     cancel: "Cancel",
     save: "Save",
@@ -52,6 +53,8 @@ const translations: Record<Language, Record<string, string>> = {
     confirm: "Confirm",
     folderCreated: "Folder Created",
     folderCreatedNavigatedDesc: "Folder \"{folderName}\" created and selected.",
+    projectCreatedTitle: "Project Created",
+    projectCreatedDesc: "Project \"{projectName}\" has been successfully created.",
     allProjects: "All Projects",
     assetsIn: "Assets in",
     assetsInPath: "Path: ",
@@ -137,6 +140,8 @@ const translations: Record<Language, Record<string, string>> = {
     updateProject: "Update Project",
     projectUpdatedTitle: "Project Updated",
     projectUpdatedDesc: "Project \"{projectName}\" has been successfully updated.",
+    projectNameRequiredTitle: "Project Name Required",
+    projectNameRequiredDesc: "Please enter a name for the project.",
     projectNamePlaceholder: "e.g., Spring Mall Inspection",
     editAssetTitle: "Edit Asset",
     assetNotFound: "Asset Not Found",
@@ -225,6 +230,16 @@ const translations: Record<Language, Record<string, string>> = {
     assetDeletedTitle: "Asset Deleted",
     assetDeletedDesc: "Asset \"{assetName}\" has been deleted.",
     totalAssets: "{count} Assets",
+    createdByInspectorShort: "Insp. Created",
+    projectActionsMenuTitle: "Project Actions",
+    deleteProjectButton: "Delete Project",
+    deleteProjectConfirmationTitle: "Confirm Project Deletion",
+    deleteProjectConfirmationDesc: "Are you sure you want to delete project \"{projectName}\"? This action cannot be undone and will delete all associated folders and assets.",
+    projectDeletedTitle: "Project Deleted",
+    projectDeletedDesc: "Project \"{projectName}\" has been deleted.",
+    userNotAuthenticatedError: "User not authenticated. Cannot create project.",
+    error: "Error",
+
 
     loginTitle: "Login",
     loginDesc: "Access your Asset Inspector Pro account.",
@@ -251,7 +266,7 @@ const translations: Record<Language, Record<string, string>> = {
     projectsFor: "Projects for:",
     companyLabel: "Company:",
     loggedInAsRole: "Logged in as: {role}",
-
+    
     adminDashboardTitle: "Admin Dashboard",
     adminDashboardDesc: "Overview of projects and team members for {companyName}.",
     adminDashboardMenuLink: "Admin Dashboard",
@@ -276,13 +291,13 @@ const translations: Record<Language, Record<string, string>> = {
     assignUsersButtonTitle: "Assign Users",
     assignUsersToProjectTitle: "Assign Users to Project:",
     assignUsersModalDesc: "Select an inspector and/or a valuator for this project.",
-    assignInspector: "Assign Inspector", // Kept singular for the section label
-    assignInspectorsLabel: "Assign Inspectors", // New for multi-select section
-    assignValuator: "Assign Valuator", // Kept singular for the section label
-    assignValuatorsLabel: "Assign Valuators", // New for multi-select section
+    assignInspector: "Assign Inspector", 
+    assignInspectorsLabel: "Assign Inspectors", 
+    assignValuator: "Assign Valuator", 
+    assignValuatorsLabel: "Assign Valuators", 
     selectInspectorPlaceholder: "Select an Inspector",
     selectValuatorPlaceholder: "Select a Valuator",
-    unassign: "Unassign / None", // This might be less relevant with checkboxes, but kept for now
+    unassign: "Unassign / None", 
     saveAssignmentsButton: "Save Assignments",
     assignmentsUpdatedTitle: "Assignments Updated",
     assignmentsUpdatedDesc: "Assignments for project \"{projectName}\" have been updated.",
@@ -306,6 +321,7 @@ const translations: Record<Language, Record<string, string>> = {
     edit: "تعديل",
     delete: "حذف",
     createNewProject: "إنشاء مشروع جديد",
+    createNewProjectDesc: "أدخل اسمًا لمشروع الفحص الجديد.",
     projectName: "اسم المشروع",
     cancel: "إلغاء",
     save: "حفظ",
@@ -329,6 +345,8 @@ const translations: Record<Language, Record<string, string>> = {
     confirm: "تأكيد",
     folderCreated: "تم إنشاء المجلد",
     folderCreatedNavigatedDesc: "تم إنشاء المجلد \"{folderName}\" واختياره.",
+    projectCreatedTitle: "تم إنشاء المشروع",
+    projectCreatedDesc: "تم إنشاء المشروع \"{projectName}\" بنجاح.",
     allProjects: "كل المشاريع",
     assetsIn: "الأصول في",
     assetsInPath: "المسار: ",
@@ -413,6 +431,8 @@ const translations: Record<Language, Record<string, string>> = {
     updateProject: "تحديث المشروع",
     projectUpdatedTitle: "تم تحديث المشروع",
     projectUpdatedDesc: "تم تحديث المشروع \"{projectName}\" بنجاح.",
+    projectNameRequiredTitle: "اسم المشروع مطلوب",
+    projectNameRequiredDesc: "الرجاء إدخال اسم للمشروع.",
     projectNamePlaceholder: "مثال: فحص مول الربيع",
     editAssetTitle: "تعديل الأصل",
     assetNotFound: "الأصل غير موجود",
@@ -501,6 +521,15 @@ const translations: Record<Language, Record<string, string>> = {
     assetDeletedTitle: "تم حذف الأصل",
     assetDeletedDesc: "تم حذف الأصل \"{assetName}\".",
     totalAssets: "{count} أصول",
+    createdByInspectorShort: "إنشاء مفتش",
+    projectActionsMenuTitle: "إجراءات المشروع",
+    deleteProjectButton: "حذف المشروع",
+    deleteProjectConfirmationTitle: "تأكيد حذف المشروع",
+    deleteProjectConfirmationDesc: "هل أنت متأكد أنك تريد حذف المشروع \"{projectName}\"؟ لا يمكن التراجع عن هذا الإجراء وسيتم حذف جميع المجلدات والأصول المرتبطة به.",
+    projectDeletedTitle: "تم حذف المشروع",
+    projectDeletedDesc: "تم حذف المشروع \"{projectName}\".",
+    userNotAuthenticatedError: "المستخدم غير مصادق عليه. لا يمكن إنشاء مشروع.",
+    error: "خطأ",
 
     loginTitle: "تسجيل الدخول",
     loginDesc: "قم بالوصول إلى حساب Asset Inspector Pro الخاص بك.",
@@ -552,10 +581,10 @@ const translations: Record<Language, Record<string, string>> = {
     assignUsersButtonTitle: "تعيين المستخدمين",
     assignUsersToProjectTitle: "تعيين مستخدمين للمشروع:",
     assignUsersModalDesc: "اختر مفتشًا و/أو مقيمًا لهذا المشروع.",
-    assignInspector: "تعيين مفتش", // Kept singular for the section label
-    assignInspectorsLabel: "تعيين مفتشين", // New for multi-select section
-    assignValuator: "تعيين مقيم", // Kept singular for the section label
-    assignValuatorsLabel: "تعيين مقيمين", // New for multi-select section
+    assignInspector: "تعيين مفتش", 
+    assignInspectorsLabel: "تعيين مفتشين", 
+    assignValuator: "تعيين مقيم", 
+    assignValuatorsLabel: "تعيين مقيمين", 
     selectInspectorPlaceholder: "اختر مفتشًا",
     selectValuatorPlaceholder: "اختر مقيمًا",
     unassign: "إلغاء التعيين / لا أحد",

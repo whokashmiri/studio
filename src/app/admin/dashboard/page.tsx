@@ -7,13 +7,17 @@ import type { Project, AuthenticatedUser, MockStoredUser, Asset } from '@/data/m
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Loader2, ShieldAlert, Users, Briefcase, UserCheck, UserSearch, FolderOpen } from 'lucide-react';
+import { Loader2, ShieldAlert, Users, Briefcase, UserCheck, UserSearch, FolderOpen, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { ProjectCard } from '@/components/project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AssignProjectUsersModal } from '@/components/modals/assign-project-users-modal';
+import { EditProjectModal } from '@/components/modals/edit-project-modal';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+
 
 const MOCK_USERS_KEY = 'mockUsers';
 
@@ -31,6 +35,13 @@ export default function AdminDashboardPage() {
 
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [projectToAssign, setProjectToAssign] = useState<Project | null>(null);
+  
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+
 
   const loadAdminData = useCallback(() => {
     if (currentUser && currentUser.role === 'Admin') {
@@ -85,7 +96,8 @@ export default function AdminDashboardPage() {
   }, [valuators, companyProjects]);
 
   const handleEditProject = (project: Project) => {
-    toast({ title: t('actionNotImplemented', "Action Not Implemented"), description: t('editProjectAdminPlaceholder', "Project editing from admin dashboard is a placeholder.")});
+    setEditingProject(project);
+    setIsEditModalOpen(true);
   };
 
   const handleToggleFavorite = (project: Project) => {
@@ -107,8 +119,30 @@ export default function AdminDashboardPage() {
     setCompanyProjects(prevProjects => 
       prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
     );
+    loadAdminData(); // Refresh all admin data to ensure consistency
   };
 
+  const handleProjectUpdatedFromEdit = (updatedProject: Project) => {
+    loadAdminData(); // Refresh all admin data
+  };
+
+  const promptDeleteProject = (project: Project) => {
+    setProjectToDelete(project);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteProject = () => {
+    if (projectToDelete) {
+      LocalStorageService.deleteProject(projectToDelete.id);
+      toast({
+        title: t('projectDeletedTitle', 'Project Deleted'),
+        description: t('projectDeletedDesc', `Project "${projectToDelete.name}" has been deleted.`, { projectName: projectToDelete.name }),
+      });
+      loadAdminData(); // Refresh projects
+      setProjectToDelete(null);
+      setIsDeleteConfirmOpen(false);
+    }
+  };
 
   if (authLoading || pageLoading) {
     return (
@@ -169,6 +203,7 @@ export default function AdminDashboardPage() {
                         onEditProject={handleEditProject} 
                         onToggleFavorite={handleToggleFavorite}
                         onAssignUsers={handleOpenAssignUsersModal}
+                        onDeleteProject={promptDeleteProject}
                       />
                   );
                 })}
@@ -302,6 +337,37 @@ export default function AdminDashboardPage() {
           onProjectUpdated={handleProjectAssignmentsUpdated}
           currentCompanyId={currentUser.companyId}
         />
+      )}
+
+      {editingProject && (
+        <EditProjectModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingProject(null);
+          }}
+          project={editingProject}
+          onProjectUpdated={handleProjectUpdatedFromEdit}
+        />
+      )}
+
+      {projectToDelete && (
+        <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('deleteProjectConfirmationTitle', 'Confirm Project Deletion')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('deleteProjectConfirmationDesc', `Are you sure you want to delete project "{projectName}"? This action cannot be undone and will delete all associated folders and assets.`, { projectName: projectToDelete.name })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setProjectToDelete(null)}>{t('cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {t('delete', 'Delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );

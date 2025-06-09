@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Project, ProjectStatus } from '@/data/mock-data';
+import type { Project, ProjectStatus, UserRole } from '@/data/mock-data';
 import * as LocalStorageService from '@/lib/local-storage-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -24,12 +25,21 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
   const router = useRouter();
   const { toast } = useToast();
   const { t } = useLanguage();
+  const { currentUser } = useAuth(); // Get currentUser from AuthContext
 
   const handleSave = async () => {
     if (!projectName.trim()) {
       toast({
-        title: "Project Name Required",
-        description: "Please enter a name for the project.",
+        title: t('projectNameRequiredTitle', "Project Name Required"),
+        description: t('projectNameRequiredDesc', "Please enter a name for the project."),
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!currentUser) {
+      toast({
+        title: t('error', "Error"),
+        description: t('userNotAuthenticatedError', "User not authenticated. Cannot create project."),
         variant: "destructive",
       });
       return;
@@ -42,12 +52,20 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
       id: `proj_${Date.now()}`,
       name: projectName,
       companyId: companyId,
-      status: 'recent' as ProjectStatus,
+      status: 'new' as ProjectStatus, // All new projects start as 'new'
       createdAt: now,
       lastAccessed: now,
-      description: '', // Set to empty string as requested
+      description: '',
       isFavorite: false,
+      createdByUserId: currentUser.id,
+      createdByUserRole: currentUser.role,
+      assignedInspectorIds: [],
+      assignedValuatorIds: [],
     };
+
+    if (currentUser.role === 'Inspector') {
+      newProject.assignedInspectorIds = [currentUser.id]; // Auto-assign to the creating inspector
+    }
 
     LocalStorageService.addProject(newProject);
     
@@ -57,8 +75,8 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     onClose(); 
     
     toast({
-      title: "Project Created",
-      description: `Project "${newProject.name}" has been successfully created.`,
+      title: t('projectCreatedTitle', "Project Created"),
+      description: t('projectCreatedDesc', `Project "${newProject.name}" has been successfully created.`, { projectName: newProject.name }),
     });
     router.push(`/project/${newProject.id}`);
   };
@@ -74,20 +92,17 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
         <DialogHeader>
           <DialogTitle className="font-headline">{t('createNewProject', 'Create New Project')}</DialogTitle>
           <DialogDescription>
-            Enter a name for your new inspection project.
+            {t('createNewProjectDesc', 'Enter a name for your new inspection project.')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 items-center gap-2 flex-grow overflow-y-auto">
-          {/* <Label htmlFor="project-name" className="text-right">
-              {t('projectName')}
-            </Label> */}
           <Input
             id="project-name"
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
             className="col-span-2"
             type="text"
-            placeholder="e.g., Spring Mall Inspection"
+            placeholder={t('projectNamePlaceholder', "e.g., Spring Mall Inspection")}
             disabled={isLoading}
           />
         </div>
@@ -103,4 +118,3 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     </Dialog>
   );
 }
-

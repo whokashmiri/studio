@@ -3,7 +3,14 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Star, Users } from 'lucide-react'; // Added Users icon
+import { Edit, Star, Users, MoreVertical, Trash2, PackageSearch } from 'lucide-react'; // Added MoreVertical, Trash2
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Project } from '@/data/mock-data';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/language-context';
@@ -15,10 +22,18 @@ interface ProjectCardProps {
   assetCount: number; 
   onEditProject: (project: Project) => void;
   onToggleFavorite: (project: Project) => void;
-  onAssignUsers?: (project: Project) => void; // New optional prop
+  onAssignUsers?: (project: Project) => void;
+  onDeleteProject?: (project: Project) => void; // New prop for delete action
 }
 
-export function ProjectCard({ project, assetCount, onEditProject, onToggleFavorite, onAssignUsers }: ProjectCardProps) {
+export function ProjectCard({ 
+  project, 
+  assetCount, 
+  onEditProject, 
+  onToggleFavorite, 
+  onAssignUsers,
+  onDeleteProject 
+}: ProjectCardProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
   
@@ -37,19 +52,8 @@ export function ProjectCard({ project, assetCount, onEditProject, onToggleFavori
     onToggleFavorite(project);
   };
 
-  const handleEditClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); 
-    e.preventDefault();
-    onEditProject(project);
-  };
-
-  const handleAssignUsersClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (onAssignUsers) {
-      onAssignUsers(project);
-    }
-  };
+  // Check if any of the admin-specific actions are available
+  const hasAdminActions = !!onEditProject || !!onAssignUsers || !!onDeleteProject;
 
   return (
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200">
@@ -62,28 +66,19 @@ export function ProjectCard({ project, assetCount, onEditProject, onToggleFavori
                 </CardTitle>
                 <p className="text-xs text-muted-foreground pt-0.5">
                   {t('totalAssets', '{count} Assets', { count: assetCount })}
+                  {project.createdByUserRole === 'Inspector' && (
+                    <span className="ml-1.5 italic text-xs text-accent/80">({t('createdByInspectorShort', 'Insp. Created')})</span>
+                  )}
                 </p>
               </div>
-              <div className="flex items-center shrink-0">
-                {isMobile && (
+              <div className="flex items-center shrink-0 space-x-0.5">
+                {isMobile && !hasAdminActions && ( // Only show status badge on mobile if no admin actions dropdown
                   <Badge 
-                    variant={getStatusBadgeVariant(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status)} 
+                    variant={getStatusBadgeVariant(project.status)} 
                     className="capitalize text-xs mr-1"
                   >
-                    {t(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status, project.status)}
+                    {t(project.status.toLowerCase(), project.status)}
                   </Badge>
-                )}
-                {onAssignUsers && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-primary h-8 w-8"
-                    onClick={handleAssignUsersClick}
-                    title={t('assignUsersButtonTitle', 'Assign Users')}
-                  >
-                    <Users className="h-4 w-4" />
-                    <span className="sr-only">{t('assignUsersButtonTitle', 'Assign Users')}</span>
-                  </Button>
                 )}
                 <Button
                   variant="ghost"
@@ -98,26 +93,63 @@ export function ProjectCard({ project, assetCount, onEditProject, onToggleFavori
                   <Star className={cn("h-4 w-4", project.isFavorite && "fill-yellow-400")} />
                   <span className="sr-only">{project.isFavorite ? t('unmarkAsFavorite', 'Unmark as Favorite') : t('markAsFavorite', 'Mark as Favorite')}</span>
                 </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-muted-foreground hover:text-primary h-8 w-8"
-                  onClick={handleEditClick} 
-                  title={t('editProjectTitle', 'Edit Project')}
-                >
-                  <Edit className="h-4 w-4" />
-                  <span className="sr-only">{t('editProjectTitle', 'Edit Project')}</span>
-                </Button>
+                
+                {hasAdminActions && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault();}}
+                        title={t('projectActionsMenuTitle', 'Project Actions')}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                        <span className="sr-only">{t('projectActionsMenuTitle', 'Project Actions')}</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      align="end" 
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault();}}
+                    >
+                      {onEditProject && (
+                        <DropdownMenuItem onClick={() => onEditProject(project)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          {t('editProjectTitle', 'Edit Project')}
+                        </DropdownMenuItem>
+                      )}
+                      {onAssignUsers && (
+                        <DropdownMenuItem onClick={() => onAssignUsers(project)}>
+                          <Users className="mr-2 h-4 w-4" />
+                          {t('assignUsersButtonTitle', 'Assign Users')}
+                        </DropdownMenuItem>
+                      )}
+                      {onDeleteProject && (
+                        <>
+                          { (onEditProject || onAssignUsers) && <DropdownMenuSeparator />}
+                          <DropdownMenuItem 
+                            onClick={() => onDeleteProject(project)}
+                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            {t('deleteProjectButton', 'Delete Project')}
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
           </CardHeader>
           <CardContent className="flex-grow p-3 pt-1.5 flex items-end">
-            {!isMobile && (
+            {/* Show status badge if not on mobile OR if on mobile and there are admin actions (dropdown used) */}
+            {(!isMobile || (isMobile && hasAdminActions)) && (
                <Badge 
-                variant={getStatusBadgeVariant(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status)} 
+                variant={getStatusBadgeVariant(project.status)} 
                 className="capitalize text-xs"
               >
-                {t(project.status === 'favorite' && project.lastAccessed ? 'recent' : project.status, project.status)}
+                {t(project.status.toLowerCase(), project.status)}
               </Badge>
             )}
           </CardContent>

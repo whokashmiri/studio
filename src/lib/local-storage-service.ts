@@ -6,7 +6,7 @@ import { mockProjects, mockFolders, mockAssets, mockCompanies } from '@/data/moc
 const PROJECTS_KEY = 'assetInspectorProjects';
 const FOLDERS_KEY = 'assetInspectorFolders';
 const ASSETS_KEY = 'assetInspectorAssets';
-const COMPANIES_KEY = 'assetInspectorCompanies'; // Though companies are mostly static in this mock setup
+const COMPANIES_KEY = 'assetInspectorCompanies'; 
 
 // Companies
 export function getCompanies(): Company[] {
@@ -19,7 +19,7 @@ export function getCompanies(): Company[] {
       return mockCompanies;
     }
   }
-  return [...mockCompanies]; // Return a copy for server-side or if window is undefined
+  return [...mockCompanies]; 
 }
 
 export function saveCompanies(companies: Company[]): void {
@@ -35,12 +35,11 @@ export function getProjects(): Project[] {
     if (storedProjects) {
       return JSON.parse(storedProjects);
     } else {
-      // Initialize with mock data if no projects are in localStorage
       localStorage.setItem(PROJECTS_KEY, JSON.stringify(mockProjects));
       return mockProjects;
     }
   }
-  return [...mockProjects]; // Return a copy for server-side or if window is undefined
+  return [...mockProjects]; 
 }
 
 export function saveProjects(projects: Project[]): void {
@@ -64,6 +63,26 @@ export function updateProject(updatedProject: Project): void {
     saveProjects(projects);
   }
 }
+
+export function deleteProject(projectId: string): void {
+  if (typeof window !== 'undefined') {
+    // Delete associated assets
+    let assets = getAssets();
+    assets = assets.filter(a => a.projectId !== projectId);
+    saveAssets(assets);
+
+    // Delete associated folders
+    let folders = getFolders();
+    folders = folders.filter(f => f.projectId !== projectId);
+    saveFolders(folders);
+
+    // Delete the project
+    let projects = getProjects();
+    projects = projects.filter(p => p.id !== projectId);
+    saveProjects(projects);
+  }
+}
+
 
 // Folders
 export function getFolders(): Folder[] {
@@ -106,6 +125,9 @@ export function deleteFolder(folderId: string): void {
     let folders = getFolders();
     folders = folders.filter(f => f.id !== folderId);
     saveFolders(folders);
+    // Note: This simple deleteFolder does not cascade delete assets within it.
+    // deleteFolderCascade handles that if needed specifically for a folder.
+    // Project deletion handles cascading its folders and assets.
   }
 }
 
@@ -116,7 +138,6 @@ export function deleteFolderCascade(folderId: string): void {
     
     const folderIdsToDelete: string[] = [folderId];
     let currentLength = 0;
-    // Find all descendant folder IDs
     while (currentLength < folderIdsToDelete.length) {
       currentLength = folderIdsToDelete.length;
       allFolders.forEach(folder => {
@@ -126,9 +147,7 @@ export function deleteFolderCascade(folderId: string): void {
       });
     }
     
-    // Filter out folders to delete
     const updatedFolders = allFolders.filter(f => !folderIdsToDelete.includes(f.id));
-    // Filter out assets belonging to deleted folders
     const updatedAssets = allAssets.filter(a => !a.folderId || !folderIdsToDelete.includes(a.folderId));
     
     saveFolders(updatedFolders);

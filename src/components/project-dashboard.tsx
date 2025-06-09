@@ -12,7 +12,7 @@ import { ProjectCard } from './project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/contexts/language-context';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/auth-context'; // Import useAuth
+import { useAuth } from '@/contexts/auth-context'; 
 
 interface ProjectDashboardProps {
   company: Company;
@@ -20,7 +20,7 @@ interface ProjectDashboardProps {
 }
 
 export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
-  const { currentUser } = useAuth(); // Get current user
+  const { currentUser } = useAuth(); 
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -43,7 +43,8 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
 
       if (activeTab === 'new') {
         if (currentUser?.role === 'Inspector') {
-          return p.assignedInspectorIds?.includes(currentUser.id) && p.status === 'new';
+          // Inspector sees new projects assigned to them OR created by them
+          return (p.assignedInspectorIds?.includes(currentUser.id) || p.createdByUserId === currentUser.id) && p.status === 'new';
         }
         if (currentUser?.role === 'Valuation') {
           return p.assignedValuatorIds?.includes(currentUser.id) && p.status === 'new';
@@ -58,7 +59,6 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
         return new Date(b.lastAccessed).getTime() - new Date(a.lastAccessed).getTime();
       }
       if (activeTab === 'new' && a.createdAt && b.createdAt) {
-         // For 'new' tab, if assigned, they might be prioritized differently or just by creation date
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
       if (a.isFavorite && !b.isFavorite && activeTab === 'favorite') return -1;
@@ -79,8 +79,6 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
 
   const handleProjectCreated = (newProject: Project) => {
     setProjects(LocalStorageService.getProjects());
-    // If admin creates a project, it goes to their 'new' tab.
-    // If an inspector/valuator somehow creates one (not typical flow here), this logic holds.
     setActiveTab('new'); 
   };
 
@@ -117,6 +115,8 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     { value: 'done', labelKey: 'done', defaultLabel: 'Done', icon: CheckCircle },
   ];
 
+  const canCreateProject = currentUser?.role === 'Admin' || currentUser?.role === 'Inspector';
+
   return (
     <div className="space-y-6 pb-20 md:pb-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -151,7 +151,6 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
                         assetCount={projectAssetCount}
                         onEditProject={handleOpenEditModal}
                         onToggleFavorite={handleToggleFavorite}
-                        // onAssignUsers is not typically used by non-admins on their own dashboard
                       />
                     );
                   })}
@@ -166,7 +165,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
         ))}
       </Tabs>
 
-      {currentUser?.role === 'Admin' && ( // Only Admins can create new projects from this dashboard
+      {canCreateProject && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40 md:static md:bg-transparent md:p-0 md:border-none md:flex md:justify-end">
           <Button size="lg" onClick={() => setIsNewModalOpen(true)} className="w-full md:w-auto shadow-lg md:shadow-none">
             <FolderPlus className="mr-2 h-5 w-5" />
