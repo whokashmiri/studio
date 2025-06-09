@@ -71,7 +71,7 @@ export default function AdminDashboardPage() {
   const projectsByInspector = useMemo(() => {
     const map = new Map<string, Project[]>();
     inspectors.forEach(inspector => {
-      map.set(inspector.id, companyProjects.filter(p => p.assignedInspectorId === inspector.id));
+      map.set(inspector.id, companyProjects.filter(p => p.assignedInspectorIds?.includes(inspector.id)));
     });
     return map;
   }, [inspectors, companyProjects]);
@@ -79,7 +79,7 @@ export default function AdminDashboardPage() {
   const projectsByValuator = useMemo(() => {
     const map = new Map<string, Project[]>();
     valuators.forEach(valuator => {
-      map.set(valuator.id, companyProjects.filter(p => p.assignedValuatorId === valuator.id));
+      map.set(valuator.id, companyProjects.filter(p => p.assignedValuatorIds?.includes(valuator.id)));
     });
     return map;
   }, [valuators, companyProjects]);
@@ -104,12 +104,9 @@ export default function AdminDashboardPage() {
   };
 
   const handleProjectAssignmentsUpdated = (updatedProject: Project) => {
-    // Update the specific project in the local state or reload all
     setCompanyProjects(prevProjects => 
       prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
     );
-    // Potentially reload all data if other aspects might change due to assignment
-    // loadAdminData(); 
   };
 
 

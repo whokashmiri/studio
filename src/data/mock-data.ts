@@ -15,8 +15,8 @@ export interface Project {
   isFavorite?: boolean;
   createdAt: string;
   description?: string;
-  assignedInspectorId?: string;
-  assignedValuatorId?: string;
+  assignedInspectorIds?: string[]; // Changed from assignedInspectorId
+  assignedValuatorIds?: string[];   // Changed from assignedValuatorId
 }
 
 export interface Folder {
@@ -85,3 +85,8 @@ export const mockAssets: Asset[] = [
   { id: 'asset2', name: 'HVAC Unit #3 (Rooftop)', projectId: 'proj1', folderId: 'folder2', photos: ['https://placehold.co/600x400.png?ai_hint=hvac+unit', 'https://placehold.co/600x400.png?ai_hint=rooftop+view'], textDescription: 'Unit appears to be leaking coolant. Rust visible on the casing.', createdAt: new Date().toISOString() },
 ];
 
+// Initialize mock users in localStorage if not present - This was removed to prevent build issues,
+// auth-context handles default empty array.
+// if (typeof window !== 'undefined' && !localStorage.getItem('mockUsers')) {
+//   localStorage.setItem('mockUsers', JSON.stringify([]));
+// }

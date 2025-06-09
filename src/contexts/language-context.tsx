@@ -276,16 +276,20 @@ const translations: Record<Language, Record<string, string>> = {
     assignUsersButtonTitle: "Assign Users",
     assignUsersToProjectTitle: "Assign Users to Project:",
     assignUsersModalDesc: "Select an inspector and/or a valuator for this project.",
-    assignInspector: "Assign Inspector",
-    assignValuator: "Assign Valuator",
+    assignInspector: "Assign Inspector", // Kept singular for the section label
+    assignInspectorsLabel: "Assign Inspectors", // New for multi-select section
+    assignValuator: "Assign Valuator", // Kept singular for the section label
+    assignValuatorsLabel: "Assign Valuators", // New for multi-select section
     selectInspectorPlaceholder: "Select an Inspector",
     selectValuatorPlaceholder: "Select a Valuator",
-    unassign: "Unassign / None",
+    unassign: "Unassign / None", // This might be less relevant with checkboxes, but kept for now
     saveAssignmentsButton: "Save Assignments",
     assignmentsUpdatedTitle: "Assignments Updated",
     assignmentsUpdatedDesc: "Assignments for project \"{projectName}\" have been updated.",
     assignedProjectsListTitle: "Assigned Projects:",
     noProjectsAssigned: "No projects currently assigned.",
+    noInspectorsFoundInCompany: "No inspectors found in this company.",
+    noValuatorsFoundInCompany: "No valuators found in this company.",
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -548,8 +552,10 @@ const translations: Record<Language, Record<string, string>> = {
     assignUsersButtonTitle: "تعيين المستخدمين",
     assignUsersToProjectTitle: "تعيين مستخدمين للمشروع:",
     assignUsersModalDesc: "اختر مفتشًا و/أو مقيمًا لهذا المشروع.",
-    assignInspector: "تعيين مفتش",
-    assignValuator: "تعيين مقيم",
+    assignInspector: "تعيين مفتش", // Kept singular for the section label
+    assignInspectorsLabel: "تعيين مفتشين", // New for multi-select section
+    assignValuator: "تعيين مقيم", // Kept singular for the section label
+    assignValuatorsLabel: "تعيين مقيمين", // New for multi-select section
     selectInspectorPlaceholder: "اختر مفتشًا",
     selectValuatorPlaceholder: "اختر مقيمًا",
     unassign: "إلغاء التعيين / لا أحد",
@@ -558,6 +564,8 @@ const translations: Record<Language, Record<string, string>> = {
     assignmentsUpdatedDesc: "تم تحديث التعيينات للمشروع \"{projectName}\".",
     assignedProjectsListTitle: "المشاريع المعينة:",
     noProjectsAssigned: "لا توجد مشاريع معينة حاليًا.",
+    noInspectorsFoundInCompany: "لا يوجد مفتشون في هذه الشركة.",
+    noValuatorsFoundInCompany: "لا يوجد مقيمون في هذه الشركة.",
   },
 };
 

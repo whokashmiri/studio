@@ -43,10 +43,10 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
 
       if (activeTab === 'new') {
         if (currentUser?.role === 'Inspector') {
-          return p.assignedInspectorId === currentUser.id && p.status === 'new';
+          return p.assignedInspectorIds?.includes(currentUser.id) && p.status === 'new';
         }
         if (currentUser?.role === 'Valuation') {
-          return p.assignedValuatorId === currentUser.id && p.status === 'new';
+          return p.assignedValuatorIds?.includes(currentUser.id) && p.status === 'new';
         }
         // For Admins or if no specific role check matches, default to project status 'new'
         return p.status === 'new';
