@@ -1,7 +1,7 @@
 
 "use client";
 import Link from 'next/link';
-import { Building, LogOut, UserCircle, Briefcase, LogIn } from 'lucide-react';
+import { Building, LogOut, UserCircle, Briefcase, LogIn, LayoutDashboard } from 'lucide-react'; // Added LayoutDashboard
 import { LanguageToggle } from '@/components/language-toggle';
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -52,6 +52,14 @@ export function Header() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {currentUser.role === 'Admin' && (
+                  <Link href="/admin/dashboard" passHref legacyBehavior>
+                    <DropdownMenuItem>
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      {t('adminDashboardMenuLink', 'Admin Dashboard')}
+                    </DropdownMenuItem>
+                  </Link>
+                )}
                 <DropdownMenuItem onClick={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   {t('logoutButton', 'Logout')}
@@ -70,3 +78,5 @@ export function Header() {
     </header>
   );
 }
+
+    

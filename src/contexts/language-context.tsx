@@ -250,6 +250,26 @@ const translations: Record<Language, Record<string, string>> = {
     projectsFor: "Projects for:",
     companyLabel: "Company:",
 
+    // Admin Dashboard
+    adminDashboardTitle: "Admin Dashboard",
+    adminDashboardDesc: "Overview of projects and team members for {companyName}.",
+    adminDashboardMenuLink: "Admin Dashboard",
+    companyProjectsTitle: "Company Projects",
+    companyProjectsDescAdmin: "All projects associated with your company.",
+    inspectorsTitle: "Inspectors",
+    inspectorsDescAdmin: "List of all inspectors in your company.",
+    valuatorsTitle: "Valuators",
+    valuatorsDescAdmin: "List of all valuators in your company.",
+    noInspectorsFound: "No inspectors found in this company.",
+    noValuatorsFound: "No valuators found in this company.",
+    loadingAdminData: "Loading dashboard data...",
+    accessDeniedTitle: "Access Denied",
+    accessDeniedAdminDesc: "You do not have permission to view this page.",
+    genericError: "An error occurred.",
+    signupFailedTitle: "Signup Failed",
+    signupSuccessTitle: "Signup Successful",
+    signupSuccessDesc: "You have been signed up and logged in.",
+
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -485,6 +505,26 @@ const translations: Record<Language, Record<string, string>> = {
     redirectingToLogin: "إعادة التوجيه إلى صفحة تسجيل الدخول...",
     projectsFor: "مشاريع لـ:",
     companyLabel: "الشركة:",
+    
+    // Admin Dashboard
+    adminDashboardTitle: "لوحة تحكم المسؤول",
+    adminDashboardDesc: "نظرة عامة على المشاريع وأعضاء الفريق لـ {companyName}.",
+    adminDashboardMenuLink: "لوحة تحكم المسؤول",
+    companyProjectsTitle: "مشاريع الشركة",
+    companyProjectsDescAdmin: "جميع المشاريع المرتبطة بشركتك.",
+    inspectorsTitle: "المفتشون",
+    inspectorsDescAdmin: "قائمة بجميع المفتشين في شركتك.",
+    valuatorsTitle: "المقيمون",
+    valuatorsDescAdmin: "قائمة بجميع المقيمين في شركتك.",
+    noInspectorsFound: "لم يتم العثور على مفتشين في هذه الشركة.",
+    noValuatorsFound: "لم يتم العثور على مقيمين في هذه الشركة.",
+    loadingAdminData: "جاري تحميل بيانات لوحة التحكم...",
+    accessDeniedTitle: "تم رفض الوصول",
+    accessDeniedAdminDesc: "ليس لديك إذن لعرض هذه الصفحة.",
+    genericError: "حدث خطأ.",
+    signupFailedTitle: "فشل التسجيل",
+    signupSuccessTitle: "تم التسجيل بنجاح",
+    signupSuccessDesc: "لقد تم تسجيلك وتسجيل دخولك.",
   },
 };
 
@@ -524,3 +564,5 @@ export function useLanguage() {
   }
   return context;
 }
+
+    
