@@ -15,7 +15,7 @@ import { AssignProjectUsersModal } from '@/components/modals/assign-project-user
 import { EditProjectModal } from '@/components/modals/edit-project-modal';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 
 
@@ -95,12 +95,12 @@ export default function AdminDashboardPage() {
     return map;
   }, [valuators, companyProjects]);
 
-  const handleEditProject = (project: Project) => {
+  const handleEditProject = useCallback((project: Project) => {
     setEditingProject(project);
     setIsEditModalOpen(true);
-  };
+  }, []);
 
-  const handleToggleFavorite = (project: Project) => {
+  const handleToggleFavorite = useCallback((project: Project) => {
     const updatedProject = { ...project, isFavorite: !project.isFavorite };
     LocalStorageService.updateProject(updatedProject);
     loadAdminData(); 
@@ -108,41 +108,41 @@ export default function AdminDashboardPage() {
         title: updatedProject.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
         description: t('projectFavoriteStatusUpdatedDesc',`Project "${updatedProject.name}" favorite status updated.`, {projectName: updatedProject.name}),
       });
-  };
+  }, [loadAdminData, t, toast]);
 
-  const handleOpenAssignUsersModal = (project: Project) => {
+  const handleOpenAssignUsersModal = useCallback((project: Project) => {
     setProjectToAssign(project);
     setIsAssignModalOpen(true);
-  };
+  }, []);
 
-  const handleProjectAssignmentsUpdated = (updatedProject: Project) => {
+  const handleProjectAssignmentsUpdated = useCallback((updatedProject: Project) => {
     setCompanyProjects(prevProjects => 
       prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
     );
-    loadAdminData(); // Refresh all admin data to ensure consistency
-  };
+    loadAdminData(); 
+  }, [loadAdminData]);
 
-  const handleProjectUpdatedFromEdit = (updatedProject: Project) => {
-    loadAdminData(); // Refresh all admin data
-  };
+  const handleProjectUpdatedFromEdit = useCallback((updatedProject: Project) => {
+    loadAdminData();
+  }, [loadAdminData]);
 
-  const promptDeleteProject = (project: Project) => {
+  const promptDeleteProject = useCallback((project: Project) => {
     setProjectToDelete(project);
     setIsDeleteConfirmOpen(true);
-  };
+  }, []);
 
-  const confirmDeleteProject = () => {
+  const confirmDeleteProject = useCallback(() => {
     if (projectToDelete) {
       LocalStorageService.deleteProject(projectToDelete.id);
       toast({
         title: t('projectDeletedTitle', 'Project Deleted'),
         description: t('projectDeletedDesc', `Project "${projectToDelete.name}" has been deleted.`, { projectName: projectToDelete.name }),
       });
-      loadAdminData(); // Refresh projects
+      loadAdminData(); 
       setProjectToDelete(null);
       setIsDeleteConfirmOpen(false);
     }
-  };
+  }, [projectToDelete, loadAdminData, t, toast]);
 
   if (authLoading || pageLoading) {
     return (
@@ -361,7 +361,7 @@ export default function AdminDashboardPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setProjectToDelete(null)}>{t('cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => { setProjectToDelete(null); setIsDeleteConfirmOpen(false); }}>{t('cancel', 'Cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={confirmDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 {t('delete', 'Delete')}
               </AlertDialogAction>
