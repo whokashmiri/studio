@@ -290,34 +290,36 @@ export default function NewAssetPage() {
     // Update project's lastAccessed and status
     await FirestoreService.updateProject(project.id, {
       status: 'recent' as ProjectStatus,
-      // lastAccessed will be updated by serverTimestamp in FirestoreService
     });
-    // No need to setProject state here as we navigate away
     
-    const assetDataInput: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: string, updatedAt?: string } = {
+    const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
       name: assetName,
       projectId: project.id,
       folderId: folderId,
-      photos: photoPreviews, 
-      voiceDescription: assetVoiceDescription.trim() ? assetVoiceDescription.trim() : undefined,
-      textDescription: assetTextDescription.trim() ? assetTextDescription.trim() : undefined,
+      photos: photoPreviews,
     };
+
+    if (assetVoiceDescription.trim()) {
+      assetDataPayload.voiceDescription = assetVoiceDescription.trim();
+    }
+    if (assetTextDescription.trim()) {
+      assetDataPayload.textDescription = assetTextDescription.trim();
+    }
     
     let success = false;
     let savedAssetName = assetName;
 
     if (isEditMode && assetIdToEdit) {
-      const updateData: Partial<Asset> = { ...assetDataInput };
-      // Retain original createdAt if editing
+      const updateData: Partial<Asset> = { ...assetDataPayload };
       const originalAsset = await FirestoreService.getAssetById(assetIdToEdit);
-      if (originalAsset) updateData.createdAt = originalAsset.createdAt;
+      if (originalAsset) updateData.createdAt = originalAsset.createdAt; // Retain original createdAt
       
       success = await FirestoreService.updateAsset(assetIdToEdit, updateData);
     } else {
-      const newAsset = await FirestoreService.addAsset(assetDataInput);
+      const newAsset = await FirestoreService.addAsset(assetDataPayload as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
       if (newAsset) {
         success = true;
-        savedAssetName = newAsset.name; // Use name from returned asset if available
+        savedAssetName = newAsset.name;
       }
     }
     
@@ -334,7 +336,7 @@ export default function NewAssetPage() {
     }
   };
 
-  if (isLoadingPage || !project && !assetIdToEdit) { // Show loader if loading or if project is null (and not in edit mode where asset might load it)
+  if (isLoadingPage || !project && !assetIdToEdit) { 
     return (
         <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -344,7 +346,7 @@ export default function NewAssetPage() {
         </div>
     );
   }
-  if (!project) { // Fallback if project is still null after loading (e.g., not found)
+  if (!project) { 
      return <div className="container mx-auto p-4 text-center">{t('projectNotFound', 'Project Not Found')}</div>;
   }
 

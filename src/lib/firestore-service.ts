@@ -1,5 +1,5 @@
 
-import { getDb } from './firebase/config'; // Changed import
+import { getDb } from './firebase/config'; 
 import {
   collection,
   doc,
@@ -51,6 +51,17 @@ const processDoc = <T>(docSnap: DocumentData): T => {
 
 const processSnapshot = <T>(snapshot: QuerySnapshot<DocumentData>): T[] => {
   return snapshot.docs.map(docSnap => processDoc<T>(docSnap));
+};
+
+// Helper to remove undefined properties from an object before saving to Firestore
+const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => {
+  const newObj = { ...obj };
+  Object.keys(newObj).forEach(key => {
+    if (newObj[key] === undefined) {
+      delete newObj[key];
+    }
+  });
+  return newObj;
 };
 
 
@@ -118,14 +129,14 @@ export async function addUser(userData: MockStoredUser): Promise<AuthenticatedUs
   const { password, ...userForDb } = userData; 
   
   try {
-    const userDocRef = doc(getDb(), USERS_COLLECTION, userData.id); // Use provided ID
-    await setDoc(userDocRef, {
+    const userDocRef = doc(getDb(), USERS_COLLECTION, userData.id); 
+    const dataToSave = {
       ...userForDb,
       email: userForDb.email.toLowerCase(),
-      ...(password && { password }), // Store password if provided (for mock purposes)
-    });
+      ...(password && { password }), 
+    };
+    await setDoc(userDocRef, removeUndefinedProps(dataToSave));
     
-    // Return the AuthenticatedUser version (without password)
     const { password: _, ...authenticatedUser } = userData;
     return authenticatedUser;
   } catch (error) {
@@ -180,11 +191,12 @@ export async function getProjectById(projectId: string): Promise<Project | null>
 
 export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' | 'lastAccessed'> & { createdAt?: string, lastAccessed?: string }): Promise<Project | null> {
   try {
-    const docRef = await addDoc(collection(getDb(), PROJECTS_COLLECTION), {
+    const dataToSave = removeUndefinedProps({
       ...projectData,
       createdAt: serverTimestamp(),
       lastAccessed: serverTimestamp(),
     });
+    const docRef = await addDoc(collection(getDb(), PROJECTS_COLLECTION), dataToSave);
     const newProject = await getProjectById(docRef.id);
     return newProject;
   } catch (error) {
@@ -196,10 +208,11 @@ export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' |
 export async function updateProject(projectId: string, projectData: Partial<Project>): Promise<boolean> {
   try {
     const docRef = doc(getDb(), PROJECTS_COLLECTION, projectId);
-    await updateDoc(docRef, {
+    const dataToUpdate = removeUndefinedProps({
         ...projectData,
         lastAccessed: serverTimestamp() 
     });
+    await updateDoc(docRef, dataToUpdate);
     return true;
   } catch (error) {
     console.error("Error updating project: ", error);
@@ -210,24 +223,20 @@ export async function updateProject(projectId: string, projectData: Partial<Proj
 export async function deleteProject(projectId: string): Promise<boolean> {
   const batch = writeBatch(getDb());
   try {
-    // Delete folders associated with the project
     const foldersToDeleteQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("projectId", "==", projectId));
     const foldersSnapshot = await getDocs(foldersToDeleteQuery);
     const folderIdsToDelete: string[] = foldersSnapshot.docs.map(d => d.id);
 
-    // Delete assets associated with the project (can be in root or in folders)
     const assetsInProjectQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId));
     const assetsSnapshot = await getDocs(assetsInProjectQuery);
     assetsSnapshot.forEach(assetDoc => {
       batch.delete(doc(getDb(), ASSETS_COLLECTION, assetDoc.id));
     });
     
-    // Add folder deletions to batch
     folderIdsToDelete.forEach(folderId => {
       batch.delete(doc(getDb(), FOLDERS_COLLECTION, folderId));
     });
 
-    // Delete the project itself
     batch.delete(doc(getDb(), PROJECTS_COLLECTION, projectId));
 
     await batch.commit();
@@ -253,7 +262,8 @@ export async function getFolders(projectId: string): Promise<Folder[]> {
 
 export async function addFolder(folderData: Omit<Folder, 'id'>): Promise<Folder | null> {
   try {
-    const docRef = await addDoc(collection(getDb(), FOLDERS_COLLECTION), folderData);
+    const dataToSave = removeUndefinedProps(folderData);
+    const docRef = await addDoc(collection(getDb(), FOLDERS_COLLECTION), dataToSave);
     return { id: docRef.id, ...folderData };
   } catch (error) {
     console.error("Error adding folder: ", error);
@@ -264,7 +274,8 @@ export async function addFolder(folderData: Omit<Folder, 'id'>): Promise<Folder 
 export async function updateFolder(folderId: string, folderData: Partial<Folder>): Promise<boolean> {
   try {
     const docRef = doc(getDb(), FOLDERS_COLLECTION, folderId);
-    await updateDoc(docRef, folderData);
+    const dataToUpdate = removeUndefinedProps(folderData);
+    await updateDoc(docRef, dataToUpdate);
     return true;
   } catch (error) {
     console.error("Error updating folder: ", error);
@@ -280,21 +291,18 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
     if (foldersProcessed.has(currentFolderId)) return;
     foldersProcessed.add(currentFolderId);
 
-    // Find and delete assets in the current folder
     const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("folderId", "==", currentFolderId));
     const assetsSnapshot = await getDocs(assetsQuery);
     assetsSnapshot.forEach(assetDoc => {
       batch.delete(doc(getDb(), ASSETS_COLLECTION, assetDoc.id));
     });
 
-    // Find and recursively delete subfolders
     const subfoldersQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("parentId", "==", currentFolderId));
     const subfoldersSnapshot = await getDocs(subfoldersQuery);
     for (const subfolderDoc of subfoldersSnapshot.docs) {
-      await findAndDeleteRecursive(subfolderDoc.id); // Recursively call for subfolders
+      await findAndDeleteRecursive(subfolderDoc.id); 
     }
     
-    // Delete the current folder itself
     batch.delete(doc(getDb(), FOLDERS_COLLECTION, currentFolderId));
   }
 
@@ -314,9 +322,9 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
 export async function getAssets(projectId: string, folderId?: string | null): Promise<Asset[]> {
   try {
     let q;
-    if (folderId === undefined) { // Query for assets at project root (folderId is null)
+    if (folderId === undefined) { 
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
-    } else { // Query for assets in a specific folder (folderId is a string or explicitly null)
+    } else { 
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
     }
     const snapshot = await getDocs(q);
@@ -344,12 +352,13 @@ export async function getAssetById(assetId: string): Promise<Asset | null> {
 
 export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: string, updatedAt?: string }): Promise<Asset | null> {
   try {
-    const docRef = await addDoc(collection(getDb(), ASSETS_COLLECTION), {
+    const dataToSave = removeUndefinedProps({
       ...assetData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    const newAsset = await getAssetById(docRef.id); // Fetch the newly created asset to get server-generated timestamps
+    const docRef = await addDoc(collection(getDb(), ASSETS_COLLECTION), dataToSave);
+    const newAsset = await getAssetById(docRef.id); 
     return newAsset;
   } catch (error) {
     console.error("Error adding asset: ", error);
@@ -360,10 +369,11 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
 export async function updateAsset(assetId: string, assetData: Partial<Asset>): Promise<boolean> {
   try {
     const docRef = doc(getDb(), ASSETS_COLLECTION, assetId);
-    await updateDoc(docRef, {
+    const dataToUpdate = removeUndefinedProps({
         ...assetData,
-        updatedAt: serverTimestamp() // Update the 'updatedAt' timestamp
+        updatedAt: serverTimestamp()
     });
+    await updateDoc(docRef, dataToUpdate);
     return true;
   } catch (error) {
     console.error("Error updating asset: ", error);
@@ -381,4 +391,3 @@ export async function deleteAsset(assetId: string): Promise<boolean> {
     return false;
   }
 }
-
