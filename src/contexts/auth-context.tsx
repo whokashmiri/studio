@@ -5,7 +5,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { useRouter } from 'next/navigation';
 import type { AuthenticatedUser, MockStoredUser, UserRole } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service'; 
-// Removed: import { getAuth as getFirebaseAuth } from '@/lib/firebase/config'; // Assuming this was for Firebase Auth SDK directly
+import { getAuth as getFirebaseAuthSDK, type Auth } from '@/lib/firebase/config';
 
 const CURRENT_USER_SESSION_KEY = 'currentUserSession';
 
@@ -30,6 +30,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    // Initialize Firebase Auth SDK listener if needed, or handle session persistence
+    const authSDK = getFirebaseAuthSDK(); // Ensures Firebase is initialized
+    // Example: onAuthStateChanged(authSDK, user => { ... });
+    // For now, we'll stick to localStorage for simplicity as per previous setup.
     try {
       const storedUserJson = localStorage.getItem(CURRENT_USER_SESSION_KEY);
       if (storedUserJson) {
@@ -50,7 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const foundUser = await FirestoreService.getUserByEmail(email);
 
       if (foundUser && foundUser.password === passwordInput) { 
-        const { password, ...userToAuthenticate } = foundUser;
+        // In a real app with Firebase Auth, you'd verify the password with Firebase Auth SDK
+        // For this mock, we compare plaintext.
+        const { password, ...userToAuthenticate } = foundUser; // Exclude password from authenticatedUser object
         localStorage.setItem(CURRENT_USER_SESSION_KEY, JSON.stringify(userToAuthenticate));
         setAuthState({ currentUser: userToAuthenticate, isLoading: false });
         router.push('/');
@@ -75,26 +81,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'Email already in use.' };
       }
       
-      // Fetch companies once. FirestoreService.getCompanies() handles seeding if empty.
       const allCompanies = await FirestoreService.getCompanies(); 
-
-      let company = allCompanies.find(c => c.name.toLowerCase() === details.companyName.toLowerCase());
+      const inputCompanyNameUpper = details.companyName.toUpperCase();
+      let company = allCompanies.find(c => c.name.toUpperCase() === inputCompanyNameUpper);
       
       if (!company) {
-        const newCompanyData = { name: details.companyName };
+        const newCompanyData = { name: inputCompanyNameUpper }; // Store new company name in uppercase
         const addedCompany = await FirestoreService.addCompany(newCompanyData);
         if (!addedCompany) {
             setAuthState(prev => ({ ...prev, isLoading: false }));
             return { success: false, message: 'Failed to create company.' };
         }
-        company = addedCompany;
+        company = addedCompany; // company.name will be uppercase
       }
 
       const newUser: MockStoredUser = {
         id: `user_${Date.now()}_${Math.random().toString(36).substring(2,7)}`,
         email: details.email,
         companyId: company.id,
-        companyName: company.name,
+        companyName: company.name, // This will be the uppercase name
         role: details.role,
         password: details.password, 
       };
@@ -122,6 +127,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.removeItem(CURRENT_USER_SESSION_KEY);
       setAuthState({ currentUser: null, isLoading: false });
+      // Optionally sign out from Firebase Auth SDK if integrated
+      // const authSDK = getFirebaseAuthSDK();
+      // authSDK.signOut();
       router.push('/login');
     } catch (error) {
       console.error("Error during logout:", error);

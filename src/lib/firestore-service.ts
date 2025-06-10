@@ -69,14 +69,17 @@ const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => 
 export async function getCompanies(): Promise<Company[]> {
   try {
     const snapshot = await getDocs(collection(getDb(), COMPANIES_COLLECTION));
-    if (snapshot.empty) {
+    if (snapshot.empty && initialMockCompanies.length > 0) {
       const batch = writeBatch(getDb());
+      const seededCompanies: Company[] = [];
       initialMockCompanies.forEach(company => {
         const docRef = doc(collection(getDb(), COMPANIES_COLLECTION), company.id);
-        batch.set(docRef, company);
+        const companyToSeed = { ...company, name: company.name.toUpperCase() };
+        batch.set(docRef, companyToSeed);
+        seededCompanies.push(companyToSeed);
       });
       await batch.commit();
-      return initialMockCompanies;
+      return seededCompanies;
     }
     return processSnapshot<Company>(snapshot);
   } catch (error) {
@@ -87,8 +90,12 @@ export async function getCompanies(): Promise<Company[]> {
 
 export async function addCompany(companyData: Omit<Company, 'id'>): Promise<Company | null> {
   try {
-    const docRef = await addDoc(collection(getDb(), COMPANIES_COLLECTION), companyData);
-    return { id: docRef.id, ...companyData };
+    const dataToSave = {
+      ...companyData,
+      name: companyData.name.toUpperCase() // Ensure name is uppercased
+    };
+    const docRef = await addDoc(collection(getDb(), COMPANIES_COLLECTION), dataToSave);
+    return { id: docRef.id, ...dataToSave };
   } catch (error) {
     console.error("Error adding company: ", error);
     return null;
@@ -133,12 +140,14 @@ export async function addUser(userData: MockStoredUser): Promise<AuthenticatedUs
     const dataToSave = {
       ...userForDb,
       email: userForDb.email.toLowerCase(),
+      companyName: userForDb.companyName.toUpperCase(), // Ensure companyName is also stored uppercase here
       ...(password && { password }), 
     };
     await setDoc(userDocRef, removeUndefinedProps(dataToSave));
     
     const { password: _, ...authenticatedUser } = userData;
-    return authenticatedUser;
+    // Ensure the returned authenticatedUser also has uppercase companyName for session consistency
+    return { ...authenticatedUser, companyName: dataToSave.companyName }; 
   } catch (error) {
     console.error("Error adding user: ", error);
     return null;
@@ -223,20 +232,21 @@ export async function updateProject(projectId: string, projectData: Partial<Proj
 export async function deleteProject(projectId: string): Promise<boolean> {
   const batch = writeBatch(getDb());
   try {
+    // Delete folders associated with the project
     const foldersToDeleteQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("projectId", "==", projectId));
     const foldersSnapshot = await getDocs(foldersToDeleteQuery);
-    const folderIdsToDelete: string[] = foldersSnapshot.docs.map(d => d.id);
+    foldersSnapshot.forEach(folderDoc => {
+      batch.delete(doc(getDb(), FOLDERS_COLLECTION, folderDoc.id));
+    });
 
+    // Delete assets associated with the project (even those not in a subfolder)
     const assetsInProjectQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId));
     const assetsSnapshot = await getDocs(assetsInProjectQuery);
     assetsSnapshot.forEach(assetDoc => {
       batch.delete(doc(getDb(), ASSETS_COLLECTION, assetDoc.id));
     });
     
-    folderIdsToDelete.forEach(folderId => {
-      batch.delete(doc(getDb(), FOLDERS_COLLECTION, folderId));
-    });
-
+    // Delete the project itself
     batch.delete(doc(getDb(), PROJECTS_COLLECTION, projectId));
 
     await batch.commit();
@@ -291,18 +301,21 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
     if (foldersProcessed.has(currentFolderId)) return;
     foldersProcessed.add(currentFolderId);
 
+    // Delete assets directly in this folder
     const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("folderId", "==", currentFolderId));
     const assetsSnapshot = await getDocs(assetsQuery);
     assetsSnapshot.forEach(assetDoc => {
       batch.delete(doc(getDb(), ASSETS_COLLECTION, assetDoc.id));
     });
 
+    // Find and recursively delete subfolders
     const subfoldersQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("parentId", "==", currentFolderId));
     const subfoldersSnapshot = await getDocs(subfoldersQuery);
     for (const subfolderDoc of subfoldersSnapshot.docs) {
       await findAndDeleteRecursive(subfolderDoc.id); 
     }
     
+    // Delete the current folder itself
     batch.delete(doc(getDb(), FOLDERS_COLLECTION, currentFolderId));
   }
 
@@ -310,8 +323,7 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
     await findAndDeleteRecursive(folderId);
     await batch.commit();
     return true;
-  } catch (error)
-{
+  } catch (error) {
     console.error("Error deleting folder cascade: ", error);
     return false;
   }
@@ -322,9 +334,9 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
 export async function getAssets(projectId: string, folderId?: string | null): Promise<Asset[]> {
   try {
     let q;
-    if (folderId === undefined) { 
+    if (folderId === undefined) { // This implies querying for assets at the project root.
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
-    } else { 
+    } else { // folderId is explicitly string (for a folder) or null (for project root, if passed as null)
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
     }
     const snapshot = await getDocs(q);
@@ -358,6 +370,7 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
       updatedAt: serverTimestamp(),
     });
     const docRef = await addDoc(collection(getDb(), ASSETS_COLLECTION), dataToSave);
+    // Fetch the newly created asset to get server-generated timestamps as ISO strings
     const newAsset = await getAssetById(docRef.id); 
     return newAsset;
   } catch (error) {
