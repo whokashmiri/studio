@@ -33,10 +33,7 @@ const validateFirebaseConfig = (config: FirebaseConfig): void => {
     'apiKey',
     'authDomain',
     'projectId',
-    // storageBucket, messagingSenderId, appId are often required for full functionality
-    // but primary initialization might proceed with just apiKey, authDomain, projectId
-    // For now, we'll be strict to ensure full setup.
-    'storageBucket', 
+    'storageBucket',
     'messagingSenderId',
     'appId',
   ];
@@ -99,3 +96,4 @@ export function getAuth(): Auth {
   }
   return authInstance!;
 }
+

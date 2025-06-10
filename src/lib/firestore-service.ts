@@ -118,13 +118,14 @@ export async function addUser(userData: MockStoredUser): Promise<AuthenticatedUs
   const { password, ...userForDb } = userData; 
   
   try {
-    const userDocRef = doc(getDb(), USERS_COLLECTION, userData.id);
+    const userDocRef = doc(getDb(), USERS_COLLECTION, userData.id); // Use provided ID
     await setDoc(userDocRef, {
       ...userForDb,
       email: userForDb.email.toLowerCase(),
-      ...(password && { password }),
+      ...(password && { password }), // Store password if provided (for mock purposes)
     });
     
+    // Return the AuthenticatedUser version (without password)
     const { password: _, ...authenticatedUser } = userData;
     return authenticatedUser;
   } catch (error) {
@@ -209,20 +210,24 @@ export async function updateProject(projectId: string, projectData: Partial<Proj
 export async function deleteProject(projectId: string): Promise<boolean> {
   const batch = writeBatch(getDb());
   try {
+    // Delete folders associated with the project
     const foldersToDeleteQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("projectId", "==", projectId));
     const foldersSnapshot = await getDocs(foldersToDeleteQuery);
     const folderIdsToDelete: string[] = foldersSnapshot.docs.map(d => d.id);
 
+    // Delete assets associated with the project (can be in root or in folders)
     const assetsInProjectQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId));
     const assetsSnapshot = await getDocs(assetsInProjectQuery);
     assetsSnapshot.forEach(assetDoc => {
       batch.delete(doc(getDb(), ASSETS_COLLECTION, assetDoc.id));
     });
     
+    // Add folder deletions to batch
     folderIdsToDelete.forEach(folderId => {
       batch.delete(doc(getDb(), FOLDERS_COLLECTION, folderId));
     });
 
+    // Delete the project itself
     batch.delete(doc(getDb(), PROJECTS_COLLECTION, projectId));
 
     await batch.commit();
@@ -275,18 +280,21 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
     if (foldersProcessed.has(currentFolderId)) return;
     foldersProcessed.add(currentFolderId);
 
+    // Find and delete assets in the current folder
     const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("folderId", "==", currentFolderId));
     const assetsSnapshot = await getDocs(assetsQuery);
     assetsSnapshot.forEach(assetDoc => {
       batch.delete(doc(getDb(), ASSETS_COLLECTION, assetDoc.id));
     });
 
+    // Find and recursively delete subfolders
     const subfoldersQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("parentId", "==", currentFolderId));
     const subfoldersSnapshot = await getDocs(subfoldersQuery);
     for (const subfolderDoc of subfoldersSnapshot.docs) {
-      await findAndDeleteRecursive(subfolderDoc.id); 
+      await findAndDeleteRecursive(subfolderDoc.id); // Recursively call for subfolders
     }
     
+    // Delete the current folder itself
     batch.delete(doc(getDb(), FOLDERS_COLLECTION, currentFolderId));
   }
 
@@ -294,7 +302,8 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
     await findAndDeleteRecursive(folderId);
     await batch.commit();
     return true;
-  } catch (error) {
+  } catch (error)
+{
     console.error("Error deleting folder cascade: ", error);
     return false;
   }
@@ -305,9 +314,9 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
 export async function getAssets(projectId: string, folderId?: string | null): Promise<Asset[]> {
   try {
     let q;
-    if (folderId === undefined) { 
+    if (folderId === undefined) { // Query for assets at project root (folderId is null)
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
-    } else { 
+    } else { // Query for assets in a specific folder (folderId is a string or explicitly null)
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
     }
     const snapshot = await getDocs(q);
@@ -340,7 +349,7 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    const newAsset = await getAssetById(docRef.id);
+    const newAsset = await getAssetById(docRef.id); // Fetch the newly created asset to get server-generated timestamps
     return newAsset;
   } catch (error) {
     console.error("Error adding asset: ", error);
@@ -353,7 +362,7 @@ export async function updateAsset(assetId: string, assetData: Partial<Asset>): P
     const docRef = doc(getDb(), ASSETS_COLLECTION, assetId);
     await updateDoc(docRef, {
         ...assetData,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp() // Update the 'updatedAt' timestamp
     });
     return true;
   } catch (error) {
@@ -372,3 +381,4 @@ export async function deleteAsset(assetId: string): Promise<boolean> {
     return false;
   }
 }
+
