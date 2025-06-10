@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
+const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1';
 
 export default function NewAssetPage() {
   const params = useParams();
@@ -116,16 +117,26 @@ export default function NewAssetPage() {
           streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
           setMediaStream(streamInstance);
           setHasCameraPermission(true);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'true');
+          }
           if (videoRef.current) {
             videoRef.current.srcObject = streamInstance;
           }
         } catch (error) {
           console.error('Error accessing camera:', error);
           setHasCameraPermission(false);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'false');
+          }
         }
       }
     };
-    getCameraStream();
+    
+    if (isCustomCameraOpen) {
+        getCameraStream();
+    }
+    
     return () => { 
       if (streamInstance) {
         streamInstance.getTracks().forEach(track => track.stop());
@@ -287,7 +298,6 @@ export default function NewAssetPage() {
       return;
     }
 
-    // Update project's lastAccessed and status
     await FirestoreService.updateProject(project.id, {
       status: 'recent' as ProjectStatus,
     });
@@ -312,7 +322,7 @@ export default function NewAssetPage() {
     if (isEditMode && assetIdToEdit) {
       const updateData: Partial<Asset> = { ...assetDataPayload };
       const originalAsset = await FirestoreService.getAssetById(assetIdToEdit);
-      if (originalAsset) updateData.createdAt = originalAsset.createdAt; // Retain original createdAt
+      if (originalAsset) updateData.createdAt = originalAsset.createdAt; 
       
       success = await FirestoreService.updateAsset(assetIdToEdit, updateData);
     } else {
@@ -671,3 +681,6 @@ export default function NewAssetPage() {
     </div>
   );
 }
+
+
+    
