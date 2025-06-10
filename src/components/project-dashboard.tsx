@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { NewProjectModal } from '@/components/modals/new-project-modal';
 import { EditProjectModal } from '@/components/modals/edit-project-modal';
 import type { Company, Project, ProjectStatus, Asset } from '@/data/mock-data';
-import * as LocalStorageService from '@/lib/local-storage-service';
-import { FolderPlus, CheckCircle, Star, Clock, Sparkles } from 'lucide-react';
+import * as FirestoreService from '@/lib/firestore-service';
+import { FolderPlus, CheckCircle, Star, Clock, Sparkles, Loader2 } from 'lucide-react';
 import { ProjectCard } from './project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/contexts/language-context';
@@ -27,13 +27,41 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [allAssets, setAllAssets] = useState<Asset[]>([]);
   const [activeTab, setActiveTab] = useState<ProjectStatus | 'favorite'>('recent');
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+
   const { t } = useLanguage();
   const { toast } = useToast();
 
+  const fetchProjectsAndAssets = useCallback(async () => {
+    if (!company?.id || !currentUser) return;
+    setIsLoadingProjects(true);
+    try {
+      const fetchedProjects = await FirestoreService.getProjects(company.id);
+      setProjects(fetchedProjects);
+      // Fetch all assets for the company to calculate counts; could be optimized
+      const fetchedAssets: Asset[] = [];
+      for (const proj of fetchedProjects) {
+        const assetsForProject = await FirestoreService.getAssets(proj.id);
+        fetchedAssets.push(...assetsForProject);
+         // also fetch assets in folders
+        const folders = await FirestoreService.getFolders(proj.id);
+        for (const folder of folders) {
+            const assetsInFolder = await FirestoreService.getAssets(proj.id, folder.id);
+            fetchedAssets.push(...assetsInFolder);
+        }
+      }
+      setAllAssets(fetchedAssets);
+    } catch (error) {
+      console.error("Failed to fetch projects or assets:", error);
+      toast({ title: "Error", description: "Could not load project data.", variant: "destructive" });
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  }, [company?.id, currentUser, toast]);
+
   useEffect(() => {
-    setProjects(LocalStorageService.getProjects());
-    setAllAssets(LocalStorageService.getAssets());
-  }, [company.id]);
+    fetchProjectsAndAssets();
+  }, [fetchProjectsAndAssets]);
 
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
@@ -48,6 +76,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
         if (currentUser?.role === 'Valuation') {
           return p.assignedValuatorIds?.includes(currentUser.id) && p.status === 'new';
         }
+        // For Admin or other roles, or if no specific role logic
         return p.status === 'new';
       }
       
@@ -75,17 +104,24 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     return counts;
   }, [allAssets]);
 
-  const handleProjectCreated = useCallback((newProject: Project) => {
-    setProjects(prevProjects => [...prevProjects, newProject]);
-    setActiveTab('new'); 
+  const handleProjectCreated = useCallback(async (newProject: Project) => {
+    // Project is already added to Firestore by NewProjectModal
+    // We just need to refresh the list or add it locally
+    setProjects(prevProjects => [newProject, ...prevProjects].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    setActiveTab('new');
+    // Optionally, re-fetch all assets if counts need to be super accurate immediately, or update locally
+    const assetsForNewProject = await FirestoreService.getAssets(newProject.id);
+    setAllAssets(prev => [...prev, ...assetsForNewProject]);
   }, [setActiveTab]);
+
 
   const handleOpenEditModal = useCallback((project: Project) => {
     setEditingProject(project);
     setIsEditModalOpen(true);
   }, []);
 
-  const handleProjectUpdated = useCallback((updatedProject: Project) => {
+  const handleProjectUpdated = useCallback(async (updatedProject: Project) => {
+    // Project is already updated in Firestore by EditProjectModal
     setProjects(prevProjects => 
       prevProjects.map(p => (p.id === updatedProject.id ? updatedProject : p))
     );
@@ -94,18 +130,25 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     }
   }, [editingProject]);
 
-  const handleToggleFavorite = useCallback((projectToToggle: Project) => {
-    const updatedProjectData = {
-      ...projectToToggle,
-      isFavorite: !projectToToggle.isFavorite,
-      lastAccessed: new Date().toISOString(),
-    };
-    LocalStorageService.updateProject(updatedProjectData);
-    setProjects(currentProjects => currentProjects.map(p => p.id === updatedProjectData.id ? updatedProjectData : p));
-    toast({
-      title: updatedProjectData.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
-      description: t('projectFavoriteStatusUpdatedDesc', `Project "${updatedProjectData.name}" favorite status updated.`, { projectName: updatedProjectData.name}),
+  const handleToggleFavorite = useCallback(async (projectToToggle: Project) => {
+    const newIsFavorite = !projectToToggle.isFavorite;
+    const success = await FirestoreService.updateProject(projectToToggle.id, { 
+      isFavorite: newIsFavorite,
+      // lastAccessed will be updated by serverTimestamp in FirestoreService
     });
+    if (success) {
+      setProjects(currentProjects => 
+        currentProjects.map(p => 
+          p.id === projectToToggle.id ? { ...p, isFavorite: newIsFavorite, lastAccessed: new Date().toISOString() } : p
+        )
+      );
+      toast({
+        title: newIsFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
+        description: t('projectFavoriteStatusUpdatedDesc', `Project "${projectToToggle.name}" favorite status updated.`, { projectName: projectToToggle.name}),
+      });
+    } else {
+      toast({ title: "Error", description: "Failed to update favorite status.", variant: "destructive" });
+    }
   }, [t, toast]);
 
   const tabItems: { value: ProjectStatus | 'favorite'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
@@ -139,7 +182,11 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
         </TabsList>
         {tabItems.map(item => (
           <TabsContent key={item.value} value={item.value} className="mt-6">
-            {filteredProjects.length > 0 ? (
+            {isLoadingProjects ? (
+              <div className="flex justify-center items-center h-[calc(100vh-22rem)]">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              </div>
+            ) : filteredProjects.length > 0 ? (
               <ScrollArea className="h-[calc(100vh-22rem)] sm:h-[calc(100vh-20rem)] md:h-[calc(60vh+2rem)] pr-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {filteredProjects.map((project) => {
@@ -194,5 +241,3 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     </div>
   );
 }
-
-    

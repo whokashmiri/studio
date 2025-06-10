@@ -11,9 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info } from 'lucide-react';
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info, Loader2 } from 'lucide-react';
 import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
-import * as LocalStorageService from '@/lib/local-storage-service';
+import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 
@@ -32,6 +32,7 @@ export default function NewAssetPage() {
   const [currentStep, setCurrentStep] = useState<AssetCreationStep>('photos_and_name');
   const [project, setProject] = useState<Project | null>(null);
   const [currentFolder, setCurrentFolder] = useState<Folder | null>(null);
+  const [isLoadingPage, setIsLoadingPage] = useState(true);
   
   const [assetName, setAssetName] = useState('');
   const [assetVoiceDescription, setAssetVoiceDescription] = useState('');
@@ -57,39 +58,47 @@ export default function NewAssetPage() {
   const { toast } = useToast();
   const { t, language } = useLanguage();
 
-
-  const loadProjectAndAsset = useCallback(() => {
+  const loadProjectAndAsset = useCallback(async () => {
+    setIsLoadingPage(true);
     if (projectId) {
-      const allProjects = LocalStorageService.getProjects();
-      const foundProject = allProjects.find(p => p.id === projectId);
-      setProject(foundProject || null);
+      try {
+        const foundProject = await FirestoreService.getProjectById(projectId);
+        setProject(foundProject || null);
 
-      if (!foundProject) {
-        toast({ title: t('projectNotFound', "Project Not Found"), variant: "destructive" });
-        router.push('/');
-        return;
-      }
-
-      if (folderId) {
-        const foundFolder = LocalStorageService.getFolders().find(f => f.id === folderId && f.projectId === projectId);
-        setCurrentFolder(foundFolder || null);
-      } else {
-        setCurrentFolder(null);
-      }
-
-      if (assetIdToEdit) {
-        const foundAsset = LocalStorageService.getAssets().find(a => a.id === assetIdToEdit && a.projectId === projectId);
-        if (foundAsset) {
-          setIsEditMode(true);
-          setAssetName(foundAsset.name);
-          setAssetVoiceDescription(foundAsset.voiceDescription || '');
-          setAssetTextDescription(foundAsset.textDescription || '');
-          setPhotoPreviews(foundAsset.photos || []); 
-          setCurrentStep('descriptions'); 
-        } else {
-          toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
-          router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
+        if (!foundProject) {
+          toast({ title: t('projectNotFound', "Project Not Found"), variant: "destructive" });
+          router.push('/');
+          return;
         }
+
+        if (folderId) {
+          const allFolders = await FirestoreService.getFolders(projectId);
+          const foundFolder = allFolders.find(f => f.id === folderId);
+          setCurrentFolder(foundFolder || null);
+        } else {
+          setCurrentFolder(null);
+        }
+
+        if (assetIdToEdit) {
+          const foundAsset = await FirestoreService.getAssetById(assetIdToEdit);
+          if (foundAsset && foundAsset.projectId === projectId) {
+            setIsEditMode(true);
+            setAssetName(foundAsset.name);
+            setAssetVoiceDescription(foundAsset.voiceDescription || '');
+            setAssetTextDescription(foundAsset.textDescription || '');
+            setPhotoPreviews(foundAsset.photos || []); 
+            setCurrentStep('descriptions'); 
+          } else {
+            toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
+            router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading project/asset:", error);
+        toast({ title: "Error", description: "Failed to load data.", variant: "destructive"});
+        router.push('/');
+      } finally {
+        setIsLoadingPage(false);
       }
     }
   }, [projectId, assetIdToEdit, router, toast, t, folderId]);
@@ -98,11 +107,11 @@ export default function NewAssetPage() {
     loadProjectAndAsset();
   }, [loadProjectAndAsset]);
 
-  useEffect(() => {
+ useEffect(() => {
     let streamInstance: MediaStream | null = null;
     const getCameraStream = async () => {
       if (isCustomCameraOpen) {
-        setHasCameraPermission(null); // Show "Initializing Camera..." message
+        setHasCameraPermission(null); 
         try {
           streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
           setMediaStream(streamInstance);
@@ -113,8 +122,6 @@ export default function NewAssetPage() {
         } catch (error) {
           console.error('Error accessing camera:', error);
           setHasCameraPermission(false);
-          // Toast for camera access denied is now shown inside the full-screen camera UI
-          // if the permission state is false.
         }
       }
     };
@@ -206,8 +213,6 @@ export default function NewAssetPage() {
       } else {
          toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
       }
-    } else {
-      // Error is typically handled by disabled state of button or in-camera UI alert for permission
     }
   };
 
@@ -266,7 +271,7 @@ export default function NewAssetPage() {
     }
   };
 
-  const handleSaveAsset = () => {
+  const handleSaveAsset = async () => {
     if (!project) {
       toast({ title: t('projectContextLost', "Project context lost"), variant: "destructive" });
       return;
@@ -282,40 +287,67 @@ export default function NewAssetPage() {
       return;
     }
 
-    const updatedProjectData = {
-      ...project,
-      lastAccessed: new Date().toISOString(),
+    // Update project's lastAccessed and status
+    await FirestoreService.updateProject(project.id, {
       status: 'recent' as ProjectStatus,
-    };
-    LocalStorageService.updateProject(updatedProjectData);
-    setProject(updatedProjectData);
+      // lastAccessed will be updated by serverTimestamp in FirestoreService
+    });
+    // No need to setProject state here as we navigate away
     
-    const assetData: Asset = {
-      id: isEditMode && assetIdToEdit ? assetIdToEdit : `asset_${Date.now()}`,
+    const assetDataInput: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: string, updatedAt?: string } = {
       name: assetName,
       projectId: project.id,
       folderId: folderId,
       photos: photoPreviews, 
       voiceDescription: assetVoiceDescription.trim() ? assetVoiceDescription.trim() : undefined,
       textDescription: assetTextDescription.trim() ? assetTextDescription.trim() : undefined,
-      createdAt: isEditMode && assetIdToEdit ? LocalStorageService.getAssets().find(a=>a.id===assetIdToEdit)?.createdAt || new Date().toISOString() : new Date().toISOString(),
-      updatedAt: new Date().toISOString(), 
     };
     
-    if (isEditMode) {
-      LocalStorageService.updateAsset(assetData);
-      toast({ title: t('assetUpdatedTitle', "Asset Updated"), description: t('assetUpdatedDesc', `Asset "${assetName}" has been updated.`, { assetName: assetName }) });
+    let success = false;
+    let savedAssetName = assetName;
+
+    if (isEditMode && assetIdToEdit) {
+      const updateData: Partial<Asset> = { ...assetDataInput };
+      // Retain original createdAt if editing
+      const originalAsset = await FirestoreService.getAssetById(assetIdToEdit);
+      if (originalAsset) updateData.createdAt = originalAsset.createdAt;
+      
+      success = await FirestoreService.updateAsset(assetIdToEdit, updateData);
     } else {
-      LocalStorageService.addAsset(assetData); 
-      toast({ title: t('assetSavedTitle', "Asset Saved"), description: t('assetSavedDesc', `Asset "${assetName}" has been saved.`, { assetName: assetName }) });
+      const newAsset = await FirestoreService.addAsset(assetDataInput);
+      if (newAsset) {
+        success = true;
+        savedAssetName = newAsset.name; // Use name from returned asset if available
+      }
     }
-    router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
+    
+    if (success) {
+        toast({ 
+            title: isEditMode ? t('assetUpdatedTitle', "Asset Updated") : t('assetSavedTitle', "Asset Saved"), 
+            description: isEditMode ? 
+                t('assetUpdatedDesc', `Asset "${savedAssetName}" has been updated.`, { assetName: savedAssetName }) :
+                t('assetSavedDesc', `Asset "${savedAssetName}" has been saved.`, { assetName: savedAssetName })
+        });
+        router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
+    } else {
+        toast({ title: "Error", description: isEditMode ? "Failed to update asset." : "Failed to save asset.", variant: "destructive" });
+    }
   };
 
-
-  if (!project) {
-    return <div className="container mx-auto p-4 text-center">{t('loadingProjectContext', 'Loading project context...')}</div>;
+  if (isLoadingPage || !project && !assetIdToEdit) { // Show loader if loading or if project is null (and not in edit mode where asset might load it)
+    return (
+        <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg text-muted-foreground mt-4">
+                {t('loadingProjectContext', 'Loading project context...')}
+            </p>
+        </div>
+    );
   }
+  if (!project) { // Fallback if project is still null after loading (e.g., not found)
+     return <div className="container mx-auto p-4 text-center">{t('projectNotFound', 'Project Not Found')}</div>;
+  }
+
 
   const pageTitle = isEditMode ? t('editAssetTitle', "Edit Asset") : t('newAsset', 'Create New Asset');
   
@@ -557,13 +589,12 @@ export default function NewAssetPage() {
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
           if (!isOpen) {
-            // Logic for when camera is closed can go here if needed
+            // Logic for when camera is closed
           }
           setIsCustomCameraOpen(isOpen);
         }}>
          <DialogContent variant="fullscreen" className="bg-black text-white">
            <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
-            {/* Video preview area - direct child of DialogContent, takes flex-1 */}
             <div className="flex-1 relative bg-neutral-900 overflow-hidden"> 
               <video 
                 ref={videoRef} 
@@ -589,7 +620,6 @@ export default function NewAssetPage() {
               )}
             </div>
 
-            {/* Controls bar at the bottom - direct child of DialogContent, takes natural height */}
             <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
               {capturedPhotosInSession.length > 0 && (
                 <ScrollArea className="w-full mb-3 sm:mb-4 max-h-[70px] sm:max-h-[80px] whitespace-nowrap">
@@ -639,4 +669,3 @@ export default function NewAssetPage() {
     </div>
   );
 }
-

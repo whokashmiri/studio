@@ -7,10 +7,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Project, ProjectStatus, UserRole } from '@/data/mock-data';
-import * as LocalStorageService from '@/lib/local-storage-service';
+import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
-import { useAuth } from '@/contexts/auth-context'; // Import useAuth
+import { useAuth } from '@/contexts/auth-context'; 
+import { Loader2 } from 'lucide-react';
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -21,11 +22,11 @@ interface NewProjectModalProps {
 
 export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }: NewProjectModalProps) {
   const [projectName, setProjectName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const { t } = useLanguage();
-  const { currentUser } = useAuth(); // Get currentUser from AuthContext
+  const { currentUser } = useAuth();
 
   const handleSave = async () => {
     if (!projectName.trim()) {
@@ -45,16 +46,12 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
     
-    const now = new Date().toISOString();
-    const newProject: Project = {
-      id: `proj_${Date.now()}`,
+    const newProjectData: Omit<Project, 'id' | 'createdAt' | 'lastAccessed'> = {
       name: projectName,
       companyId: companyId,
-      status: 'new' as ProjectStatus, // All new projects start as 'new'
-      createdAt: now,
-      lastAccessed: now,
+      status: 'new' as ProjectStatus,
       description: '',
       isFavorite: false,
       createdByUserId: currentUser.id,
@@ -64,21 +61,30 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
     };
 
     if (currentUser.role === 'Inspector') {
-      newProject.assignedInspectorIds = [currentUser.id]; // Auto-assign to the creating inspector
+      newProjectData.assignedInspectorIds = [currentUser.id];
     }
 
-    LocalStorageService.addProject(newProject);
+    const createdProject = await FirestoreService.addProject(newProjectData);
     
-    onProjectCreated(newProject); 
-    setIsLoading(false);
-    setProjectName('');
-    onClose(); 
-    
-    toast({
-      title: t('projectCreatedTitle', "Project Created"),
-      description: t('projectCreatedDesc', `Project "${newProject.name}" has been successfully created.`, { projectName: newProject.name }),
-    });
-    router.push(`/project/${newProject.id}`);
+    setIsSaving(false);
+
+    if (createdProject) {
+      onProjectCreated(createdProject); 
+      setProjectName('');
+      onClose(); 
+      
+      toast({
+        title: t('projectCreatedTitle', "Project Created"),
+        description: t('projectCreatedDesc', `Project "${createdProject.name}" has been successfully created.`, { projectName: createdProject.name }),
+      });
+      router.push(`/project/${createdProject.id}`);
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to create project.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -103,15 +109,16 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
             className="col-span-2"
             type="text"
             placeholder={t('projectNamePlaceholder', "e.g., Spring Mall Inspection")}
-            disabled={isLoading}
+            disabled={isSaving}
           />
         </div>
         <DialogFooter className="flex flex-row justify-end space-x-2">
-          <Button variant="outline" onClick={() => { onClose(); setProjectName('');}} disabled={isLoading}>
+          <Button variant="outline" onClick={() => { onClose(); setProjectName('');}} disabled={isSaving}>
             {t('cancel', 'Cancel')}
           </Button>
-          <Button onClick={handleSave} disabled={isLoading || !projectName.trim()}>
-            {isLoading ? t('saving', 'Saving...') : t('save', 'Save')}
+          <Button onClick={handleSave} disabled={isSaving || !projectName.trim()}>
+            {isSaving ? <Loader2 className="animate-spin mr-2"/> : null}
+            {isSaving ? t('saving', 'Saving...') : t('save', 'Save')}
           </Button>
         </DialogFooter>
       </DialogContent>

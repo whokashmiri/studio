@@ -6,9 +6,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Folder } from '@/data/mock-data';
-import * as LocalStorageService from '@/lib/local-storage-service';
+import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
+import { Loader2 } from 'lucide-react';
 
 interface EditFolderModalProps {
   isOpen: boolean;
@@ -19,7 +20,7 @@ interface EditFolderModalProps {
 
 export function EditFolderModal({ isOpen, onClose, folder, onFolderUpdated }: EditFolderModalProps) {
   const [folderName, setFolderName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const { t } = useLanguage();
 
@@ -40,23 +41,29 @@ export function EditFolderModal({ isOpen, onClose, folder, onFolderUpdated }: Ed
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
 
-    const updatedFolder: Folder = {
-      ...folder,
+    const folderUpdateData: Partial<Folder> = {
       name: folderName,
     };
 
-    LocalStorageService.updateFolder(updatedFolder);
+    const success = await FirestoreService.updateFolder(folder.id, folderUpdateData);
+    setIsSaving(false);
     
-    onFolderUpdated(updatedFolder);
-    setIsLoading(false);
-    onClose(); 
-    
-    toast({
-      title: t('folderUpdatedTitle', "Folder Updated"),
-      description: t('folderUpdatedDesc', `Folder "${updatedFolder.name}" has been successfully updated.`, { folderName: updatedFolder.name }),
-    });
+    if (success) {
+      onFolderUpdated({ ...folder, name: folderName }); // Optimistically update with new name
+      onClose(); 
+      toast({
+        title: t('folderUpdatedTitle', "Folder Updated"),
+        description: t('folderUpdatedDesc', `Folder "${folderName}" has been successfully updated.`, { folderName: folderName }),
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to update folder.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!folder) return null;
@@ -84,20 +91,20 @@ export function EditFolderModal({ isOpen, onClose, folder, onFolderUpdated }: Ed
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
               placeholder={t('folderNamePlaceholder', "e.g., Inspection Area 1")}
-              disabled={isLoading}
+              disabled={isSaving}
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
             {t('cancel', 'Cancel')}
           </Button>
-          <Button onClick={handleSave} disabled={isLoading || !folderName.trim()}>
-            {isLoading ? t('saving', 'Saving...') : t('updateFolderButton', 'Update Folder')}
+          <Button onClick={handleSave} disabled={isSaving || !folderName.trim()}>
+            {isSaving ? <Loader2 className="animate-spin mr-2"/> : null}
+            {isSaving ? t('saving', 'Saving...') : t('updateFolderButton', 'Update Folder')}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-

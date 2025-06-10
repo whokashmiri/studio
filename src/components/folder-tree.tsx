@@ -1,7 +1,7 @@
 
 "use client";
-import type { Folder, Asset } from '@/data/mock-data'; // Added Asset type
-import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, FileArchive } from 'lucide-react'; // Added FileArchive for generic empty
+import type { Folder, Asset } from '@/data/mock-data';
+import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, FileArchive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,24 +10,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Card, CardTitle } from '@/components/ui/card'; // Removed CardContent, CardFooter, CardHeader as they are not directly used by folder cards
+import { Card, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language-context';
-import * as LocalStorageService from '@/lib/local-storage-service';
+import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
-import { AssetCard } from '@/components/asset-card'; // Import AssetCard
+import { AssetCard } from '@/components/asset-card';
 
 interface FolderGridViewProps {
   foldersToDisplay: Folder[];
-  assetsToDisplay: Asset[]; // New prop for assets
+  assetsToDisplay: Asset[];
   projectId: string;
   onSelectFolder: (folder: Folder) => void; 
   onAddSubfolder: (parentFolder: Folder) => void;
   onEditFolder: (folder: Folder) => void;
-  onDeleteFolder: (folder: Folder) => void;
-  onEditAsset: (asset: Asset) => void; // New prop
-  onDeleteAsset: (asset: Asset) => void; // New prop
+  onDeleteFolder: (folder: Folder) => void; // Callback after successful deletion
+  onEditAsset: (asset: Asset) => void;
+  onDeleteAsset: (asset: Asset) => void; // Callback after successful deletion
   currentSelectedFolderId: string | null;
 }
 
@@ -46,12 +46,16 @@ export function FolderTreeDisplay({
   const { t } = useLanguage();
   const { toast } = useToast();
 
-  const handleDeleteClick = (e: React.MouseEvent, currentFolder: Folder) => {
+  const handleDeleteClick = async (e: React.MouseEvent, currentFolder: Folder) => {
     e.stopPropagation();
-    const childFolders = LocalStorageService.getFolders().filter(f => f.parentId === currentFolder.id);
-    const childAssets = LocalStorageService.getAssets().filter(a => a.folderId === currentFolder.id);
+    // Check for child folders and assets directly in Firestore before deleting
+    const childFolders = await FirestoreService.getFolders(currentFolder.projectId);
+    const hasChildFolders = childFolders.some(f => f.parentId === currentFolder.id);
+    const childAssets = await FirestoreService.getAssets(currentFolder.projectId, currentFolder.id);
+    const hasChildAssets = childAssets.length > 0;
 
-    if (childFolders.length > 0 || childAssets.length > 0) {
+
+    if (hasChildFolders || hasChildAssets) {
       toast({
         title: t('folderNotEmptyTitle', 'Folder Not Empty'),
         description: t('folderNotEmptyDesc', 'Cannot delete folder. Please delete all subfolders and assets first.'),
@@ -61,19 +65,37 @@ export function FolderTreeDisplay({
     }
 
     if (window.confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${currentFolder.name}"? This action cannot be undone.`, { folderName: currentFolder.name }))) {
-      LocalStorageService.deleteFolderCascade(currentFolder.id); // Assuming this also handles assets within
-      onDeleteFolder(currentFolder);
-      toast({
-        title: t('folderDeletedTitle', 'Folder Deleted'),
-        description: t('folderDeletedDesc', `Folder "${currentFolder.name}" has been deleted.`, { folderName: currentFolder.name }),
-      });
+      const success = await FirestoreService.deleteFolderCascade(currentFolder.id);
+      if (success) {
+        onDeleteFolder(currentFolder); // Notify parent to reload/update state
+        toast({
+          title: t('folderDeletedTitle', 'Folder Deleted'),
+          description: t('folderDeletedDesc', `Folder "${currentFolder.name}" has been deleted.`, { folderName: currentFolder.name }),
+        });
+      } else {
+         toast({ title: "Error", description: "Failed to delete folder.", variant: "destructive" });
+      }
+    }
+  };
+  
+  const handleDeleteAssetClick = async (asset: Asset) => {
+    // Confirmation is typically handled in parent, but can be here too
+    // For now, assuming parent handles confirm and calls onDeleteAsset, which then calls this.
+    // Or, this component can directly call service.
+    // Let's make it call service and then notify parent via onDeleteAsset.
+    if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${asset.name}"?`, { assetName: asset.name }))) {
+        const success = await FirestoreService.deleteAsset(asset.id);
+        if (success) {
+            onDeleteAsset(asset); // Notify parent
+            toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${asset.name}" has been deleted.`, {assetName: asset.name})});
+        } else {
+            toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
+        }
     }
   };
 
+
   if (foldersToDisplay.length === 0 && assetsToDisplay.length === 0) {
-    // This specific empty message is now handled by the parent ProjectPage for more context
-    // It can be removed if ProjectPage covers all empty states, or kept for a very specific "no items at all here" message.
-    // For now, let ProjectPage handle the contextual empty messages.
     return null; 
   }
 
@@ -135,11 +157,9 @@ export function FolderTreeDisplay({
           key={`asset-${asset.id}`}
           asset={asset}
           onEditAsset={() => onEditAsset(asset)}
-          onDeleteAsset={() => onDeleteAsset(asset)}
+          onDeleteAsset={() => handleDeleteAssetClick(asset)} // Changed to call local handler
         />
       ))}
     </div>
   );
 }
-
-    

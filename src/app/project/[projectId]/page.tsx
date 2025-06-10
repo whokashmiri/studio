@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
-import * as LocalStorageService from '@/lib/local-storage-service';
-import { Home, FolderPlus, FilePlus } from 'lucide-react';
+import * as FirestoreService from '@/lib/firestore-service';
+import { Home, FolderPlus, FilePlus, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,7 @@ export default function ProjectPage() {
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
   const [currentAssets, setCurrentAssets] = useState<Asset[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   const [newFolderName, setNewFolderName] = useState('');
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
@@ -63,31 +64,39 @@ export default function ProjectPage() {
   }, [foldersMap]);
 
 
-  const loadProjectData = useCallback(() => {
+  const loadProjectData = useCallback(async () => {
     if (projectId) {
-      const foundProject = LocalStorageService.getProjects().find(p => p.id === projectId);
-      setProject(foundProject || null);
+      setIsLoadingData(true);
+      try {
+        const foundProject = await FirestoreService.getProjectById(projectId);
+        setProject(foundProject || null);
 
-      if (foundProject) {
-        const allFoldersFromStorage = LocalStorageService.getFolders();
-        const projectFolders = allFoldersFromStorage.filter(f => f.projectId === projectId);
-        setAllProjectFolders(projectFolders);
+        if (foundProject) {
+          const [projectFolders, assetsForProjectRootOrFolder] = await Promise.all([
+            FirestoreService.getFolders(projectId),
+            FirestoreService.getAssets(projectId, currentUrlFolderId || null)
+          ]);
+          
+          setAllProjectFolders(projectFolders);
 
-        const allAssetsFromStorage = LocalStorageService.getAssets();
-        const assetsForThisProject = allAssetsFromStorage.filter(a => a.projectId === projectId);
+          if (currentUrlFolderId) {
+            const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); 
+            setSelectedFolder(folderFromUrl || null);
+          } else {
+            setSelectedFolder(null);
+          }
+          setCurrentAssets(assetsForProjectRootOrFolder);
 
-        if (currentUrlFolderId) {
-          const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); 
-          setSelectedFolder(folderFromUrl || null);
-          setCurrentAssets(assetsForThisProject.filter(a => a.folderId === currentUrlFolderId));
         } else {
-          setSelectedFolder(null);
-          setCurrentAssets(assetsForThisProject.filter(a => !a.folderId)); 
+          toast({ title: t('projectNotFound', "Project not found"), variant: "destructive" });
+          router.push('/');
         }
-
-      } else {
-        toast({ title: t('projectNotFound', "Project not found"), variant: "destructive" });
+      } catch (error) {
+        console.error("Error loading project data:", error);
+        toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
         router.push('/');
+      } finally {
+        setIsLoadingData(false);
       }
     }
   }, [projectId, router, toast, t, currentUrlFolderId]);
@@ -112,41 +121,49 @@ export default function ProjectPage() {
   }, [allProjectFolders, selectedFolder]);
 
 
-  if (!project) {
-    return <div className="container mx-auto p-4 text-center">{t('loadingProjectContext', 'Loading project context...')}</div>;
+  if (isLoadingData || !project) {
+    return (
+        <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg text-muted-foreground mt-4">
+            {t('loadingProjectContext', 'Loading project context...')}
+            </p>
+        </div>
+    );
   }
 
   const handleSelectFolder = (folder: FolderType | null) => {
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
     router.push(targetPath, { scroll: false }); 
+    // Data will be reloaded by useEffect watching currentUrlFolderId via loadProjectData
   };
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim() || !project) return;
 
-    const newFolder: FolderType = {
-      id: `folder_${Date.now()}`,
+    const newFolderData: Omit<FolderType, 'id'> = {
       name: newFolderName,
       projectId: project.id,
       parentId: newFolderParentContext ? newFolderParentContext.id : null,
     };
 
-    LocalStorageService.addFolder(newFolder);
+    const createdFolder = await FirestoreService.addFolder(newFolderData);
 
-    const updatedProjectData = {
-      ...project,
-      lastAccessed: new Date().toISOString(),
-      status: 'recent' as ProjectStatus,
-    };
-    LocalStorageService.updateProject(updatedProjectData);
+    if (createdFolder) {
+      await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
 
-    setNewFolderName('');
-    setIsNewFolderDialogOpen(false);
-    setNewFolderParentContext(null);
-    toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created and selected.`, {folderName: newFolder.name})});
-    
-    loadProjectData(); 
-    handleSelectFolder(newFolder); 
+      setNewFolderName('');
+      setIsNewFolderDialogOpen(false);
+      setNewFolderParentContext(null);
+      toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
+      
+      loadProjectData(); // Reload to get all folders and then navigate
+      // Navigate after data reloads to ensure selectedFolder can be set correctly
+      // For immediate navigation feedback, could optimistically update foldersMap and select
+      // router.push(`/project/${projectId}?folderId=${createdFolder.id}`);
+    } else {
+      toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
+    }
   };
 
 
@@ -160,28 +177,26 @@ export default function ProjectPage() {
     setIsEditFolderModalOpen(true);
   };
 
-  const handleFolderDeleted = (deletedFolder: FolderType) => {
-    loadProjectData(); 
+  const handleFolderDeleted = async (deletedFolder: FolderType) => {
+    // FirestoreService.deleteFolderCascade would have been called by FolderTreeDisplay
+    await loadProjectData(); 
     if (selectedFolder && selectedFolder.id === deletedFolder.id) {
-        const parentFolder = deletedFolder.parentId ? foldersMap.get(deletedFolder.parentId) : null;
+        const parentFolder = deletedFolder.parentId ? allProjectFolders.find(f=> f.id === deletedFolder.parentId) : null;
         handleSelectFolder(parentFolder); 
     }
   };
 
-  const handleFolderUpdated = (updatedFolder: FolderType) => {
-    loadProjectData(); 
+  const handleFolderUpdated = async (updatedFolder: FolderType) => {
+    // FirestoreService.updateFolder would have been called by EditFolderModal
+    await loadProjectData(); 
     if (selectedFolder && selectedFolder.id === updatedFolder.id) {
-      const reloadedFolder = LocalStorageService.getFolders().find(f => f.id === updatedFolder.id); 
+      const reloadedFolder = allProjectFolders.find(f => f.id === updatedFolder.id); 
       setSelectedFolder(reloadedFolder || null); 
     }
     if (project) {
-      const updatedProjectData = {
-        ...project,
-        lastAccessed: new Date().toISOString(),
-        status: 'recent' as ProjectStatus,
-      };
-      LocalStorageService.updateProject(updatedProjectData);
-      setProject(updatedProjectData);
+      await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
+      const updatedProj = await FirestoreService.getProjectById(project.id);
+      setProject(updatedProj);
     }
   };
 
@@ -190,16 +205,19 @@ export default function ProjectPage() {
     router.push(editUrl); 
   };
 
-  const handleDeleteAsset = (assetToDelete: Asset) => {
+  const handleDeleteAsset = async (assetToDelete: Asset) => {
     if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
-      LocalStorageService.deleteAsset(assetToDelete.id);
-      toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-      loadProjectData(); 
+      const success = await FirestoreService.deleteAsset(assetToDelete.id);
+      if (success) {
+        toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
+        loadProjectData(); // Refresh assets list
+      } else {
+        toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
+      }
     }
   };
 
   const newAssetHref = `/project/${project.id}/new-asset${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
-
   const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && currentAssets.length === 0;
 
   return (
@@ -271,9 +289,9 @@ export default function ProjectPage() {
             onSelectFolder={handleSelectFolder}
             onAddSubfolder={openNewFolderDialog}
             onEditFolder={handleOpenEditFolderModal}
-            onDeleteFolder={handleFolderDeleted}
+            onDeleteFolder={handleFolderDeleted} // This will call service then reload via this page
             onEditAsset={handleEditAsset}
-            onDeleteAsset={handleDeleteAsset}
+            onDeleteAsset={handleDeleteAsset} // This will call service then reload via this page
             currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
         />
         {isCurrentLocationEmpty && (
@@ -361,4 +379,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-

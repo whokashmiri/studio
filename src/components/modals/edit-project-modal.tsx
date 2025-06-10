@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// import { Textarea } from '@/components/ui/textarea'; // Textarea removed
 import { Switch } from '@/components/ui/switch';
 import type { Project } from '@/data/mock-data';
-import * as LocalStorageService from '@/lib/local-storage-service';
+import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
+import { Loader2 } from 'lucide-react';
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -21,16 +21,14 @@ interface EditProjectModalProps {
 
 export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }: EditProjectModalProps) {
   const [projectName, setProjectName] = useState('');
-  // const [projectDescription, setProjectDescription] = useState(''); // projectDescription state removed
   const [isFavorite, setIsFavorite] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const { t } = useLanguage();
 
   useEffect(() => {
     if (project) {
       setProjectName(project.name);
-      // setProjectDescription(project.description || ''); // projectDescription handling removed
       setIsFavorite(project.isFavorite || false);
     }
   }, [project]);
@@ -46,27 +44,40 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
 
-    const updatedProject: Project = {
-      ...project,
+    const projectUpdateData: Partial<Project> = {
       name: projectName,
-      // description: projectDescription, // projectDescription assignment removed
-      description: project.description, // Keep existing description if not editable
       isFavorite: isFavorite,
-      lastAccessed: new Date().toISOString(), 
+      // description will not be updated here, assuming it's handled elsewhere or not editable in this modal
+      // lastAccessed will be updated by serverTimestamp in FirestoreService
     };
 
-    LocalStorageService.updateProject(updatedProject);
+    const success = await FirestoreService.updateProject(project.id, projectUpdateData);
     
-    onProjectUpdated(updatedProject);
-    setIsLoading(false);
-    onClose(); 
-    
-    toast({
-      title: t('projectUpdatedTitle', "Project Updated"),
-      description: t('projectUpdatedDesc', `Project "${updatedProject.name}" has been successfully updated.`, { projectName: updatedProject.name }),
-    });
+    setIsSaving(false);
+
+    if (success) {
+      // Fetch the updated project to get server-generated timestamps
+      const updatedProjectWithTimestamps = await FirestoreService.getProjectById(project.id);
+      if (updatedProjectWithTimestamps) {
+        onProjectUpdated(updatedProjectWithTimestamps);
+      } else {
+        // Fallback if fetch fails, use client-side optimistic update
+        onProjectUpdated({ ...project, ...projectUpdateData, lastAccessed: new Date().toISOString() });
+      }
+      onClose(); 
+      toast({
+        title: t('projectUpdatedTitle', "Project Updated"),
+        description: t('projectUpdatedDesc', `Project "${projectName}" has been successfully updated.`, { projectName: projectName }),
+      });
+    } else {
+       toast({
+        title: "Error",
+        description: "Failed to update project.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!project) return null;
@@ -94,30 +105,15 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               placeholder={t('projectNamePlaceholder', "e.g., Spring Mall Inspection")}
-              disabled={isLoading}
+              disabled={isSaving}
             />
           </div>
-          {/* Project Description Textarea and Label Removed
-          <div className="space-y-2">
-            <Label htmlFor="edit-project-description">
-              {t('projectDescription', 'Project Description')}
-            </Label>
-            <Textarea
-              id="edit-project-description"
-              value={projectDescription}
-              onChange={(e) => setProjectDescription(e.target.value)}
-              placeholder={t('projectDescriptionPlaceholder', "Enter a brief description of the project.")}
-              rows={3}
-              disabled={isLoading}
-            />
-          </div>
-          */}
           <div className="flex items-center space-x-2">
             <Switch
               id="edit-project-favorite"
               checked={isFavorite}
               onCheckedChange={setIsFavorite}
-              disabled={isLoading}
+              disabled={isSaving}
             />
             <Label htmlFor="edit-project-favorite" className="cursor-pointer">
               {t('markAsFavorite', 'Mark as Favorite')}
@@ -125,11 +121,12 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
           </div>
         </div>
         <DialogFooter className="flex flex-row justify-end space-x-2">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
             {t('cancel', 'Cancel')}
           </Button>
-          <Button onClick={handleSave} disabled={isLoading || !projectName.trim()}>
-            {isLoading ? t('saving', 'Saving...') : t('updateProject', 'Update Project')}
+          <Button onClick={handleSave} disabled={isSaving || !projectName.trim()}>
+            {isSaving ? <Loader2 className="animate-spin mr-2"/> : null}
+            {isSaving ? t('saving', 'Saving...') : t('updateProject', 'Update Project')}
           </Button>
         </DialogFooter>
       </DialogContent>

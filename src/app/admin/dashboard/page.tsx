@@ -3,8 +3,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import type { Project, AuthenticatedUser, MockStoredUser, Asset } from '@/data/mock-data';
-import * as LocalStorageService from '@/lib/local-storage-service';
+import type { Project, AuthenticatedUser, Asset } from '@/data/mock-data';
+import * as FirestoreService from '@/lib/firestore-service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Loader2, ShieldAlert, Users, Briefcase, UserCheck, UserSearch, FolderOpen, Trash2 } from 'lucide-react';
@@ -18,8 +18,6 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 
-
-const MOCK_USERS_KEY = 'mockUsers';
 
 export default function AdminDashboardPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
@@ -42,22 +40,42 @@ export default function AdminDashboardPage() {
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
-
-  const loadAdminData = useCallback(() => {
-    if (currentUser && currentUser.role === 'Admin') {
-      const allStoredProjects = LocalStorageService.getProjects();
-      setCompanyProjects(allStoredProjects.filter(p => p.companyId === currentUser.companyId));
-      setAllAssets(LocalStorageService.getAssets());
-
-      const storedUsersJson = localStorage.getItem(MOCK_USERS_KEY);
-      const allUsers: MockStoredUser[] = storedUsersJson ? JSON.parse(storedUsersJson) : [];
-      
-      const companyUsers = allUsers.filter(u => u.companyId === currentUser.companyId);
-      setInspectors(companyUsers.filter(u => u.role === 'Inspector'));
-      setValuators(companyUsers.filter(u => u.role === 'Valuation'));
-      setPageLoading(false);
+  const loadAdminData = useCallback(async () => {
+    if (currentUser && currentUser.role === 'Admin' && currentUser.companyId) {
+      setPageLoading(true);
+      try {
+        const [projects, users, assetsData] = await Promise.all([
+          FirestoreService.getProjects(currentUser.companyId),
+          FirestoreService.getAllUsersByCompany(currentUser.companyId),
+          // Fetch all assets for all projects of the company for counts
+          (async () => {
+            const companyProjs = await FirestoreService.getProjects(currentUser.companyId);
+            let allCompanyAssets: Asset[] = [];
+            for (const proj of companyProjs) {
+                const projAssets = await FirestoreService.getAssets(proj.id);
+                allCompanyAssets = [...allCompanyAssets, ...projAssets];
+                const folders = await FirestoreService.getFolders(proj.id);
+                for (const folder of folders) {
+                    const assetsInFolder = await FirestoreService.getAssets(proj.id, folder.id);
+                    allCompanyAssets = [...allCompanyAssets, ...assetsInFolder];
+                }
+            }
+            return allCompanyAssets;
+          })()
+        ]);
+        
+        setCompanyProjects(projects);
+        setAllAssets(assetsData);
+        setInspectors(users.filter(u => u.role === 'Inspector'));
+        setValuators(users.filter(u => u.role === 'Valuation'));
+      } catch (error) {
+        console.error("Error loading admin data:", error);
+        toast({ title: "Error", description: "Failed to load dashboard data.", variant: "destructive" });
+      } finally {
+        setPageLoading(false);
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, toast]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -100,16 +118,20 @@ export default function AdminDashboardPage() {
     setIsEditModalOpen(true);
   }, []);
 
-  const handleToggleFavorite = useCallback((project: Project) => {
-    const updatedProject = { ...project, isFavorite: !project.isFavorite, lastAccessed: new Date().toISOString() };
-    LocalStorageService.updateProject(updatedProject);
-    setCompanyProjects(prevProjects => 
-      prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
-    );
-    toast({
-        title: updatedProject.isFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
-        description: t('projectFavoriteStatusUpdatedDesc',`Project "${updatedProject.name}" favorite status updated.`, {projectName: updatedProject.name}),
-      });
+  const handleToggleFavorite = useCallback(async (project: Project) => {
+    const newIsFavorite = !project.isFavorite;
+    const success = await FirestoreService.updateProject(project.id, { isFavorite: newIsFavorite });
+    if (success) {
+      setCompanyProjects(prevProjects => 
+        prevProjects.map(p => p.id === project.id ? { ...p, isFavorite: newIsFavorite, lastAccessed: new Date().toISOString() } : p)
+      );
+      toast({
+          title: newIsFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
+          description: t('projectFavoriteStatusUpdatedDesc',`Project "${project.name}" favorite status updated.`, {projectName: project.name}),
+        });
+    } else {
+      toast({ title: "Error", description: "Failed to update favorite status.", variant: "destructive" });
+    }
   }, [t, toast]);
 
   const handleOpenAssignUsersModal = useCallback((project: Project) => {
@@ -117,18 +139,24 @@ export default function AdminDashboardPage() {
     setIsAssignModalOpen(true);
   }, []);
 
-  const handleProjectAssignmentsUpdated = useCallback((updatedProject: Project) => {
-    setCompanyProjects(prevProjects => 
-      prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
-    );
-    // No need to call loadAdminData, derived states (projectsByInspector, etc.) will update via useMemo
+  const handleProjectAssignmentsUpdated = useCallback(async (updatedProject: Project) => {
+    // Project is already updated in Firestore by AssignProjectUsersModal
+    const refreshedProject = await FirestoreService.getProjectById(updatedProject.id);
+    if (refreshedProject) {
+        setCompanyProjects(prevProjects => 
+          prevProjects.map(p => p.id === refreshedProject.id ? refreshedProject : p)
+        );
+    }
   }, []);
 
-  const handleProjectUpdatedFromEdit = useCallback((updatedProject: Project) => {
-     setCompanyProjects(prevProjects => 
-      prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p)
-    );
-    // No need to call loadAdminData
+  const handleProjectUpdatedFromEdit = useCallback(async (updatedProject: Project) => {
+    // Project is already updated in Firestore by EditProjectModal
+    const refreshedProject = await FirestoreService.getProjectById(updatedProject.id);
+    if (refreshedProject) {
+        setCompanyProjects(prevProjects => 
+         prevProjects.map(p => p.id === refreshedProject.id ? refreshedProject : p)
+        );
+    }
   }, []);
 
   const promptDeleteProject = useCallback((project: Project) => {
@@ -136,14 +164,18 @@ export default function AdminDashboardPage() {
     setIsDeleteConfirmOpen(true);
   }, []);
 
-  const confirmDeleteProject = useCallback(() => {
+  const confirmDeleteProject = useCallback(async () => {
     if (projectToDelete) {
-      LocalStorageService.deleteProject(projectToDelete.id);
-      toast({
-        title: t('projectDeletedTitle', 'Project Deleted'),
-        description: t('projectDeletedDesc', `Project "${projectToDelete.name}" has been deleted.`, { projectName: projectToDelete.name }),
-      });
-      loadAdminData(); // Reload all data as assets/folders related to this project are also gone
+      const success = await FirestoreService.deleteProject(projectToDelete.id);
+      if (success) {
+        toast({
+          title: t('projectDeletedTitle', 'Project Deleted'),
+          description: t('projectDeletedDesc', `Project "${projectToDelete.name}" has been deleted.`, { projectName: projectToDelete.name }),
+        });
+        loadAdminData(); // Reload all data
+      } else {
+        toast({ title: "Error", description: "Failed to delete project.", variant: "destructive" });
+      }
       setProjectToDelete(null);
       setIsDeleteConfirmOpen(false);
     }
@@ -377,5 +409,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
