@@ -75,11 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'Email already in use.' };
       }
       
-      let allCompanies = await FirestoreService.getCompanies();
-      if (allCompanies.length === 0) { 
-        await FirestoreService.getCompanies(); 
-        allCompanies = await FirestoreService.getCompanies();
-      }
+      // Fetch companies once. FirestoreService.getCompanies() handles seeding if empty.
+      const allCompanies = await FirestoreService.getCompanies(); 
 
       let company = allCompanies.find(c => c.name.toLowerCase() === details.companyName.toLowerCase());
       
