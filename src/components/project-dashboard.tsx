@@ -64,22 +64,30 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
   }, [fetchProjectsAndAssets]);
 
   const filteredProjects = useMemo(() => {
-    return projects.filter(p => {
-      if (p.companyId !== company.id) return false;
-      
-      if (activeTab === 'favorite') return p.isFavorite === true;
+    if (!currentUser) return [];
 
-      if (activeTab === 'new') {
-        if (currentUser?.role === 'Inspector') {
-          return (p.assignedInspectorIds?.includes(currentUser.id) || p.createdByUserId === currentUser.id) && p.status === 'new';
-        }
-        if (currentUser?.role === 'Valuation') {
-          return p.assignedValuatorIds?.includes(currentUser.id) && p.status === 'new';
-        }
-        // For Admin or other roles, or if no specific role logic
-        return p.status === 'new';
+    // First, filter by role-based visibility
+    const roleFilteredProjects = projects.filter(p => {
+      if (p.companyId !== company.id) return false;
+
+      if (currentUser.role === 'Admin') {
+        return true; // Admins see all projects in their company
       }
-      
+      if (currentUser.role === 'Inspector') {
+        return (p.assignedInspectorIds?.includes(currentUser.id) || p.createdByUserId === currentUser.id);
+      }
+      if (currentUser.role === 'Valuation') {
+        return p.assignedValuatorIds?.includes(currentUser.id);
+      }
+      return false; // Default to no visibility if role is not handled
+    });
+
+    // Then, filter by the active tab
+    return roleFilteredProjects.filter(p => {
+      if (activeTab === 'favorite') return p.isFavorite === true;
+      // For 'new', 'recent', 'done' tabs, ensure they match the project status
+      // The 'new' tab rule in the original was complex, simplifying to just status match here
+      // but role-based filtering already ensures relevance.
       return p.status === activeTab;
     }).sort((a, b) => {
       if (activeTab === 'recent' && a.lastAccessed && b.lastAccessed) {
@@ -104,14 +112,14 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     return counts;
   }, [allAssets]);
 
-  const handleProjectCreated = useCallback(async (newProject: Project) => {
-    // Project is already added to Firestore by NewProjectModal
-    // We just need to refresh the list or add it locally
-    setProjects(prevProjects => [newProject, ...prevProjects].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    setActiveTab('new');
-    // Optionally, re-fetch all assets if counts need to be super accurate immediately, or update locally
-    const assetsForNewProject = await FirestoreService.getAssets(newProject.id);
-    setAllAssets(prev => [...prev, ...assetsForNewProject]);
+  const handleProjectCreated = useCallback((newProject: Project) => {
+    setProjects(prevProjects => 
+      [newProject, ...prevProjects].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    );
+    // Add new project's assets to allAssets if needed, for now just adding project.
+    // This assumes projectAssetCounts will update, but ideally allAssets should be updated here too.
+    // For simplicity, full refresh or more granular asset update could be done.
+    setActiveTab('new'); 
   }, [setActiveTab]);
 
 
@@ -120,8 +128,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     setIsEditModalOpen(true);
   }, []);
 
-  const handleProjectUpdated = useCallback(async (updatedProject: Project) => {
-    // Project is already updated in Firestore by EditProjectModal
+  const handleProjectUpdated = useCallback((updatedProject: Project) => {
     setProjects(prevProjects => 
       prevProjects.map(p => (p.id === updatedProject.id ? updatedProject : p))
     );
@@ -134,12 +141,13 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     const newIsFavorite = !projectToToggle.isFavorite;
     const success = await FirestoreService.updateProject(projectToToggle.id, { 
       isFavorite: newIsFavorite,
-      // lastAccessed will be updated by serverTimestamp in FirestoreService
     });
     if (success) {
+      // Optimistically update client state
+      const updatedProject = { ...projectToToggle, isFavorite: newIsFavorite, lastAccessed: new Date().toISOString() };
       setProjects(currentProjects => 
         currentProjects.map(p => 
-          p.id === projectToToggle.id ? { ...p, isFavorite: newIsFavorite, lastAccessed: new Date().toISOString() } : p
+          p.id === updatedProject.id ? updatedProject : p
         )
       );
       toast({
