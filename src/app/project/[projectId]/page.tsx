@@ -323,7 +323,7 @@ export default function ProjectPage() {
       </Card>
 
       {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0 p-2 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2">
+        <div className="fixed bottom-4 left-0 right-0 p-2 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2">
           <Button
             onClick={() => openNewFolderDialog(selectedFolder)}
             className="flex-1"
@@ -394,3 +394,4 @@ export default function ProjectPage() {
     </div>
   );
 }
+
