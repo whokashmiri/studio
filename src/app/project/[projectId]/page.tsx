@@ -132,13 +132,12 @@ export default function ProjectPage() {
     );
   }
 
-  const handleSelectFolder = (folder: FolderType | null) => {
+  const handleSelectFolder = useCallback((folder: FolderType | null) => {
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
     router.push(targetPath, { scroll: false }); 
-    // Data will be reloaded by useEffect watching currentUrlFolderId via loadProjectData
-  };
+  }, [projectId, router]);
 
-  const handleCreateFolder = async () => {
+  const handleCreateFolder = useCallback(async () => {
     if (!newFolderName.trim() || !project) return;
 
     const newFolderData: Omit<FolderType, 'id'> = {
@@ -157,65 +156,56 @@ export default function ProjectPage() {
       setNewFolderParentContext(null);
       toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
       
-      loadProjectData(); // Reload to get all folders and then navigate
-      // Navigate after data reloads to ensure selectedFolder can be set correctly
-      // For immediate navigation feedback, could optimistically update foldersMap and select
-      // router.push(`/project/${projectId}?folderId=${createdFolder.id}`);
+      loadProjectData();
     } else {
       toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
     }
-  };
+  }, [newFolderName, project, newFolderParentContext, toast, t, loadProjectData]);
 
 
-  const openNewFolderDialog = (parentContextForNewDialog: FolderType | null) => {
+  const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
     setIsNewFolderDialogOpen(true);
-  };
+  }, []);
 
-  const handleOpenEditFolderModal = (folderToEdit: FolderType) => {
+  const handleOpenEditFolderModal = useCallback((folderToEdit: FolderType) => {
     setEditingFolder(folderToEdit);
     setIsEditFolderModalOpen(true);
-  };
+  }, []);
 
-  const handleFolderDeleted = async (deletedFolder: FolderType) => {
-    // FirestoreService.deleteFolderCascade would have been called by FolderTreeDisplay
+  const handleFolderDeleted = useCallback(async (deletedFolder: FolderType) => {
     await loadProjectData(); 
     if (selectedFolder && selectedFolder.id === deletedFolder.id) {
         const parentFolder = deletedFolder.parentId ? allProjectFolders.find(f=> f.id === deletedFolder.parentId) : null;
         handleSelectFolder(parentFolder); 
     }
-  };
+  }, [loadProjectData, selectedFolder, allProjectFolders, handleSelectFolder]);
 
-  const handleFolderUpdated = async (updatedFolder: FolderType) => {
-    // FirestoreService.updateFolder would have been called by EditFolderModal
+  const handleFolderUpdated = useCallback(async (updatedFolder: FolderType) => {
     await loadProjectData(); 
-    if (selectedFolder && selectedFolder.id === updatedFolder.id) {
-      const reloadedFolder = allProjectFolders.find(f => f.id === updatedFolder.id); 
-      setSelectedFolder(reloadedFolder || null); 
-    }
     if (project) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
       const updatedProj = await FirestoreService.getProjectById(project.id);
       setProject(updatedProj);
     }
-  };
+  }, [loadProjectData, project, setProject]);
 
-  const handleEditAsset = (asset: Asset) => {
+  const handleEditAsset = useCallback((asset: Asset) => {
     const editUrl = `/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
     router.push(editUrl); 
-  };
+  }, [projectId, router]);
 
-  const handleDeleteAsset = async (assetToDelete: Asset) => {
+  const handleDeleteAsset = useCallback(async (assetToDelete: Asset) => {
     if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
       const success = await FirestoreService.deleteAsset(assetToDelete.id);
       if (success) {
         toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-        loadProjectData(); // Refresh assets list
+        loadProjectData(); 
       } else {
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
       }
     }
-  };
+  }, [t, toast, loadProjectData]);
 
   const newAssetHref = `/project/${project.id}/new-asset${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
   const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && currentAssets.length === 0;
@@ -289,9 +279,9 @@ export default function ProjectPage() {
             onSelectFolder={handleSelectFolder}
             onAddSubfolder={openNewFolderDialog}
             onEditFolder={handleOpenEditFolderModal}
-            onDeleteFolder={handleFolderDeleted} // This will call service then reload via this page
+            onDeleteFolder={handleFolderDeleted}
             onEditAsset={handleEditAsset}
-            onDeleteAsset={handleDeleteAsset} // This will call service then reload via this page
+            onDeleteAsset={handleDeleteAsset}
             currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
         />
         {isCurrentLocationEmpty && (

@@ -25,13 +25,13 @@ interface FolderGridViewProps {
   onSelectFolder: (folder: Folder) => void; 
   onAddSubfolder: (parentFolder: Folder) => void;
   onEditFolder: (folder: Folder) => void;
-  onDeleteFolder: (folder: Folder) => void; // Callback after successful deletion
+  onDeleteFolder: (folder: Folder) => void; 
   onEditAsset: (asset: Asset) => void;
-  onDeleteAsset: (asset: Asset) => void; // Callback after successful deletion
+  onDeleteAsset: (asset: Asset) => void; 
   currentSelectedFolderId: string | null;
 }
 
-export function FolderTreeDisplay({ 
+export const FolderTreeDisplay = React.memo(function FolderTreeDisplay({ 
   foldersToDisplay,
   assetsToDisplay,
   projectId,
@@ -48,7 +48,6 @@ export function FolderTreeDisplay({
 
   const handleDeleteClick = async (e: React.MouseEvent, currentFolder: Folder) => {
     e.stopPropagation();
-    // Check for child folders and assets directly in Firestore before deleting
     const childFolders = await FirestoreService.getFolders(currentFolder.projectId);
     const hasChildFolders = childFolders.some(f => f.parentId === currentFolder.id);
     const childAssets = await FirestoreService.getAssets(currentFolder.projectId, currentFolder.id);
@@ -67,7 +66,7 @@ export function FolderTreeDisplay({
     if (window.confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${currentFolder.name}"? This action cannot be undone.`, { folderName: currentFolder.name }))) {
       const success = await FirestoreService.deleteFolderCascade(currentFolder.id);
       if (success) {
-        onDeleteFolder(currentFolder); // Notify parent to reload/update state
+        onDeleteFolder(currentFolder); 
         toast({
           title: t('folderDeletedTitle', 'Folder Deleted'),
           description: t('folderDeletedDesc', `Folder "${currentFolder.name}" has been deleted.`, { folderName: currentFolder.name }),
@@ -79,19 +78,9 @@ export function FolderTreeDisplay({
   };
   
   const handleDeleteAssetClick = async (asset: Asset) => {
-    // Confirmation is typically handled in parent, but can be here too
-    // For now, assuming parent handles confirm and calls onDeleteAsset, which then calls this.
-    // Or, this component can directly call service.
-    // Let's make it call service and then notify parent via onDeleteAsset.
-    if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${asset.name}"?`, { assetName: asset.name }))) {
-        const success = await FirestoreService.deleteAsset(asset.id);
-        if (success) {
-            onDeleteAsset(asset); // Notify parent
-            toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${asset.name}" has been deleted.`, {assetName: asset.name})});
-        } else {
-            toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
-        }
-    }
+    // Confirmation is now handled by the parent (ProjectPage) which calls this onDeleteAsset prop
+    // So, we just execute the deletion via the prop.
+    onDeleteAsset(asset);
   };
 
 
@@ -157,9 +146,10 @@ export function FolderTreeDisplay({
           key={`asset-${asset.id}`}
           asset={asset}
           onEditAsset={() => onEditAsset(asset)}
-          onDeleteAsset={() => handleDeleteAssetClick(asset)} // Changed to call local handler
+          onDeleteAsset={() => handleDeleteAssetClick(asset)}
         />
       ))}
     </div>
   );
-}
+});
+
