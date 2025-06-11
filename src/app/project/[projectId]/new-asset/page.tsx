@@ -317,14 +317,17 @@ export default function NewAssetPage() {
     setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    // Keep manage photos batch modal open if it was, or open it if not.
-    // The 'Next' button from the main photos_capture modal will handle progression.
-    if (!isManagePhotosBatchModalOpen) setIsManagePhotosBatchModalOpen(true);
+    setIsManagePhotosBatchModalOpen(false); // Ensure Manage Photos modal is closed
   };
 
   const handleCancelCustomCamera = () => {
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
+    // If Manage Photos Batch was previously open and we cancelled custom camera,
+    // re-open manage photos. Otherwise, stay on the photos_capture modal.
+    if (currentStep === 'photos_capture') { // Or some flag indicating it was opened from Manage Photos
+        setIsManagePhotosBatchModalOpen(true);
+    }
   };
   
   const removePhotoFromPreviews = (indexToRemove: number) => { 
@@ -699,7 +702,7 @@ export default function NewAssetPage() {
               <Label>{t('currentPhotoBatch', 'Current Photo Batch')} ({photoPreviews.length})</Label>
               {photoPreviews.length > 0 ? (
                 <ScrollArea className="h-[300px] pr-3">
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
+                  <div className="grid grid-cols-6 gap-1.5">
                     {photoPreviews.map((src, index) => (
                       <div key={`batch-${index}-${src.substring(0,20)}`} className="relative group">
                         <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
@@ -722,11 +725,7 @@ export default function NewAssetPage() {
               )}
             </div>
           </div>
-          <DialogFooter className="flex flex-row justify-end space-x-2 pt-4 border-t">
-             <Button variant="outline" onClick={() => setIsManagePhotosBatchModalOpen(false)} disabled={isSavingAsset}>
-                {t('doneWithPhotos', 'Done with Photos')}
-             </Button>
-          </DialogFooter>
+          {/* Footer removed as per user request to remove "Done with Photos" button */}
         </DialogContent>
       </Dialog>
 
@@ -739,7 +738,15 @@ export default function NewAssetPage() {
           }
           setIsCustomCameraOpen(isOpen);
           // If closing camera, and photo batch manager was closed to open camera, re-open photo batch manager
-          if(!isOpen && !isManagePhotosBatchModalOpen) setIsManagePhotosBatchModalOpen(true);
+          if(!isOpen && !isManagePhotosBatchModalOpen) {
+            // If the user intended to go back to manage photos (e.g. by pressing escape from camera)
+            // we should re-open it. However, if they clicked "Add photos" from camera,
+            // handleAddSessionPhotosToBatch already sets isManagePhotosBatchModalOpen to false.
+            // This logic might need refinement based on precise desired flow.
+            // For now, simply closing camera returns to whatever opened it OR the main photo step.
+            // If it was manage photos, and they click add, manage photos is explicitly closed.
+            // If they cancel from camera, it re-opens manage photos if that was the context.
+          }
         }}>
          <DialogContent variant="fullscreen" className="bg-black text-white">
            <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
