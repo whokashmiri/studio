@@ -34,6 +34,7 @@ const translations: Record<Language, Record<string, string>> = {
     cancel: "Cancel",
     save: "Save",
     saving: "Saving...",
+    loading: "Loading...", // Added loading key
     newAsset: "New Asset",
     takePhotos: "Take Photos", 
     uploadFromGallery: "Upload from Gallery",
@@ -350,6 +351,7 @@ const translations: Record<Language, Record<string, string>> = {
     cancel: "إلغاء",
     save: "حفظ",
     saving: "جاري الحفظ...",
+    loading: "جاري التحميل...", // Added loading key
     newAsset: "أصل جديد",
     takePhotos: "التقاط صور",
     uploadFromGallery: "تحميل من المعرض",
@@ -683,3 +685,4 @@ export function useLanguage() {
   return context;
 }
 
+    

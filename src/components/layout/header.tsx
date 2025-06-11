@@ -1,17 +1,19 @@
 
 "use client";
 import Link from 'next/link';
-import { Building, LogOut, UserCircle, Briefcase, LogIn, LayoutDashboard } from 'lucide-react'; // Added LayoutDashboard
+import { Building, LogOut, UserCircle, Briefcase, LogIn, LayoutDashboard, Loader2 } from 'lucide-react'; // Added Loader2
 import { LanguageToggle } from '@/components/language-toggle';
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/language-context';
+import { useState } from 'react'; // Added useState
 
 export function Header() {
   const { currentUser, isLoading, logout } = useAuth();
   const { t } = useLanguage();
+  const [isNavigatingToAdmin, setIsNavigatingToAdmin] = useState(false);
 
   const getInitials = (email?: string) => {
     if (!email) return '';
@@ -54,9 +56,16 @@ export function Header() {
                 <DropdownMenuSeparator />
                 {currentUser.role === 'Admin' && (
                   <Link href="/admin/dashboard" passHref legacyBehavior>
-                    <DropdownMenuItem>
-                      <LayoutDashboard className="mr-2 h-4 w-4" />
-                      {t('adminDashboardMenuLink', 'Admin Dashboard')}
+                    <DropdownMenuItem
+                      onClick={() => setIsNavigatingToAdmin(true)}
+                      disabled={isNavigatingToAdmin}
+                    >
+                      {isNavigatingToAdmin ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                      )}
+                      {isNavigatingToAdmin ? t('loading', 'Loading...') : t('adminDashboardMenuLink', 'Admin Dashboard')}
                     </DropdownMenuItem>
                   </Link>
                 )}

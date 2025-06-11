@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import type { Project, AuthenticatedUser, Asset } from '@/data/mock-data';
+import type { Project, AuthenticatedUser, Asset } from '@/data/mock-data'; // Keep Asset for type consistency if any minor use remains, but primary count source changes
 import * as FirestoreService from '@/lib/firestore-service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -18,6 +18,8 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 
+// Define a type for project with asset count
+type ProjectWithAssetCount = Project & { assetCount: number };
 
 export default function AdminDashboardPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
@@ -25,10 +27,10 @@ export default function AdminDashboardPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
 
-  const [companyProjects, setCompanyProjects] = useState<Project[]>([]);
+  const [companyProjects, setCompanyProjects] = useState<ProjectWithAssetCount[]>([]);
   const [inspectors, setInspectors] = useState<AuthenticatedUser[]>([]);
   const [valuators, setValuators] = useState<AuthenticatedUser[]>([]);
-  const [allAssets, setAllAssets] = useState<Asset[]>([]);
+  // const [allAssets, setAllAssets] = useState<Asset[]>([]); // Removed: asset counts now come with projects
   const [pageLoading, setPageLoading] = useState(true);
 
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -44,28 +46,14 @@ export default function AdminDashboardPage() {
     if (currentUser && currentUser.role === 'Admin' && currentUser.companyId) {
       setPageLoading(true);
       try {
-        const [projects, users, assetsData] = await Promise.all([
+        // FirestoreService.getProjects now returns projects with assetCount
+        const [projectsWithCounts, users] = await Promise.all([
           FirestoreService.getProjects(currentUser.companyId),
           FirestoreService.getAllUsersByCompany(currentUser.companyId),
-          // Fetch all assets for all projects of the company for counts
-          (async () => {
-            const companyProjs = await FirestoreService.getProjects(currentUser.companyId);
-            let allCompanyAssets: Asset[] = [];
-            for (const proj of companyProjs) {
-                const projAssets = await FirestoreService.getAssets(proj.id);
-                allCompanyAssets = [...allCompanyAssets, ...projAssets];
-                const folders = await FirestoreService.getFolders(proj.id);
-                for (const folder of folders) {
-                    const assetsInFolder = await FirestoreService.getAssets(proj.id, folder.id);
-                    allCompanyAssets = [...allCompanyAssets, ...assetsInFolder];
-                }
-            }
-            return allCompanyAssets;
-          })()
         ]);
         
-        setCompanyProjects(projects);
-        setAllAssets(assetsData);
+        setCompanyProjects(projectsWithCounts);
+        // setAllAssets([]); // No longer needed to fetch all assets for counts
         setInspectors(users.filter(u => u.role === 'Inspector'));
         setValuators(users.filter(u => u.role === 'Valuation'));
       } catch (error) {
@@ -87,18 +75,11 @@ export default function AdminDashboardPage() {
     }
   }, [authLoading, currentUser, router, loadAdminData]);
 
-  const projectAssetCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    allAssets.forEach(asset => {
-      if (asset.projectId) {
-        counts[asset.projectId] = (counts[asset.projectId] || 0) + 1;
-      }
-    });
-    return counts;
-  }, [allAssets]);
+  // Removed projectAssetCounts useMemo as project.assetCount is now directly available
+  // const projectAssetCounts = useMemo(() => { ... });
 
   const projectsByInspector = useMemo(() => {
-    const map = new Map<string, Project[]>();
+    const map = new Map<string, Project[]>(); // Keep Project type here as ProjectWithAssetCount extends Project
     inspectors.forEach(inspector => {
       map.set(inspector.id, companyProjects.filter(p => p.assignedInspectorIds?.includes(inspector.id)));
     });
@@ -140,24 +121,22 @@ export default function AdminDashboardPage() {
   }, []);
 
   const handleProjectAssignmentsUpdated = useCallback(async (updatedProject: Project) => {
-    // Project is already updated in Firestore by AssignProjectUsersModal
     const refreshedProject = await FirestoreService.getProjectById(updatedProject.id);
     if (refreshedProject) {
-        setCompanyProjects(prevProjects => 
-          prevProjects.map(p => p.id === refreshedProject.id ? refreshedProject : p)
-        );
+        // Assuming getProjectById doesn't return assetCount, we need to preserve it or refetch list
+        // For simplicity, we'll refetch the whole list or update selectively if count is known
+        const refreshedProjectWithCount = await FirestoreService.getProjects(currentUser!.companyId); // Refetch for counts
+        setCompanyProjects(refreshedProjectWithCount.filter(p => p.companyId === currentUser!.companyId));
     }
-  }, []);
+  }, [currentUser]);
 
   const handleProjectUpdatedFromEdit = useCallback(async (updatedProject: Project) => {
-    // Project is already updated in Firestore by EditProjectModal
     const refreshedProject = await FirestoreService.getProjectById(updatedProject.id);
     if (refreshedProject) {
-        setCompanyProjects(prevProjects => 
-         prevProjects.map(p => p.id === refreshedProject.id ? refreshedProject : p)
-        );
+       const refreshedProjectsWithCount = await FirestoreService.getProjects(currentUser!.companyId); // Refetch for counts
+       setCompanyProjects(refreshedProjectsWithCount.filter(p => p.companyId === currentUser!.companyId));
     }
-  }, []);
+  }, [currentUser]);
 
   const promptDeleteProject = useCallback((project: Project) => {
     setProjectToDelete(project);
@@ -172,7 +151,7 @@ export default function AdminDashboardPage() {
           title: t('projectDeletedTitle', 'Project Deleted'),
           description: t('projectDeletedDesc', `Project "${projectToDelete.name}" has been deleted.`, { projectName: projectToDelete.name }),
         });
-        loadAdminData(); // Reload all data
+        loadAdminData(); // Reload all data, which is now more efficient
       } else {
         toast({ title: "Error", description: "Failed to delete project.", variant: "destructive" });
       }
@@ -231,12 +210,12 @@ export default function AdminDashboardPage() {
             <ScrollArea className="h-[400px] pr-3">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {companyProjects.map((project) => {
-                  const projectAssetCount = projectAssetCounts[project.id] || 0;
+                  // Use project.assetCount directly
                   return (
                      <ProjectCard
                         key={project.id}
                         project={project}
-                        assetCount={projectAssetCount}
+                        assetCount={project.assetCount} 
                         onEditProject={handleEditProject} 
                         onToggleFavorite={handleToggleFavorite}
                         onAssignUsers={handleOpenAssignUsersModal}
@@ -409,3 +388,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
