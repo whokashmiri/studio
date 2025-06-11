@@ -140,13 +140,12 @@ export async function addUser(userData: MockStoredUser): Promise<AuthenticatedUs
     const dataToSave = {
       ...userForDb,
       email: userForDb.email.toLowerCase(),
-      companyName: userForDb.companyName.toUpperCase(), // Ensure companyName is also stored uppercase here
+      companyName: userForDb.companyName.toUpperCase(), 
       ...(password && { password }), 
     };
     await setDoc(userDocRef, removeUndefinedProps(dataToSave));
     
     const { password: _, ...authenticatedUser } = userData;
-    // Ensure the returned authenticatedUser also has uppercase companyName for session consistency
     return { ...authenticatedUser, companyName: dataToSave.companyName }; 
   } catch (error) {
     console.error("Error adding user: ", error);
@@ -270,6 +269,20 @@ export async function getFolders(projectId: string): Promise<Folder[]> {
   }
 }
 
+export async function getFolderById(folderId: string): Promise<Folder | null> {
+  try {
+    const docRef = doc(getDb(), FOLDERS_COLLECTION, folderId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return processDoc<Folder>(docSnap);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error getting folder by ID:", error);
+    return null;
+  }
+}
+
 export async function addFolder(folderData: Omit<Folder, 'id'>): Promise<Folder | null> {
   try {
     const dataToSave = removeUndefinedProps(folderData);
@@ -334,9 +347,9 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
 export async function getAssets(projectId: string, folderId?: string | null): Promise<Asset[]> {
   try {
     let q;
-    if (folderId === undefined) { // This implies querying for assets at the project root.
+    if (folderId === undefined) { 
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
-    } else { // folderId is explicitly string (for a folder) or null (for project root, if passed as null)
+    } else { 
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
     }
     const snapshot = await getDocs(q);
@@ -370,7 +383,6 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
       updatedAt: serverTimestamp(),
     });
     const docRef = await addDoc(collection(getDb(), ASSETS_COLLECTION), dataToSave);
-    // Fetch the newly created asset to get server-generated timestamps as ISO strings
     const newAsset = await getAssetById(docRef.id); 
     return newAsset;
   } catch (error) {
@@ -404,3 +416,4 @@ export async function deleteAsset(assetId: string): Promise<boolean> {
     return false;
   }
 }
+

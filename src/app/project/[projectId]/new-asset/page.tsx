@@ -77,9 +77,15 @@ export default function NewAssetPage() {
         }
 
         if (folderId) {
-          const allFolders = await FirestoreService.getFolders(projectId);
-          const foundFolder = allFolders.find(f => f.id === folderId);
-          setCurrentFolder(foundFolder || null);
+          const foundFolder = await FirestoreService.getFolderById(folderId);
+          if (foundFolder && foundFolder.projectId === projectId) {
+            setCurrentFolder(foundFolder);
+          } else {
+            setCurrentFolder(null);
+            if (folderId) { // Only toast if a folderId was specified but not valid
+                 toast({ title: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project"), variant: "warning" });
+            }
+          }
         } else {
           setCurrentFolder(null);
         }
@@ -87,6 +93,21 @@ export default function NewAssetPage() {
         if (assetIdToEdit) {
           const foundAsset = await FirestoreService.getAssetById(assetIdToEdit);
           if (foundAsset && foundAsset.projectId === projectId) {
+            // Ensure folderId consistency if editing an asset that had one
+            if (foundAsset.folderId && (!folderId || folderId !== foundAsset.folderId)) {
+                // Asset has a folderId, but URL doesn't match or is missing.
+                // For simplicity, we can redirect to the URL with the correct folderId
+                // or just use the asset's folderId for context.
+                // For now, we'll prioritize asset's folderId if different and refetch folder info.
+                if(foundAsset.folderId) {
+                    const assetActualFolder = await FirestoreService.getFolderById(foundAsset.folderId);
+                    if (assetActualFolder && assetActualFolder.projectId === projectId) {
+                        setCurrentFolder(assetActualFolder);
+                        // Optionally, update URL if router is available and it's desirable
+                        // router.replace(`/project/${projectId}/new-asset?assetId=${assetIdToEdit}&folderId=${foundAsset.folderId}`, { scroll: false });
+                    }
+                }
+            }
             setIsEditMode(true);
             setAssetName(foundAsset.name);
             setAssetVoiceDescription(foundAsset.voiceDescription || '');
@@ -254,7 +275,7 @@ export default function NewAssetPage() {
     setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    setIsPhotoModalOpen(false); // Close the "Manage Photos" modal as well
+    setIsPhotoModalOpen(false); 
   };
 
   const handleCancelCustomCamera = () => {
@@ -284,7 +305,7 @@ export default function NewAssetPage() {
       toast({ title: t('speechFeatureNotAvailableTitle', 'Feature Not Available'), description: t('speechFeatureNotAvailableDesc', 'Speech recognition is not supported or enabled in your browser.'), variant: 'destructive' });
       return;
     }
-    if (isSavingAsset) return; // Don't allow recording if saving
+    if (isSavingAsset) return; 
 
     if (isListening) {
       speechRecognitionRef.current.stop();
@@ -326,7 +347,7 @@ export default function NewAssetPage() {
         const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
           name: assetName,
           projectId: project.id,
-          folderId: folderId,
+          folderId: currentFolder ? currentFolder.id : null, // Use currentFolder state
           photos: photoPreviews,
         };
 
@@ -361,7 +382,7 @@ export default function NewAssetPage() {
                     t('assetUpdatedDesc', `Asset "${savedAssetName}" has been updated.`, { assetName: savedAssetName }) :
                     t('assetSavedDesc', `Asset "${savedAssetName}" has been saved.`, { assetName: savedAssetName })
             });
-            router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
+            router.push(`/project/${project.id}${currentFolder ? `?folderId=${currentFolder.id}` : ''}`);
         } else {
             toast({ title: "Error", description: isEditMode ? "Failed to update asset." : "Failed to save asset.", variant: "destructive" });
         }
@@ -554,7 +575,7 @@ export default function NewAssetPage() {
     }
   };
 
-  const backLinkHref = `/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`;
+  const backLinkHref = `/project/${projectId}${currentFolder ? `?folderId=${currentFolder.id}` : ''}`;
   const backLinkText = `${t('backTo', 'Back to')} ${project.name}`;
 
 
@@ -637,7 +658,7 @@ export default function NewAssetPage() {
       </Dialog>
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
-          if (!isOpen && mediaStream) { // If closing and stream exists
+          if (!isOpen && mediaStream) { 
             mediaStream.getTracks().forEach(track => track.stop());
             setMediaStream(null);
             if (videoRef.current) videoRef.current.srcObject = null;
@@ -720,10 +741,3 @@ export default function NewAssetPage() {
     </div>
   );
 }
-
-
-    
-
-    
-
-    

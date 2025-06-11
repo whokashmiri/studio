@@ -118,6 +118,8 @@ const translations: Record<Language, Record<string, string>> = {
     cameraNotReadyError: "Camera not ready or permission denied.",
     projectNotFound: "Project Not Found",
     loadingProjectContext: "Loading project context...",
+    folderNotFoundOrInvalid: "Folder not found or invalid for this project",
+
 
     previewPhotoAlt: "Preview {number}",
     previewBatchPhotoAlt: "Batch Preview {number}",
@@ -409,6 +411,8 @@ const translations: Record<Language, Record<string, string>> = {
     cameraNotReadyError: "الكاميرا ليست جاهزة أو تم رفض الإذن.",
     projectNotFound: "المشروع غير موجود",
     loadingProjectContext: "جاري تحميل سياق المشروع...",
+    folderNotFoundOrInvalid: "المجلد غير موجود أو غير صالح لهذا المشروع",
+
 
     previewPhotoAlt: "معاينة {number}",
     previewBatchPhotoAlt: "معاينة الدفعة {number}",
@@ -634,3 +638,4 @@ export function useLanguage() {
   }
   return context;
 }
+
