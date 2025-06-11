@@ -179,7 +179,18 @@ export default function NewAssetPage() {
     let streamInstance: MediaStream | null = null;
     const getCameraStream = async () => {
       if (isCustomCameraOpen) {
-        setHasCameraPermission(null); 
+        // Check localStorage first
+        const storedPermission = typeof window !== 'undefined' ? localStorage.getItem(CAMERA_PERMISSION_GRANTED_KEY) : null;
+        if (storedPermission === 'true') {
+            setHasCameraPermission(true); // Assume still true, but browser will verify
+        } else if (storedPermission === 'false') {
+            setHasCameraPermission(false);
+            // No need to call getUserMedia if we know it was denied and not reset by user
+            return; 
+        } else {
+            setHasCameraPermission(null); // Unknown, will try to get
+        }
+        
         try {
           streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
           setMediaStream(streamInstance);
@@ -627,7 +638,7 @@ export default function NewAssetPage() {
                 />
               </div>
           </div>
-          <DialogFooter className="flex justify-end items-center gap-2 pt-4">
+          <DialogFooter className="flex flex-row justify-end items-center gap-2 pt-4">
             <Button variant="outline" onClick={handleBackToNameInput} disabled={isSavingAsset}>
               <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToAssetNameModal', 'Back to Asset Name')}
             </Button>
