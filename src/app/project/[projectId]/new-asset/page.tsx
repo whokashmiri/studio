@@ -50,10 +50,14 @@ export default function NewAssetPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null); 
+  const galleryInputModalRef = useRef<HTMLInputElement>(null);
 
   const [isListening, setIsListening] = useState(false);
   const [speechRecognitionAvailable, setSpeechRecognitionAvailable] = useState(false);
   const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
+
+  const [isSavingAsset, setIsSavingAsset] = useState(false);
+  const [isProcessingGalleryPhotos, setIsProcessingGalleryPhotos] = useState(false);
 
 
   const { toast } = useToast();
@@ -189,9 +193,16 @@ export default function NewAssetPage() {
 
   const handlePhotoUploadFromGallery = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
+      setIsProcessingGalleryPhotos(true);
       const newFiles = Array.from(event.target.files);
       const newPhotoUrls: string[] = [];
       let filesProcessed = 0;
+      
+      if (newFiles.length === 0) {
+        setIsProcessingGalleryPhotos(false);
+        return;
+      }
+
       newFiles.forEach(file => {
         const reader = new FileReader();
         reader.onload = (loadEvent) => {
@@ -202,7 +213,15 @@ export default function NewAssetPage() {
           if (filesProcessed === newFiles.length) {
             setPhotoPreviews(prev => [...prev, ...newPhotoUrls].slice(0, 10)); 
             if (!isPhotoModalOpen) setIsPhotoModalOpen(true);
+            setIsProcessingGalleryPhotos(false);
           }
+        };
+        reader.onerror = () => {
+            filesProcessed++;
+            toast({ title: "Error", description: `Failed to read file ${file.name}`, variant: "destructive"});
+            if (filesProcessed === newFiles.length) {
+                setIsProcessingGalleryPhotos(false);
+            }
         };
         reader.readAsDataURL(file);
       });
@@ -267,6 +286,8 @@ export default function NewAssetPage() {
       toast({ title: t('speechFeatureNotAvailableTitle', 'Feature Not Available'), description: t('speechFeatureNotAvailableDesc', 'Speech recognition is not supported or enabled in your browser.'), variant: 'destructive' });
       return;
     }
+    if (isSavingAsset) return; // Don't allow recording if saving
+
     if (isListening) {
       speechRecognitionRef.current.stop();
       setIsListening(false);
@@ -298,51 +319,59 @@ export default function NewAssetPage() {
       return;
     }
 
-    await FirestoreService.updateProject(project.id, {
-      status: 'recent' as ProjectStatus,
-    });
-    
-    const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
-      name: assetName,
-      projectId: project.id,
-      folderId: folderId,
-      photos: photoPreviews,
-    };
-
-    if (assetVoiceDescription.trim()) {
-      assetDataPayload.voiceDescription = assetVoiceDescription.trim();
-    }
-    if (assetTextDescription.trim()) {
-      assetDataPayload.textDescription = assetTextDescription.trim();
-    }
-    
-    let success = false;
-    let savedAssetName = assetName;
-
-    if (isEditMode && assetIdToEdit) {
-      const updateData: Partial<Asset> = { ...assetDataPayload };
-      const originalAsset = await FirestoreService.getAssetById(assetIdToEdit);
-      if (originalAsset) updateData.createdAt = originalAsset.createdAt; 
-      
-      success = await FirestoreService.updateAsset(assetIdToEdit, updateData);
-    } else {
-      const newAsset = await FirestoreService.addAsset(assetDataPayload as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
-      if (newAsset) {
-        success = true;
-        savedAssetName = newAsset.name;
-      }
-    }
-    
-    if (success) {
-        toast({ 
-            title: isEditMode ? t('assetUpdatedTitle', "Asset Updated") : t('assetSavedTitle', "Asset Saved"), 
-            description: isEditMode ? 
-                t('assetUpdatedDesc', `Asset "${savedAssetName}" has been updated.`, { assetName: savedAssetName }) :
-                t('assetSavedDesc', `Asset "${savedAssetName}" has been saved.`, { assetName: savedAssetName })
+    setIsSavingAsset(true);
+    try {
+        await FirestoreService.updateProject(project.id, {
+          status: 'recent' as ProjectStatus,
         });
-        router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
-    } else {
-        toast({ title: "Error", description: isEditMode ? "Failed to update asset." : "Failed to save asset.", variant: "destructive" });
+        
+        const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
+          name: assetName,
+          projectId: project.id,
+          folderId: folderId,
+          photos: photoPreviews,
+        };
+
+        if (assetVoiceDescription.trim()) {
+          assetDataPayload.voiceDescription = assetVoiceDescription.trim();
+        }
+        if (assetTextDescription.trim()) {
+          assetDataPayload.textDescription = assetTextDescription.trim();
+        }
+        
+        let success = false;
+        let savedAssetName = assetName;
+
+        if (isEditMode && assetIdToEdit) {
+          const updateData: Partial<Asset> = { ...assetDataPayload };
+          const originalAsset = await FirestoreService.getAssetById(assetIdToEdit);
+          if (originalAsset) updateData.createdAt = originalAsset.createdAt; 
+          
+          success = await FirestoreService.updateAsset(assetIdToEdit, updateData);
+        } else {
+          const newAsset = await FirestoreService.addAsset(assetDataPayload as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
+          if (newAsset) {
+            success = true;
+            savedAssetName = newAsset.name;
+          }
+        }
+        
+        if (success) {
+            toast({ 
+                title: isEditMode ? t('assetUpdatedTitle', "Asset Updated") : t('assetSavedTitle', "Asset Saved"), 
+                description: isEditMode ? 
+                    t('assetUpdatedDesc', `Asset "${savedAssetName}" has been updated.`, { assetName: savedAssetName }) :
+                    t('assetSavedDesc', `Asset "${savedAssetName}" has been saved.`, { assetName: savedAssetName })
+            });
+            router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
+        } else {
+            toast({ title: "Error", description: isEditMode ? "Failed to update asset." : "Failed to save asset.", variant: "destructive" });
+        }
+    } catch (error) {
+        console.error("Error saving asset:", error);
+        toast({ title: "Error", description: "An unexpected error occurred while saving the asset.", variant: "destructive" });
+    } finally {
+        setIsSavingAsset(false);
     }
   };
 
@@ -377,11 +406,12 @@ export default function NewAssetPage() {
               <div>
                 <Label>{t('addPhotosSectionTitle', 'Add Photos')}</Label>
                 <div className="flex flex-col sm:flex-row gap-2 mt-1">
-                    <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1">
+                    <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1" disabled={isSavingAsset || isProcessingGalleryPhotos}>
                         <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
                     </Button>
-                    <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1">
-                        <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
+                    <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1" disabled={isSavingAsset || isProcessingGalleryPhotos}>
+                        {isProcessingGalleryPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
+                        {isProcessingGalleryPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
                     </Button>
                     <input
                         type="file"
@@ -391,13 +421,14 @@ export default function NewAssetPage() {
                         ref={galleryInputRef}
                         className="hidden"
                         onChange={handlePhotoUploadFromGallery}
+                        disabled={isProcessingGalleryPhotos}
                     />
                 </div>
                 {photoPreviews.length > 0 && (
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between items-center">
                       <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                      <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)}>
+                      <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)} disabled={isSavingAsset}>
                          <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
                       </Button>
                     </div>
@@ -419,11 +450,12 @@ export default function NewAssetPage() {
                   value={assetName}
                   onChange={(e) => setAssetName(e.target.value)}
                   placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
+                  disabled={isSavingAsset}
                 />
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              <Button onClick={handleNextToDescriptions} disabled={photoPreviews.length === 0 || !assetName.trim()}>
+              <Button onClick={handleNextToDescriptions} disabled={photoPreviews.length === 0 || !assetName.trim() || isSavingAsset}>
                 {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
@@ -447,6 +479,7 @@ export default function NewAssetPage() {
                           value={assetName}
                           onChange={(e) => setAssetName(e.target.value)}
                           placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
+                          disabled={isSavingAsset}
                         />
                     </div>
                 )}
@@ -454,7 +487,7 @@ export default function NewAssetPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                       <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)}>
+                       <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)} disabled={isSavingAsset}>
                           <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
                        </Button>
                     </div>
@@ -471,7 +504,7 @@ export default function NewAssetPage() {
                 <div className="space-y-2">
                   <Label htmlFor="asset-voice-description">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
                   {speechRecognitionAvailable ? (
-                    <Button onClick={toggleListening} variant="outline" className="w-full sm:w-auto">
+                    <Button onClick={toggleListening} variant="outline" className="w-full sm:w-auto" disabled={isSavingAsset || isListening}>
                       <Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-destructive' : ''}`} />
                       {isListening ? t('listening', 'Listening...') : t('recordVoiceDescriptionButton', 'Record Voice Description')}
                     </Button>
@@ -503,15 +536,17 @@ export default function NewAssetPage() {
                     placeholder={t('textDescriptionPlaceholder', 'Type detailed written description here...')}
                     rows={5}
                     className="resize-y"
+                    disabled={isSavingAsset}
                   />
                 </div>
             </CardContent>
             <CardFooter className="flex flex-row justify-between items-center gap-2 pt-4">
-              <Button variant="outline" onClick={() => setCurrentStep('photos_and_name')}>
+              <Button variant="outline" onClick={() => setCurrentStep('photos_and_name')} disabled={isSavingAsset}>
                 {t('backToPhotosName', 'Back to Photos & Name')}
               </Button>
-              <Button onClick={handleSaveAsset} size="lg">
-                {isEditMode ? t('updateAssetButton', "Update Asset") : t('saveAssetButton', 'Save Asset')}
+              <Button onClick={handleSaveAsset} size="lg" disabled={isSavingAsset || (!isEditMode && photoPreviews.length === 0) || !assetName.trim()}>
+                {isSavingAsset && <Loader2 className="mr-2 h-4 w-4 animate-spin" /> }
+                {isSavingAsset ? t('saving', 'Saving...') : (isEditMode ? t('updateAssetButton', "Update Asset") : t('saveAssetButton', 'Save Asset'))}
               </Button>
             </CardFooter>
           </Card>
@@ -548,20 +583,23 @@ export default function NewAssetPage() {
               <Button 
                 variant="outline" 
                 onClick={() => { setIsCustomCameraOpen(true); setIsPhotoModalOpen(false); }} 
-                className="w-full sm:w-auto">
+                className="w-full sm:w-auto"
+                disabled={isProcessingGalleryPhotos || isSavingAsset}>
                 <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
               </Button>
-              <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto">
-                <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
+              <Button variant="outline" onClick={() => galleryInputModalRef.current?.click()} className="w-full sm:w-auto" disabled={isProcessingGalleryPhotos || isSavingAsset}>
+                {isProcessingGalleryPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
+                {isProcessingGalleryPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
                <input 
                   type="file"
                   accept="image/*"
                   multiple
                   id="gallery-input-modal" 
-                  ref={galleryInputRef} 
+                  ref={galleryInputModalRef} 
                   className="hidden"
                   onChange={handlePhotoUploadFromGallery}
+                  disabled={isProcessingGalleryPhotos || isSavingAsset}
                 />
             </div>
 
@@ -579,6 +617,7 @@ export default function NewAssetPage() {
                             className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                             onClick={() => removePhotoFromPreviews(index)}
                             title={t('removePhotoTitle', "Remove photo")}
+                            disabled={isSavingAsset}
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -592,7 +631,7 @@ export default function NewAssetPage() {
             </div>
           </div>
           <DialogFooter className="flex flex-row justify-end space-x-2 pt-4 border-t">
-             <Button variant="outline" onClick={() => setIsPhotoModalOpen(false)}>
+             <Button variant="outline" onClick={() => setIsPhotoModalOpen(false)} disabled={isSavingAsset}>
                 {t('doneWithPhotos', 'Done with Photos')}
              </Button>
           </DialogFooter>
@@ -600,8 +639,10 @@ export default function NewAssetPage() {
       </Dialog>
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            // Logic for when camera is closed
+          if (!isOpen && mediaStream) { // If closing and stream exists
+            mediaStream.getTracks().forEach(track => track.stop());
+            setMediaStream(null);
+            if (videoRef.current) videoRef.current.srcObject = null;
           }
           setIsCustomCameraOpen(isOpen);
         }}>
@@ -682,5 +723,7 @@ export default function NewAssetPage() {
   );
 }
 
+
+    
 
     
