@@ -72,11 +72,11 @@ const translations: Record<Language, Record<string, string>> = {
     photosRequiredTitle: "Photos Required",
     photosRequiredDesc: "Please add at least one photo for the asset.",
     
-    stepNameInputTitle: "Step 1: Asset Name",
-    stepPhotosCaptureTitle: "Step 2: Photos",
-    stepDescriptionsTitle: "Step 3: Descriptions",
-    
-    nextStepAddPhotos: "Next: Add Photos",
+    stepNameInputTitle: "Step 1: Asset Name", // Old key, might be unused
+    stepPhotosCaptureTitle: "Step 2: Photos", // Old key, might be unused
+    stepDescriptionsTitle: "Step 3: Descriptions", // Old key, might be unused
+
+    nextStepAddPhotos: "Next: Add Photos", // Old key
     nextStepDescriptions: "Next: Add Descriptions",
     
     addPhotosForAssetTitle: "Add Photos for:",
@@ -91,8 +91,8 @@ const translations: Record<Language, Record<string, string>> = {
     textDescriptionLabel: "Written Description",
     textDescriptionPlaceholder: "Type detailed written description here...",
     
-    backToAssetName: "Back to Asset Name",
-    backToPhotos: "Back to Photos",
+    backToAssetName: "Back to Asset Name", // Old key for page flow
+    backToPhotos: "Back to Photos", // Old key for page flow
     saveAssetButton: "Save Asset",
 
     descriptionRequiredForSaveTitle: "Description Required",
@@ -106,6 +106,7 @@ const translations: Record<Language, Record<string, string>> = {
     removePhotoTitle: "Remove photo",
 
     backTo: "Back to",
+    backToProject: "Back to Project",
     enterAssetNamePrompt: "Enter the asset name.",
     assetNamePlaceholder: "e.g., Main Entrance Column",
     inFolder: "In folder:",
@@ -315,6 +316,19 @@ const translations: Record<Language, Record<string, string>> = {
     noProjectsAssigned: "No projects currently assigned.",
     noInspectorsFoundInCompany: "No inspectors found in this company.",
     noValuatorsFoundInCompany: "No valuators found in this company.",
+
+    // New keys for modal flow
+    stepPhotosCaptureTitleModal: "Step 1: Capture Photos",
+    stepNameInputTitleModal: "Step 2: Asset Name",
+    stepDescriptionsTitleModal: "Step 3: Descriptions & Save",
+    provideNameForAsset: "Provide a name for your asset.",
+    nextStepAssetName: "Next: Asset Name",
+    backToPhotoCapture: "Back to Photos",
+    backToAssetNameModal: "Back to Asset Name", // Differentiate from page flow if needed
+    cancelAssetCreation: "Cancel Asset Creation",
+    backToDashboard: "Back to Dashboard",
+
+
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -374,11 +388,11 @@ const translations: Record<Language, Record<string, string>> = {
     photosRequiredTitle: "الصور مطلوبة",
     photosRequiredDesc: "الرجاء إضافة صورة واحدة على الأقل للأصل.",
     
-    stepNameInputTitle: "الخطوة ١: اسم الأصل",
-    stepPhotosCaptureTitle: "الخطوة ٢: الصور",
+    stepNameInputTitle: "الخطوة ١: اسم الأصل", 
+    stepPhotosCaptureTitle: "الخطوة ٢: الصور", 
     stepDescriptionsTitle: "الخطوة ٣: الأوصاف",
 
-    nextStepAddPhotos: "التالي: إضافة الصور",
+    nextStepAddPhotos: "التالي: إضافة الصور", 
     nextStepDescriptions: "التالي: إضافة الأوصاف",
     
     addPhotosForAssetTitle: "إضافة صور لـ:",
@@ -393,8 +407,8 @@ const translations: Record<Language, Record<string, string>> = {
     textDescriptionLabel: "الوصف المكتوب",
     textDescriptionPlaceholder: "اكتب وصفًا مكتوبًا مفصلاً هنا...",
     
-    backToAssetName: "العودة إلى اسم الأصل",
-    backToPhotos: "العودة إلى الصور",
+    backToAssetName: "العودة إلى اسم الأصل", 
+    backToPhotos: "العودة إلى الصور", 
     saveAssetButton: "حفظ الأصل",
 
     descriptionRequiredForSaveTitle: "الوصف مطلوب",
@@ -408,6 +422,7 @@ const translations: Record<Language, Record<string, string>> = {
     removePhotoTitle: "إزالة الصورة",
 
     backTo: "العودة إلى",
+    backToProject: "العودة إلى المشروع",
     enterAssetNamePrompt: "أدخل اسم الأصل.",
     assetNamePlaceholder: "مثال: عمود المدخل الرئيسي",
     inFolder: "في المجلد:",
@@ -616,6 +631,18 @@ const translations: Record<Language, Record<string, string>> = {
     noProjectsAssigned: "لا توجد مشاريع معينة حاليًا.",
     noInspectorsFoundInCompany: "لا يوجد مفتشون في هذه الشركة.",
     noValuatorsFoundInCompany: "لا يوجد مقيمون في هذه الشركة.",
+    
+    // New keys for modal flow
+    stepPhotosCaptureTitleModal: "الخطوة 1: التقاط الصور",
+    stepNameInputTitleModal: "الخطوة 2: اسم الأصل",
+    stepDescriptionsTitleModal: "الخطوة 3: الأوصاف والحفظ",
+    provideNameForAsset: "أدخل اسمًا للأصل الخاص بك.",
+    nextStepAssetName: "التالي: اسم الأصل",
+    backToPhotoCapture: "العودة إلى الصور",
+    backToAssetNameModal: "العودة إلى اسم الأصل",
+    cancelAssetCreation: "إلغاء إنشاء الأصل",
+    backToDashboard: "العودة إلى لوحة التحكم",
+
   },
 };
 
@@ -655,3 +682,4 @@ export function useLanguage() {
   }
   return context;
 }
+

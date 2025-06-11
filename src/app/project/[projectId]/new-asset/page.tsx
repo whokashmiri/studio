@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'; // Keep Card for potential future use if modals are removed
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -17,7 +17,7 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 
-type AssetCreationStep = 'name_input' | 'photos_capture' | 'descriptions';
+type AssetCreationStep = 'photos_capture' | 'name_input' | 'descriptions';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1';
 
 export default function NewAssetPage() {
@@ -30,7 +30,7 @@ export default function NewAssetPage() {
   const assetIdToEdit = searchParams.get('assetId');
 
   const [isEditMode, setIsEditMode] = useState(false);
-  const [currentStep, setCurrentStep] = useState<AssetCreationStep>('name_input');
+  const [currentStep, setCurrentStep] = useState<AssetCreationStep>('photos_capture'); // Default to photos
   const [project, setProject] = useState<Project | null>(null);
   const [currentFolder, setCurrentFolder] = useState<Folder | null>(null);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
@@ -40,9 +40,16 @@ export default function NewAssetPage() {
   const [assetTextDescription, setAssetTextDescription] = useState('');
   
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); 
-  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false); 
   
+  // Main step modal states
+  const [isPhotosCaptureModalOpen, setIsPhotosCaptureModalOpen] = useState(false);
+  const [isNameInputModalOpen, setIsNameInputModalOpen] = useState(false);
+  const [isDescriptionsModalOpen, setIsDescriptionsModalOpen] = useState(false);
+
+  // Sub-modals for photo capture step
+  const [isManagePhotosBatchModalOpen, setIsManagePhotosBatchModalOpen] = useState(false); 
   const [isCustomCameraOpen, setIsCustomCameraOpen] = useState(false);
+
   const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
@@ -59,9 +66,27 @@ export default function NewAssetPage() {
   const [isSavingAsset, setIsSavingAsset] = useState(false);
   const [isProcessingGalleryPhotos, setIsProcessingGalleryPhotos] = useState(false);
 
-
   const { toast } = useToast();
   const { t, language } = useLanguage();
+
+  const backLinkHref = `/project/${projectId}${currentFolder ? `?folderId=${currentFolder.id}` : ''}`;
+  const backLinkText = project ? `${t('backTo', 'Back to')} ${project.name}` : t('backToProject', 'Back to Project');
+
+  const handleCancelAllAndExit = useCallback(() => {
+    // Clear all states and navigate back
+    setAssetName('');
+    setPhotoPreviews([]);
+    setAssetVoiceDescription('');
+    setAssetTextDescription('');
+    setIsEditMode(false);
+    // Close all modals
+    setIsPhotosCaptureModalOpen(false);
+    setIsNameInputModalOpen(false);
+    setIsDescriptionsModalOpen(false);
+    setIsCustomCameraOpen(false);
+    setIsManagePhotosBatchModalOpen(false);
+    router.push(backLinkHref);
+  }, [router, backLinkHref, projectId, currentFolder]);
 
   const loadProjectAndAsset = useCallback(async () => {
     setIsLoadingPage(true);
@@ -72,7 +97,7 @@ export default function NewAssetPage() {
 
         if (!foundProject) {
           toast({ title: t('projectNotFound', "Project Not Found"), variant: "destructive" });
-          router.push('/');
+          handleCancelAllAndExit(); // Use the new cancel function
           return;
         }
 
@@ -106,27 +131,49 @@ export default function NewAssetPage() {
             setAssetVoiceDescription(foundAsset.voiceDescription || '');
             setAssetTextDescription(foundAsset.textDescription || '');
             setPhotoPreviews(foundAsset.photos || []); 
-            setCurrentStep('descriptions'); 
+            setCurrentStep('descriptions'); // Start at descriptions for edit mode
           } else {
             toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
-            router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
+            handleCancelAllAndExit();
           }
         } else {
-          setCurrentStep('name_input'); // Default for new asset
+          setCurrentStep('photos_capture'); // Default for new asset
         }
       } catch (error) {
         console.error("Error loading project/asset:", error);
         toast({ title: "Error", description: "Failed to load data.", variant: "destructive"});
-        router.push('/');
+        handleCancelAllAndExit();
       } finally {
         setIsLoadingPage(false);
       }
+    } else { // No projectId
+        handleCancelAllAndExit();
     }
-  }, [projectId, assetIdToEdit, router, toast, t, folderId]);
+  }, [projectId, assetIdToEdit, folderId, toast, t, handleCancelAllAndExit]);
+
 
   useEffect(() => {
     loadProjectAndAsset();
   }, [loadProjectAndAsset]);
+
+  // Effect to control which modal is open based on currentStep
+  useEffect(() => {
+    if (isLoadingPage) return;
+
+    // Always close all first to ensure only one is open
+    setIsPhotosCaptureModalOpen(false);
+    setIsNameInputModalOpen(false);
+    setIsDescriptionsModalOpen(false);
+
+    if (currentStep === 'photos_capture') {
+      setIsPhotosCaptureModalOpen(true);
+    } else if (currentStep === 'name_input') {
+      setIsNameInputModalOpen(true);
+    } else if (currentStep === 'descriptions') {
+      setIsDescriptionsModalOpen(true);
+    }
+  }, [currentStep, isLoadingPage]);
+
 
  useEffect(() => {
     let streamInstance: MediaStream | null = null;
@@ -228,7 +275,7 @@ export default function NewAssetPage() {
           filesProcessed++;
           if (filesProcessed === newFiles.length) {
             setPhotoPreviews(prev => [...prev, ...newPhotoUrls].slice(0, 10)); 
-            if (!isPhotoModalOpen && currentStep === 'photos_capture') setIsPhotoModalOpen(true);
+            if (!isManagePhotosBatchModalOpen && currentStep === 'photos_capture') setIsManagePhotosBatchModalOpen(true); // Open manage batch modal if not already
             setIsProcessingGalleryPhotos(false);
           }
         };
@@ -270,7 +317,9 @@ export default function NewAssetPage() {
     setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    setIsPhotoModalOpen(false); 
+    // Keep manage photos batch modal open if it was, or open it if not.
+    // The 'Next' button from the main photos_capture modal will handle progression.
+    if (!isManagePhotosBatchModalOpen) setIsManagePhotosBatchModalOpen(true);
   };
 
   const handleCancelCustomCamera = () => {
@@ -282,22 +331,25 @@ export default function NewAssetPage() {
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  const handleNextToPhotos = () => {
+  // Navigation handlers
+  const handleNextFromPhotos = () => {
+    if (photoPreviews.length === 0 && !isEditMode) { // Still enforce for new assets
+      toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
+      return;
+    }
+    setCurrentStep('name_input');
+  };
+
+  const handleNextFromNameInput = () => {
     if (!assetName.trim()) {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
       return;
     }
-    setCurrentStep('photos_capture');
+    setCurrentStep('descriptions');
   };
 
-  const handleNextToDescriptions = () => {
-    if (photoPreviews.length === 0) {
-      toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
-      return;
-    }
-    setCurrentStep('descriptions');
-    setIsPhotoModalOpen(false);
-  };
+  const handleBackToPhotos = () => setCurrentStep('photos_capture');
+  const handleBackToNameInput = () => setCurrentStep('name_input');
 
   const toggleListening = () => {
     if (!speechRecognitionRef.current || !speechRecognitionAvailable) {
@@ -381,7 +433,7 @@ export default function NewAssetPage() {
                     t('assetUpdatedDesc', `Asset "${savedAssetName}" has been updated.`, { assetName: savedAssetName }) :
                     t('assetSavedDesc', `Asset "${savedAssetName}" has been saved.`, { assetName: savedAssetName })
             });
-            router.push(`/project/${project.id}${currentFolder ? `?folderId=${currentFolder.id}` : ''}`);
+            handleCancelAllAndExit(); // Exit after save
         } else {
             toast({ title: "Error", description: isEditMode ? "Failed to update asset." : "Failed to save asset.", variant: "destructive" });
         }
@@ -404,201 +456,18 @@ export default function NewAssetPage() {
     );
   }
   if (!project) { 
-     return <div className="container mx-auto p-4 text-center">{t('projectNotFound', 'Project Not Found')}</div>;
+     // This should be caught by the isLoadingPage block or loadProjectAndAsset's error handling
+     // but as a fallback:
+     return (
+        <div className="container mx-auto p-4 text-center">
+           <p>{t('projectNotFound', 'Project Not Found')}</p>
+           <Button onClick={() => router.push('/')} className="mt-4">{t('backToDashboard', 'Back to Dashboard')}</Button>
+        </div>
+     );
   }
 
-
-  const pageTitle = isEditMode ? t('editAssetTitle', "Edit Asset") : t('newAsset', 'Create New Asset');
+  const pageMainTitle = isEditMode ? t('editAssetTitle', "Edit Asset") : t('newAsset', 'Create New Asset');
   
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 'name_input':
-        return (
-          <Card className="max-w-3xl mx-auto">
-            <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl font-headline">{pageTitle} {t('forProject', 'for')} {project.name}</CardTitle>
-              {currentFolder && <CardDescription>{t('inFolder', 'In folder:')} {currentFolder.name}</CardDescription>}
-              <CardDescription>{t('stepNameInputTitle', 'Step 1: Asset Name')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="asset-name">{t('assetName', 'Asset Name')}</Label>
-                <Input
-                  id="asset-name"
-                  value={assetName}
-                  onChange={(e) => setAssetName(e.target.value)}
-                  placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
-                  disabled={isSavingAsset}
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button onClick={handleNextToPhotos} disabled={!assetName.trim() || isSavingAsset}>
-                {t('nextStepAddPhotos', 'Next: Add Photos')} <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardFooter>
-          </Card>
-        );
-      case 'photos_capture':
-        return (
-          <Card className="max-w-3xl mx-auto">
-            <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl font-headline">
-                {t('addPhotosForAssetTitle', 'Add Photos for:')} <span className="text-primary">{assetName}</span>
-              </CardTitle>
-              <CardDescription>{t('stepPhotosCaptureTitle', 'Step 2: Photos')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <Label>{t('addPhotosSectionTitle', 'Add Photos')}</Label>
-                <div className="flex flex-col sm:flex-row gap-2 mt-1">
-                    <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1" disabled={isSavingAsset || isProcessingGalleryPhotos}>
-                        <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
-                    </Button>
-                    <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1" disabled={isSavingAsset || isProcessingGalleryPhotos}>
-                        {isProcessingGalleryPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
-                        {isProcessingGalleryPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
-                    </Button>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        id="gallery-input-main"
-                        ref={galleryInputRef}
-                        className="hidden"
-                        onChange={handlePhotoUploadFromGallery}
-                        disabled={isProcessingGalleryPhotos}
-                    />
-                </div>
-                {photoPreviews.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                      <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)} disabled={isSavingAsset}>
-                         <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-6 gap-1.5">
-                      {photoPreviews.slice(0, 6).map((src, index) => ( 
-                          <div key={`main-preview-${index}-${src.substring(0,20)}`} className="relative group">
-                            <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
-                          </div>
-                      ))}
-                    </div>
-                    {photoPreviews.length > 6 && <p className="text-xs text-muted-foreground text-center mt-1">{t('morePhotosInModal', `+${photoPreviews.length - 6} more. Click "Manage Photos" to see all.`, {count: photoPreviews.length - 6})}</p>}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button variant="outline" onClick={() => setCurrentStep('name_input')} disabled={isSavingAsset}>
-                 {t('backToAssetName', 'Back to Asset Name')}
-              </Button>
-              <Button onClick={handleNextToDescriptions} disabled={photoPreviews.length === 0 || isSavingAsset}>
-                {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardFooter>
-          </Card>
-        );
-      case 'descriptions':
-        return (
-          <Card className="max-w-3xl mx-auto">
-            <CardHeader>
-               <CardTitle className="text-xl sm:text-2xl font-headline">
-                {isEditMode ? t('editAssetDetailsTitle', 'Edit Details for:') : t('addDetailsForAssetTitle', 'Add Details for:')} <span className="text-primary">{assetName}</span>
-               </CardTitle>
-              <CardDescription>{t('stepDescriptionsTitle', 'Step 3: Descriptions')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                {isEditMode && (
-                     <div className="space-y-2">
-                        <Label htmlFor="asset-name-edit">{t('assetName', 'Asset Name')}</Label>
-                        <Input
-                          id="asset-name-edit"
-                          value={assetName}
-                          onChange={(e) => setAssetName(e.target.value)}
-                          placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
-                          disabled={isSavingAsset}
-                        />
-                    </div>
-                )}
-                {photoPreviews.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                       <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)} disabled={isSavingAsset}>
-                          <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
-                       </Button>
-                    </div>
-                    <div className="grid grid-cols-6 gap-1.5">
-                      {photoPreviews.map((src, index) => (
-                          <div key={`desc-preview-${index}-${src.substring(0,20)}`} className="relative group">
-                            <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
-                          </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <div className="space-y-2">
-                  <Label htmlFor="asset-voice-description">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
-                  {speechRecognitionAvailable ? (
-                    <Button onClick={toggleListening} variant="outline" className="w-full sm:w-auto" disabled={isSavingAsset || isListening}>
-                      <Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-destructive' : ''}`} />
-                      {isListening ? t('listening', 'Listening...') : t('recordVoiceDescriptionButton', 'Record Voice Description')}
-                    </Button>
-                  ) : (
-                     <Alert variant="default">
-                        <Info className="h-4 w-4" />
-                        <AlertTitle>{t('speechFeatureNotAvailableTitle', 'Speech Recognition Not Available')}</AlertTitle>
-                        <AlertDescription>{t('speechFeatureNotAvailableDesc', 'Your browser does not support speech recognition.')}</AlertDescription>
-                     </Alert>
-                  )}
-                  {assetVoiceDescription && (
-                    <Textarea
-                      id="asset-voice-description-display"
-                      value={assetVoiceDescription}
-                      readOnly
-                      rows={3}
-                      className="mt-2 bg-muted/50"
-                      placeholder={t('voiceTranscriptPlaceholder', 'Voice transcript will appear here...')}
-                    />
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="asset-text-description">{t('textDescriptionLabel', 'Written Description')}</Label>
-                  <Textarea
-                    id="asset-text-description"
-                    value={assetTextDescription}
-                    onChange={(e) => setAssetTextDescription(e.target.value)}
-                    placeholder={t('textDescriptionPlaceholder', 'Type detailed written description here...')}
-                    rows={5}
-                    className="resize-y"
-                    disabled={isSavingAsset}
-                  />
-                </div>
-            </CardContent>
-            <CardFooter className="flex flex-row justify-between items-center gap-2 pt-4">
-              <Button variant="outline" onClick={() => setCurrentStep('photos_capture')} disabled={isSavingAsset}>
-                {t('backToPhotos', 'Back to Photos')}
-              </Button>
-              <Button onClick={handleSaveAsset} size="lg" disabled={isSavingAsset || (!isEditMode && photoPreviews.length === 0) || !assetName.trim()}>
-                {isSavingAsset && <Loader2 className="mr-2 h-4 w-4 animate-spin" /> }
-                {isSavingAsset ? t('saving', 'Saving...') : (isEditMode ? t('updateAssetButton', "Update Asset") : t('saveAssetButton', 'Save Asset'))}
-              </Button>
-            </CardFooter>
-          </Card>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const backLinkHref = `/project/${projectId}${currentFolder ? `?folderId=${currentFolder.id}` : ''}`;
-  const backLinkText = `${t('backTo', 'Back to')} ${project.name}`;
-
-
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
       <canvas ref={canvasRef} className="hidden"></canvas> 
@@ -606,10 +475,194 @@ export default function NewAssetPage() {
         <ArrowLeft className="mr-1 h-4 w-4" />
         {backLinkText}
       </Link>
-      
-       {renderStepContent()}
+      <h1 className="text-2xl font-bold text-center">{pageMainTitle}</h1>
+      {project && <p className="text-center text-muted-foreground">{t('forProject', 'for')} {project.name}</p>}
+      {currentFolder && <p className="text-center text-muted-foreground">{t('inFolder', 'In folder:')} {currentFolder.name}</p>}
 
-      <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
+
+      {/* Photos Capture Modal */}
+      <Dialog open={isPhotosCaptureModalOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancelAllAndExit(); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col" hideCloseButton={true}>
+          <DialogHeader>
+            <DialogTitle className="text-xl sm:text-2xl font-headline">
+              {t('stepPhotosCaptureTitleModal', 'Step 1: Capture Photos')}
+            </DialogTitle>
+            <DialogDescription>{t('addPhotosForAssetTitle', 'Add Photos for:')} <span className="font-medium text-primary">{assetName || t('unnamedAsset', 'Unnamed Asset')}</span></DialogDescription>
+          </DialogHeader>
+          <div className="flex-grow overflow-y-auto py-4 space-y-6">
+            <div className="flex flex-col sm:flex-row gap-2 mt-1">
+                <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1" disabled={isSavingAsset || isProcessingGalleryPhotos}>
+                    <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
+                </Button>
+                <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1" disabled={isSavingAsset || isProcessingGalleryPhotos}>
+                    {isProcessingGalleryPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
+                    {isProcessingGalleryPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
+                </Button>
+                <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    id="gallery-input-main" // Keep this ID for the ref
+                    ref={galleryInputRef}
+                    className="hidden"
+                    onChange={handlePhotoUploadFromGallery}
+                    disabled={isProcessingGalleryPhotos}
+                />
+            </div>
+            {photoPreviews.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
+                  <Button variant="outline" size="sm" onClick={() => setIsManagePhotosBatchModalOpen(true)} disabled={isSavingAsset}>
+                     <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
+                  </Button>
+                </div>
+                <ScrollArea className="h-[200px] pr-2 border rounded-md p-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
+                    {photoPreviews.map((src, index) => ( 
+                        <div key={`main-preview-${index}-${src.substring(0,20)}`} className="relative group">
+                        <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
+                        </div>
+                    ))}
+                    </div>
+                </ScrollArea>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex justify-between">
+            <Button variant="outline" onClick={handleCancelAllAndExit} disabled={isSavingAsset}>
+              {t('cancelAssetCreation', 'Cancel Asset Creation')}
+            </Button>
+            <Button onClick={handleNextFromPhotos} disabled={isSavingAsset || (photoPreviews.length === 0 && !isEditMode) }>
+              {t('nextStepAssetName', 'Next: Asset Name')} <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Asset Name Input Modal */}
+      <Dialog open={isNameInputModalOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancelAllAndExit(); }}>
+        <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col" hideCloseButton={true}>
+          <DialogHeader>
+            <DialogTitle className="text-xl sm:text-2xl font-headline">{t('stepNameInputTitleModal', 'Step 2: Asset Name')}</DialogTitle>
+             <DialogDescription>{t('provideNameForAsset', 'Provide a name for your asset.')}</DialogDescription>
+          </DialogHeader>
+          <div className="flex-grow overflow-y-auto py-4 space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="asset-name-modal">{t('assetName', 'Asset Name')}</Label>
+              <Input
+                id="asset-name-modal"
+                value={assetName}
+                onChange={(e) => setAssetName(e.target.value)}
+                placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
+                disabled={isSavingAsset}
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex justify-between">
+            <Button variant="outline" onClick={handleBackToPhotos} disabled={isSavingAsset}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToPhotoCapture', 'Back to Photos')}
+            </Button>
+            <Button onClick={handleNextFromNameInput} disabled={!assetName.trim() || isSavingAsset}>
+              {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Descriptions Modal */}
+      <Dialog open={isDescriptionsModalOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancelAllAndExit(); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col" hideCloseButton={true}>
+          <DialogHeader>
+             <DialogTitle className="text-xl sm:text-2xl font-headline">{t('stepDescriptionsTitleModal', 'Step 3: Descriptions & Save')}</DialogTitle>
+             <DialogDescription>{isEditMode ? t('editAssetDetailsTitle', 'Edit Details for:') : t('addDetailsForAssetTitle', 'Add Details for:')} <span className="font-medium text-primary">{assetName}</span></DialogDescription>
+          </DialogHeader>
+          <div className="flex-grow overflow-y-auto py-4 space-y-6">
+              {(isEditMode || currentStep === 'descriptions') && ( // Allow editing name in description step always
+                   <div className="space-y-2">
+                      <Label htmlFor="asset-name-desc-modal">{t('assetName', 'Asset Name')}</Label>
+                      <Input
+                        id="asset-name-desc-modal"
+                        value={assetName}
+                        onChange={(e) => setAssetName(e.target.value)}
+                        placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
+                        disabled={isSavingAsset}
+                      />
+                  </div>
+              )}
+              {photoPreviews.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
+                     <Button variant="outline" size="sm" onClick={() => setIsManagePhotosBatchModalOpen(true)} disabled={isSavingAsset}>
+                        <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
+                     </Button>
+                  </div>
+                  <ScrollArea className="h-[150px] pr-2 border rounded-md p-2">
+                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
+                    {photoPreviews.map((src, index) => (
+                        <div key={`desc-preview-${index}-${src.substring(0,20)}`} className="relative group">
+                          <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
+                        </div>
+                    ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label htmlFor="asset-voice-description">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
+                {speechRecognitionAvailable ? (
+                  <Button onClick={toggleListening} variant="outline" className="w-full sm:w-auto" disabled={isSavingAsset || isListening}>
+                    <Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-destructive' : ''}`} />
+                    {isListening ? t('listening', 'Listening...') : t('recordVoiceDescriptionButton', 'Record Voice Description')}
+                  </Button>
+                ) : (
+                   <Alert variant="default">
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>{t('speechFeatureNotAvailableTitle', 'Speech Recognition Not Available')}</AlertTitle>
+                      <AlertDescription>{t('speechFeatureNotAvailableDesc', 'Your browser does not support speech recognition.')}</AlertDescription>
+                   </Alert>
+                )}
+                {assetVoiceDescription && (
+                  <Textarea
+                    id="asset-voice-description-display"
+                    value={assetVoiceDescription}
+                    readOnly
+                    rows={3}
+                    className="mt-2 bg-muted/50"
+                    placeholder={t('voiceTranscriptPlaceholder', 'Voice transcript will appear here...')}
+                  />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="asset-text-description">{t('textDescriptionLabel', 'Written Description')}</Label>
+                <Textarea
+                  id="asset-text-description"
+                  value={assetTextDescription}
+                  onChange={(e) => setAssetTextDescription(e.target.value)}
+                  placeholder={t('textDescriptionPlaceholder', 'Type detailed written description here...')}
+                  rows={5}
+                  className="resize-y"
+                  disabled={isSavingAsset}
+                />
+              </div>
+          </div>
+          <DialogFooter className="flex justify-between items-center gap-2 pt-4">
+            <Button variant="outline" onClick={handleBackToNameInput} disabled={isSavingAsset}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToAssetNameModal', 'Back to Asset Name')}
+            </Button>
+            <Button onClick={handleSaveAsset} size="lg" disabled={isSavingAsset || (!isEditMode && photoPreviews.length === 0) || !assetName.trim()}>
+              {isSavingAsset && <Loader2 className="mr-2 h-4 w-4 animate-spin" /> }
+              {isSavingAsset ? t('saving', 'Saving...') : (isEditMode ? t('updateAssetButton', "Update Asset") : t('saveAssetButton', 'Save Asset'))}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Photos Batch Modal (Sub-modal for Photos step, or from Descriptions step) */}
+      <Dialog open={isManagePhotosBatchModalOpen} onOpenChange={setIsManagePhotosBatchModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-headline">
@@ -621,7 +674,7 @@ export default function NewAssetPage() {
             <div className="flex flex-col sm:flex-row gap-2">
               <Button 
                 variant="outline" 
-                onClick={() => { setIsCustomCameraOpen(true); setIsPhotoModalOpen(false); }} 
+                onClick={() => { setIsCustomCameraOpen(true); setIsManagePhotosBatchModalOpen(false); }} 
                 className="w-full sm:w-auto"
                 disabled={isProcessingGalleryPhotos || isSavingAsset}>
                 <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
@@ -670,13 +723,14 @@ export default function NewAssetPage() {
             </div>
           </div>
           <DialogFooter className="flex flex-row justify-end space-x-2 pt-4 border-t">
-             <Button variant="outline" onClick={() => setIsPhotoModalOpen(false)} disabled={isSavingAsset}>
+             <Button variant="outline" onClick={() => setIsManagePhotosBatchModalOpen(false)} disabled={isSavingAsset}>
                 {t('doneWithPhotos', 'Done with Photos')}
              </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Custom Camera Modal (Sub-modal) */}
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
           if (!isOpen && mediaStream) { 
             mediaStream.getTracks().forEach(track => track.stop());
@@ -684,6 +738,8 @@ export default function NewAssetPage() {
             if (videoRef.current) videoRef.current.srcObject = null;
           }
           setIsCustomCameraOpen(isOpen);
+          // If closing camera, and photo batch manager was closed to open camera, re-open photo batch manager
+          if(!isOpen && !isManagePhotosBatchModalOpen) setIsManagePhotosBatchModalOpen(true);
         }}>
          <DialogContent variant="fullscreen" className="bg-black text-white">
            <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
@@ -761,3 +817,19 @@ export default function NewAssetPage() {
     </div>
   );
 }
+
+// Helper to add hideCloseButton to DialogContent props if not already there
+declare module "@radix-ui/react-dialog" {
+  interface DialogContentProps {
+    hideCloseButton?: boolean;
+  }
+}
+// In DialogContent component definition in ui/dialog.tsx, use this prop:
+// {variant === 'default' && !hideCloseButton && (
+//   <DialogPrimitive.Close ...>
+//     <X className="h-6 w-6" />
+//     <span className="sr-only">Close</span>
+//   </DialogPrimitive.Close>
+// )}
+// This requires updating the ui/dialog.tsx file. I will do it as part of this change.
+
