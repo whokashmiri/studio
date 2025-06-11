@@ -627,7 +627,7 @@ export default function NewAssetPage() {
                 />
               </div>
           </div>
-          <DialogFooter className="flex justify-between items-center gap-2 pt-4">
+          <DialogFooter className="flex justify-end items-center gap-2 pt-4">
             <Button variant="outline" onClick={handleBackToNameInput} disabled={isSavingAsset}>
               <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToAssetNameModal', 'Back to Asset Name')}
             </Button>

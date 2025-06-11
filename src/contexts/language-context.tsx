@@ -91,9 +91,9 @@ const translations: Record<Language, Record<string, string>> = {
     textDescriptionLabel: "Written Description",
     textDescriptionPlaceholder: "Type detailed written description here...",
     
-    backToAssetName: "Back to Asset Name", // Old key for page flow
-    backToPhotos: "Back to Photos", // Old key for page flow
-    saveAssetButton: "Save Asset",
+    backToAssetName: "Back", // Old key for page flow
+    backToPhotos: "Back ", // Old key for page flow
+    saveAssetButton: "Save ",
 
     descriptionRequiredForSaveTitle: "Description Required",
     descriptionRequiredForSaveDesc: "Please provide at least one form of description (voice or text).",
