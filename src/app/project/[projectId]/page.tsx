@@ -29,6 +29,7 @@ export default function ProjectPage() {
   const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
   const [currentAssets, setCurrentAssets] = useState<Asset[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isNavigatingToNewAsset, setIsNavigatingToNewAsset] = useState(false);
 
   const [newFolderName, setNewFolderName] = useState('');
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
@@ -152,7 +153,7 @@ export default function ProjectPage() {
   const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
     setIsNewFolderDialogOpen(true);
-  }, []); // Removed selectedFolder as dep, it's passed as arg
+  }, []); 
 
   const handleOpenEditFolderModal = useCallback((folderToEdit: FolderType) => {
     setEditingFolder(folderToEdit);
@@ -232,12 +233,18 @@ export default function ProjectPage() {
             {!isMobile && (
               <Link href={newAssetHref} passHref legacyBehavior>
                   <Button
+                    onClick={() => setIsNavigatingToNewAsset(true)}
+                    disabled={isNavigatingToNewAsset}
                     className="w-full sm:w-auto"
                     size="default"
                     title={t('newAsset', 'New Asset')}
                   >
-                    <FilePlus className="mr-2 h-5 w-5" />
-                    {t('newAsset', 'New Asset')}
+                    {isNavigatingToNewAsset ? (
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                        <FilePlus className="mr-2 h-5 w-5" />
+                    )}
+                    {isNavigatingToNewAsset ? t('loading', 'Loading...') : t('newAsset', 'New Asset')}
                   </Button>
                 </Link>
             )}
@@ -312,12 +319,18 @@ export default function ProjectPage() {
           </Button>
           <Link href={newAssetHref} passHref legacyBehavior>
             <Button
+              onClick={() => setIsNavigatingToNewAsset(true)}
+              disabled={isNavigatingToNewAsset}
               className="flex-1"
               size="default"
               title={t('newAsset', 'New Asset')}
             >
-              <FilePlus className="mr-2 h-5 w-5" />
-              {t('newAsset', 'New Asset')}
+              {isNavigatingToNewAsset ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <FilePlus className="mr-2 h-5 w-5" />
+              )}
+              {isNavigatingToNewAsset ? t('loading', 'Loading...') : t('newAsset', 'New Asset')}
             </Button>
           </Link>
         </div>
@@ -366,5 +379,7 @@ export default function ProjectPage() {
     </div>
   );
 }
+
+    
 
     
