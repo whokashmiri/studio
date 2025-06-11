@@ -97,7 +97,7 @@ export default function NewAssetPage() {
 
         if (!foundProject) {
           toast({ title: t('projectNotFound', "Project Not Found"), variant: "destructive" });
-          handleCancelAllAndExit(); // Use the new cancel function
+          handleCancelAllAndExit(); 
           return;
         }
 
@@ -131,13 +131,13 @@ export default function NewAssetPage() {
             setAssetVoiceDescription(foundAsset.voiceDescription || '');
             setAssetTextDescription(foundAsset.textDescription || '');
             setPhotoPreviews(foundAsset.photos || []); 
-            setCurrentStep('descriptions'); // Start at descriptions for edit mode
+            setCurrentStep('descriptions'); 
           } else {
             toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
             handleCancelAllAndExit();
           }
         } else {
-          setCurrentStep('photos_capture'); // Default for new asset
+          setCurrentStep('photos_capture'); 
         }
       } catch (error) {
         console.error("Error loading project/asset:", error);
@@ -146,7 +146,7 @@ export default function NewAssetPage() {
       } finally {
         setIsLoadingPage(false);
       }
-    } else { // No projectId
+    } else { 
         handleCancelAllAndExit();
     }
   }, [projectId, assetIdToEdit, folderId, toast, t, handleCancelAllAndExit]);
@@ -275,7 +275,7 @@ export default function NewAssetPage() {
           filesProcessed++;
           if (filesProcessed === newFiles.length) {
             setPhotoPreviews(prev => [...prev, ...newPhotoUrls].slice(0, 10)); 
-            if (!isManagePhotosBatchModalOpen && currentStep === 'photos_capture') setIsManagePhotosBatchModalOpen(true); // Open manage batch modal if not already
+            if (!isManagePhotosBatchModalOpen && currentStep === 'photos_capture') setIsManagePhotosBatchModalOpen(true); 
             setIsProcessingGalleryPhotos(false);
           }
         };
@@ -317,15 +317,13 @@ export default function NewAssetPage() {
     setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    setIsManagePhotosBatchModalOpen(false); // Ensure Manage Photos modal is closed
+    setIsManagePhotosBatchModalOpen(false); 
   };
 
   const handleCancelCustomCamera = () => {
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    // If Manage Photos Batch was previously open and we cancelled custom camera,
-    // re-open manage photos. Otherwise, stay on the photos_capture modal.
-    if (currentStep === 'photos_capture') { // Or some flag indicating it was opened from Manage Photos
+    if (currentStep === 'photos_capture') { 
         setIsManagePhotosBatchModalOpen(true);
     }
   };
@@ -336,7 +334,7 @@ export default function NewAssetPage() {
 
   // Navigation handlers
   const handleNextFromPhotos = () => {
-    if (photoPreviews.length === 0 && !isEditMode) { // Still enforce for new assets
+    if (photoPreviews.length === 0 && !isEditMode) { 
       toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
       return;
     }
@@ -436,7 +434,7 @@ export default function NewAssetPage() {
                     t('assetUpdatedDesc', `Asset "${savedAssetName}" has been updated.`, { assetName: savedAssetName }) :
                     t('assetSavedDesc', `Asset "${savedAssetName}" has been saved.`, { assetName: savedAssetName })
             });
-            handleCancelAllAndExit(); // Exit after save
+            handleCancelAllAndExit(); 
         } else {
             toast({ title: "Error", description: isEditMode ? "Failed to update asset." : "Failed to save asset.", variant: "destructive" });
         }
@@ -459,8 +457,6 @@ export default function NewAssetPage() {
     );
   }
   if (!project) { 
-     // This should be caught by the isLoadingPage block or loadProjectAndAsset's error handling
-     // but as a fallback:
      return (
         <div className="container mx-auto p-4 text-center">
            <p>{t('projectNotFound', 'Project Not Found')}</p>
@@ -505,7 +501,7 @@ export default function NewAssetPage() {
                     type="file"
                     accept="image/*"
                     multiple
-                    id="gallery-input-main" // Keep this ID for the ref
+                    id="gallery-input-main" 
                     ref={galleryInputRef}
                     className="hidden"
                     onChange={handlePhotoUploadFromGallery}
@@ -581,38 +577,7 @@ export default function NewAssetPage() {
              <DialogDescription>{isEditMode ? t('editAssetDetailsTitle', 'Edit Details for:') : t('addDetailsForAssetTitle', 'Add Details for:')} <span className="font-medium text-primary">{assetName}</span></DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto py-4 space-y-6">
-              {(isEditMode || currentStep === 'descriptions') && ( // Allow editing name in description step always
-                   <div className="space-y-2">
-                      <Label htmlFor="asset-name-desc-modal">{t('assetName', 'Asset Name')}</Label>
-                      <Input
-                        id="asset-name-desc-modal"
-                        value={assetName}
-                        onChange={(e) => setAssetName(e.target.value)}
-                        placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
-                        disabled={isSavingAsset}
-                      />
-                  </div>
-              )}
-              {photoPreviews.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                     <Button variant="outline" size="sm" onClick={() => setIsManagePhotosBatchModalOpen(true)} disabled={isSavingAsset}>
-                        <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
-                     </Button>
-                  </div>
-                  <ScrollArea className="h-[150px] pr-2 border rounded-md p-2">
-                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
-                    {photoPreviews.map((src, index) => (
-                        <div key={`desc-preview-${index}-${src.substring(0,20)}`} className="relative group">
-                          <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
-                        </div>
-                    ))}
-                    </div>
-                  </ScrollArea>
-                </div>
-              )}
-              
+              {/* Removed Asset Name Input and Photo Management from this modal */}
               <div className="space-y-2">
                 <Label htmlFor="asset-voice-description">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
                 {speechRecognitionAvailable ? (
@@ -725,7 +690,6 @@ export default function NewAssetPage() {
               )}
             </div>
           </div>
-          {/* Footer removed as per user request to remove "Done with Photos" button */}
         </DialogContent>
       </Dialog>
 
@@ -737,16 +701,6 @@ export default function NewAssetPage() {
             if (videoRef.current) videoRef.current.srcObject = null;
           }
           setIsCustomCameraOpen(isOpen);
-          // If closing camera, and photo batch manager was closed to open camera, re-open photo batch manager
-          if(!isOpen && !isManagePhotosBatchModalOpen) {
-            // If the user intended to go back to manage photos (e.g. by pressing escape from camera)
-            // we should re-open it. However, if they clicked "Add photos" from camera,
-            // handleAddSessionPhotosToBatch already sets isManagePhotosBatchModalOpen to false.
-            // This logic might need refinement based on precise desired flow.
-            // For now, simply closing camera returns to whatever opened it OR the main photo step.
-            // If it was manage photos, and they click add, manage photos is explicitly closed.
-            // If they cancel from camera, it re-opens manage photos if that was the context.
-          }
         }}>
          <DialogContent variant="fullscreen" className="bg-black text-white">
            <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
@@ -840,3 +794,5 @@ declare module "@radix-ui/react-dialog" {
 // )}
 // This requires updating the ui/dialog.tsx file. I will do it as part of this change.
 
+
+    
