@@ -20,6 +20,10 @@ const baseNextConfig: NextConfig = {
     ],
   },
   experimental: {
+    // IMPORTANT: If you experience issues with Hot Module Replacement (HMR)
+    // or Fast Refresh not working, ensure the URLs below match the
+    // exact URL you are using to access your development environment.
+    // These might change if your Firebase Studio or Cloud Workstation URL changes.
     allowedDevOrigins: [
       'https://6000-firebase-studio-1748928733161.cluster-oayqgyglpfgseqclbygurw4xd4.cloudworkstations.dev',
       'https://9000-firebase-studio-1748928733161.cluster-oayqgyglpfgseqclbygurw4xd4.cloudworkstations.dev',
