@@ -30,6 +30,7 @@ export default function ProjectPage() {
   const [currentAssets, setCurrentAssets] = useState<Asset[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isNavigatingToNewAsset, setIsNavigatingToNewAsset] = useState(false);
+  const [isNavigatingToHome, setIsNavigatingToHome] = useState(false); // New state for home navigation
 
   const [newFolderName, setNewFolderName] = useState('');
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
@@ -107,7 +108,7 @@ export default function ProjectPage() {
   }, [loadProjectData]);
 
   const breadcrumbItems = useMemo(() => {
-    if (!project) return []; // project might be null during initial load
+    if (!project) return []; 
     return getFolderPath(selectedFolder?.id || null, project);
   }, [project, selectedFolder, getFolderPath]);
   
@@ -212,9 +213,23 @@ export default function ProjectPage() {
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24 md:pb-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
         <div>
-          <Link href="/" className="text-sm text-primary hover:underline flex items-center">
-            <Home className="mr-1 h-4 w-4" /> {t('allProjects', 'All Projects')}
-          </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-primary hover:underline p-0 h-auto text-sm flex items-center"
+            onClick={() => {
+              setIsNavigatingToHome(true);
+              router.push('/');
+            }}
+            disabled={isNavigatingToHome}
+          >
+            {isNavigatingToHome ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Home className="mr-1 h-4 w-4" />
+            )}
+            {t('allProjects', 'All Projects')}
+          </Button>
           <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
@@ -379,7 +394,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
-    
-
-    
