@@ -105,9 +105,8 @@ export default function ProjectPage() {
     loadProjectData();
   }, [loadProjectData]);
 
-
   const breadcrumbItems = useMemo(() => {
-    if (!project) return [];
+    if (!project) return []; // project might be null during initial load
     return getFolderPath(selectedFolder?.id || null, project);
   }, [project, selectedFolder, getFolderPath]);
   
@@ -119,18 +118,6 @@ export default function ProjectPage() {
       return folder.parentId === null; 
     });
   }, [allProjectFolders, selectedFolder]);
-
-
-  if (isLoadingData || !project) {
-    return (
-        <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-lg text-muted-foreground mt-4">
-            {t('loadingProjectContext', 'Loading project context...')}
-            </p>
-        </div>
-    );
-  }
 
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
@@ -162,11 +149,10 @@ export default function ProjectPage() {
     }
   }, [newFolderName, project, newFolderParentContext, toast, t, loadProjectData]);
 
-
   const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
     setIsNewFolderDialogOpen(true);
-  }, []);
+  }, []); // Removed selectedFolder as dep, it's passed as arg
 
   const handleOpenEditFolderModal = useCallback((folderToEdit: FolderType) => {
     setEditingFolder(folderToEdit);
@@ -206,6 +192,17 @@ export default function ProjectPage() {
       }
     }
   }, [t, toast, loadProjectData]);
+
+  if (isLoadingData || !project) {
+    return (
+        <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg text-muted-foreground mt-4">
+            {t('loadingProjectContext', 'Loading project context...')}
+            </p>
+        </div>
+    );
+  }
 
   const newAssetHref = `/project/${project.id}/new-asset${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
   const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && currentAssets.length === 0;
@@ -369,3 +366,5 @@ export default function ProjectPage() {
     </div>
   );
 }
+
+    
