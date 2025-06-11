@@ -1,24 +1,33 @@
 
 "use client";
 import Link from 'next/link';
-import { Building, LogOut, UserCircle, Briefcase, LogIn, LayoutDashboard, Loader2 } from 'lucide-react'; // Added Loader2
+import { Building, LogOut, UserCircle, Briefcase, LogIn, LayoutDashboard, Loader2 } from 'lucide-react'; 
 import { LanguageToggle } from '@/components/language-toggle';
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/language-context';
-import { useState } from 'react'; // Added useState
+import { useState, useEffect } from 'react'; 
+import { usePathname } from 'next/navigation'; // Import usePathname
 
 export function Header() {
   const { currentUser, isLoading, logout } = useAuth();
   const { t } = useLanguage();
   const [isNavigatingToAdmin, setIsNavigatingToAdmin] = useState(false);
+  const pathname = usePathname(); // Get current pathname
 
   const getInitials = (email?: string) => {
     if (!email) return '';
     return email.substring(0, 2).toUpperCase();
   }
+
+  // Reset navigation state when pathname changes
+  useEffect(() => {
+    if (isNavigatingToAdmin) {
+      setIsNavigatingToAdmin(false);
+    }
+  }, [pathname, isNavigatingToAdmin]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -57,7 +66,11 @@ export function Header() {
                 {currentUser.role === 'Admin' && (
                   <Link href="/admin/dashboard" passHref legacyBehavior>
                     <DropdownMenuItem
-                      onClick={() => setIsNavigatingToAdmin(true)}
+                      onClick={() => {
+                        if (pathname !== '/admin/dashboard') {
+                          setIsNavigatingToAdmin(true);
+                        }
+                      }}
                       disabled={isNavigatingToAdmin}
                     >
                       {isNavigatingToAdmin ? (
