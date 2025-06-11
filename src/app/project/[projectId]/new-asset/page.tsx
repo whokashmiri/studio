@@ -254,9 +254,7 @@ export default function NewAssetPage() {
     setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    if (!isPhotoModalOpen && photoPreviews.length + capturedPhotosInSession.length > 0) {
-      setIsPhotoModalOpen(true);
-    }
+    setIsPhotoModalOpen(false); // Close the "Manage Photos" modal as well
   };
 
   const handleCancelCustomCamera = () => {
@@ -723,6 +721,8 @@ export default function NewAssetPage() {
   );
 }
 
+
+    
 
     
 
