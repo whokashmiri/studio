@@ -325,7 +325,7 @@ const translations: Record<Language, Record<string, string>> = {
     nextStepAssetName: "Next: Asset Name",
     backToPhotoCapture: "Back to Photos",
     backToAssetNameModal: "Back to Asset Name", // Differentiate from page flow if needed
-    cancelAssetCreation: "Cancel Asset Creation",
+    cancelAssetCreation: "Cancel",
     backToDashboard: "Back to Dashboard",
 
 

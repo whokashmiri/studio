@@ -418,9 +418,9 @@ export default function NewAssetPage() {
           const originalAsset = await FirestoreService.getAssetById(assetIdToEdit);
           if (originalAsset) updateData.createdAt = originalAsset.createdAt; 
           
-          success = await FirestoreService.updateAsset(assetIdToEdit, updateData);
+          success = await FirestoreService.updateAsset(assetIdToEdit, removeUndefinedProps(updateData));
         } else {
-          const newAsset = await FirestoreService.addAsset(assetDataPayload as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
+          const newAsset = await FirestoreService.addAsset(removeUndefinedProps(assetDataPayload) as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
           if (newAsset) {
             success = true;
             savedAssetName = newAsset.name;
@@ -444,6 +444,17 @@ export default function NewAssetPage() {
     } finally {
         setIsSavingAsset(false);
     }
+  };
+
+  // Helper to remove undefined properties from an object before saving to Firestore
+  const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => {
+    const newObj = { ...obj };
+    Object.keys(newObj).forEach(key => {
+      if (newObj[key] === undefined) {
+        delete newObj[key];
+      }
+    });
+    return newObj;
   };
 
   if (isLoadingPage || !project && !assetIdToEdit) { 
@@ -517,7 +528,7 @@ export default function NewAssetPage() {
                   </Button>
                 </div>
                 <ScrollArea className="h-[200px] pr-2 border rounded-md p-2">
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
+                    <div className="grid grid-cols-8 gap-1.5">
                     {photoPreviews.map((src, index) => ( 
                         <div key={`main-preview-${index}-${src.substring(0,20)}`} className="relative group">
                         <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
@@ -577,7 +588,6 @@ export default function NewAssetPage() {
              <DialogDescription>{isEditMode ? t('editAssetDetailsTitle', 'Edit Details for:') : t('addDetailsForAssetTitle', 'Add Details for:')} <span className="font-medium text-primary">{assetName}</span></DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto py-4 space-y-6">
-              {/* Removed Asset Name Input and Photo Management from this modal */}
               <div className="space-y-2">
                 <Label htmlFor="asset-voice-description">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
                 {speechRecognitionAvailable ? (
