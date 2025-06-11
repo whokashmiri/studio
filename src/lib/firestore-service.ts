@@ -16,6 +16,7 @@ import {
   serverTimestamp,
   QuerySnapshot,
   DocumentData,
+  getCountFromServer, // Import getCountFromServer
 } from 'firebase/firestore';
 import type { Project, Folder, Asset, Company, MockStoredUser, AuthenticatedUser, UserRole } from '@/data/mock-data';
 import { mockCompanies as initialMockCompanies } from '@/data/mock-data';
@@ -167,7 +168,7 @@ export async function getAllUsersByCompany(companyId: string): Promise<Authentic
 
 
 // Projects
-export async function getProjects(companyId?: string): Promise<Project[]> {
+export async function getProjects(companyId?: string): Promise<Array<Project & { assetCount: number }>> {
   try {
     let q;
     if (companyId) {
@@ -176,9 +177,23 @@ export async function getProjects(companyId?: string): Promise<Project[]> {
       q = query(collection(getDb(), PROJECTS_COLLECTION));
     }
     const snapshot = await getDocs(q);
-    return processSnapshot<Project>(snapshot);
+    const projectsData = processSnapshot<Project>(snapshot);
+
+    // For each project, get asset count
+    const projectsWithCounts = await Promise.all(
+      projectsData.map(async (project) => {
+        const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
+        const assetsQuery = query(assetsCollectionRef, where("projectId", "==", project.id));
+        const countSnapshot = await getCountFromServer(assetsQuery);
+        return {
+          ...project,
+          assetCount: countSnapshot.data().count,
+        };
+      })
+    );
+    return projectsWithCounts;
   } catch (error) {
-    console.error("Error getting projects: ", error);
+    console.error("Error getting projects with asset counts: ", error);
     return [];
   }
 }
@@ -205,8 +220,12 @@ export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' |
       lastAccessed: serverTimestamp(),
     });
     const docRef = await addDoc(collection(getDb(), PROJECTS_COLLECTION), dataToSave);
-    const newProject = await getProjectById(docRef.id);
-    return newProject;
+    // Fetch the project again to get server-generated timestamps correctly converted
+    const newProjectDoc = await getDoc(docRef);
+     if (newProjectDoc.exists()) {
+      return processDoc<Project>(newProjectDoc);
+    }
+    return null;
   } catch (error) {
     console.error("Error adding project: ", error);
     return null;
@@ -347,9 +366,9 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
 export async function getAssets(projectId: string, folderId?: string | null): Promise<Asset[]> {
   try {
     let q;
-    if (folderId === undefined) { 
+    if (folderId === undefined) { // Query for assets directly under project (folderId is explicitly null)
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
-    } else { 
+    } else { // Query for assets under a specific folder (folderId is a string) or also for project root if folderId is null
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
     }
     const snapshot = await getDocs(q);
@@ -383,8 +402,12 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
       updatedAt: serverTimestamp(),
     });
     const docRef = await addDoc(collection(getDb(), ASSETS_COLLECTION), dataToSave);
-    const newAsset = await getAssetById(docRef.id); 
-    return newAsset;
+    // Fetch the asset again to get server-generated timestamps correctly converted
+    const newAssetDoc = await getDoc(docRef);
+    if (newAssetDoc.exists()) {
+        return processDoc<Asset>(newAssetDoc);
+    }
+    return null;
   } catch (error) {
     console.error("Error adding asset: ", error);
     return null;
@@ -416,4 +439,3 @@ export async function deleteAsset(assetId: string): Promise<boolean> {
     return false;
   }
 }
-
