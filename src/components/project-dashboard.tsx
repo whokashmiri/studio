@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/contexts/language-context';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context'; 
+import Link from 'next/link';
 
 interface ProjectDashboardProps {
   company: Company;
@@ -28,6 +29,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
   const [allAssets, setAllAssets] = useState<Asset[]>([]);
   const [activeTab, setActiveTab] = useState<ProjectStatus | 'favorite'>('recent');
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [loadingProjectId, setLoadingProjectId] = useState<string | null>(null); // New state for loading indicator
 
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -85,9 +87,6 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     // Then, filter by the active tab
     return roleFilteredProjects.filter(p => {
       if (activeTab === 'favorite') return p.isFavorite === true;
-      // For 'new', 'recent', 'done' tabs, ensure they match the project status
-      // The 'new' tab rule in the original was complex, simplifying to just status match here
-      // but role-based filtering already ensures relevance.
       return p.status === activeTab;
     }).sort((a, b) => {
       if (activeTab === 'recent' && a.lastAccessed && b.lastAccessed) {
@@ -116,9 +115,6 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     setProjects(prevProjects => 
       [newProject, ...prevProjects].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     );
-    // Add new project's assets to allAssets if needed, for now just adding project.
-    // This assumes projectAssetCounts will update, but ideally allAssets should be updated here too.
-    // For simplicity, full refresh or more granular asset update could be done.
     setActiveTab('new'); 
   }, [setActiveTab]);
 
@@ -143,7 +139,6 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
       isFavorite: newIsFavorite,
     });
     if (success) {
-      // Optimistically update client state
       const updatedProject = { ...projectToToggle, isFavorite: newIsFavorite, lastAccessed: new Date().toISOString() };
       setProjects(currentProjects => 
         currentProjects.map(p => 
@@ -167,6 +162,11 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
   ];
 
   const canCreateProject = currentUser?.role === 'Admin' || currentUser?.role === 'Inspector';
+
+  const handleProjectCardClick = (projectId: string) => {
+    setLoadingProjectId(projectId);
+    // Navigation will happen via the Link component
+  };
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">
@@ -200,13 +200,15 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
                   {filteredProjects.map((project) => {
                     const projectAssetCount = projectAssetCounts[project.id] || 0;
                     return (
-                      <ProjectCard
-                        key={project.id}
-                        project={project}
-                        assetCount={projectAssetCount}
-                        onEditProject={handleOpenEditModal}
-                        onToggleFavorite={handleToggleFavorite}
-                      />
+                      <div key={project.id} onClick={() => handleProjectCardClick(project.id)}>
+                        <ProjectCard
+                          project={project}
+                          assetCount={projectAssetCount}
+                          onEditProject={handleOpenEditModal}
+                          onToggleFavorite={handleToggleFavorite}
+                          isLoading={loadingProjectId === project.id}
+                        />
+                      </div>
                     );
                   })}
                 </div>
@@ -249,3 +251,4 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     </div>
   );
 }
+

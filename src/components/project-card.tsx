@@ -4,7 +4,7 @@ import Link from 'next/link';
 import React from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Star, Users, MoreVertical, Trash2, PackageSearch } from 'lucide-react';
+import { Edit, Star, Users, MoreVertical, Trash2, PackageSearch, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,7 @@ interface ProjectCardProps {
   onToggleFavorite: (project: Project) => void;
   onAssignUsers?: (project: Project) => void;
   onDeleteProject?: (project: Project) => void;
+  isLoading?: boolean; // New prop
 }
 
 export const ProjectCard = React.memo(function ProjectCard({ 
@@ -33,7 +34,8 @@ export const ProjectCard = React.memo(function ProjectCard({
   onEditProject, 
   onToggleFavorite, 
   onAssignUsers,
-  onDeleteProject 
+  onDeleteProject,
+  isLoading 
 }: ProjectCardProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
@@ -56,8 +58,13 @@ export const ProjectCard = React.memo(function ProjectCard({
   const hasAdminActions = !!onEditProject || !!onAssignUsers || !!onDeleteProject;
 
   return (
-    <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200">
-      <Link href={`/project/${project.id}`} className="flex flex-col flex-grow group cursor-pointer">
+    <Card className="relative flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200">
+      {isLoading && (
+        <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex items-center justify-center rounded-lg z-20">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      )}
+      <Link href={`/project/${project.id}`} className={cn("flex flex-col flex-grow group", isLoading ? "pointer-events-none opacity-50" : "cursor-pointer")}>
           <CardHeader className="p-3 pb-1.5 w-full">
             <div className="flex justify-between items-start w-full gap-2">
               <div className="flex-grow min-w-0">
