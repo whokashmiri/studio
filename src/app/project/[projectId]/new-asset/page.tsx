@@ -17,7 +17,7 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 
-type AssetCreationStep = 'photos_and_name' | 'descriptions';
+type AssetCreationStep = 'name_input' | 'photos_capture' | 'descriptions';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1';
 
 export default function NewAssetPage() {
@@ -30,7 +30,7 @@ export default function NewAssetPage() {
   const assetIdToEdit = searchParams.get('assetId');
 
   const [isEditMode, setIsEditMode] = useState(false);
-  const [currentStep, setCurrentStep] = useState<AssetCreationStep>('photos_and_name');
+  const [currentStep, setCurrentStep] = useState<AssetCreationStep>('name_input');
   const [project, setProject] = useState<Project | null>(null);
   const [currentFolder, setCurrentFolder] = useState<Folder | null>(null);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
@@ -82,7 +82,7 @@ export default function NewAssetPage() {
             setCurrentFolder(foundFolder);
           } else {
             setCurrentFolder(null);
-            if (folderId) { // Only toast if a folderId was specified but not valid
+            if (folderId) { 
                  toast({ title: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project"), variant: "warning" });
             }
           }
@@ -93,18 +93,11 @@ export default function NewAssetPage() {
         if (assetIdToEdit) {
           const foundAsset = await FirestoreService.getAssetById(assetIdToEdit);
           if (foundAsset && foundAsset.projectId === projectId) {
-            // Ensure folderId consistency if editing an asset that had one
             if (foundAsset.folderId && (!folderId || folderId !== foundAsset.folderId)) {
-                // Asset has a folderId, but URL doesn't match or is missing.
-                // For simplicity, we can redirect to the URL with the correct folderId
-                // or just use the asset's folderId for context.
-                // For now, we'll prioritize asset's folderId if different and refetch folder info.
                 if(foundAsset.folderId) {
                     const assetActualFolder = await FirestoreService.getFolderById(foundAsset.folderId);
                     if (assetActualFolder && assetActualFolder.projectId === projectId) {
                         setCurrentFolder(assetActualFolder);
-                        // Optionally, update URL if router is available and it's desirable
-                        // router.replace(`/project/${projectId}/new-asset?assetId=${assetIdToEdit}&folderId=${foundAsset.folderId}`, { scroll: false });
                     }
                 }
             }
@@ -118,6 +111,8 @@ export default function NewAssetPage() {
             toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
             router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
           }
+        } else {
+          setCurrentStep('name_input'); // Default for new asset
         }
       } catch (error) {
         console.error("Error loading project/asset:", error);
@@ -233,7 +228,7 @@ export default function NewAssetPage() {
           filesProcessed++;
           if (filesProcessed === newFiles.length) {
             setPhotoPreviews(prev => [...prev, ...newPhotoUrls].slice(0, 10)); 
-            if (!isPhotoModalOpen) setIsPhotoModalOpen(true);
+            if (!isPhotoModalOpen && currentStep === 'photos_capture') setIsPhotoModalOpen(true);
             setIsProcessingGalleryPhotos(false);
           }
         };
@@ -287,13 +282,17 @@ export default function NewAssetPage() {
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
+  const handleNextToPhotos = () => {
+    if (!assetName.trim()) {
+      toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
+      return;
+    }
+    setCurrentStep('photos_capture');
+  };
+
   const handleNextToDescriptions = () => {
     if (photoPreviews.length === 0) {
       toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
-      return;
-    }
-    if (!assetName.trim()) {
-      toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
       return;
     }
     setCurrentStep('descriptions');
@@ -329,12 +328,12 @@ export default function NewAssetPage() {
     }
      if (!assetName.trim()) {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), variant: "destructive" });
-      setCurrentStep('photos_and_name'); 
+      setCurrentStep('name_input'); 
       return;
     }
     if (photoPreviews.length === 0 && !isEditMode) { 
       toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
-      setCurrentStep('photos_and_name');
+      setCurrentStep('photos_capture');
       return;
     }
 
@@ -347,7 +346,7 @@ export default function NewAssetPage() {
         const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
           name: assetName,
           projectId: project.id,
-          folderId: currentFolder ? currentFolder.id : null, // Use currentFolder state
+          folderId: currentFolder ? currentFolder.id : null,
           photos: photoPreviews,
         };
 
@@ -413,13 +412,41 @@ export default function NewAssetPage() {
   
   const renderStepContent = () => {
     switch (currentStep) {
-      case 'photos_and_name':
+      case 'name_input':
         return (
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
               <CardTitle className="text-xl sm:text-2xl font-headline">{pageTitle} {t('forProject', 'for')} {project.name}</CardTitle>
               {currentFolder && <CardDescription>{t('inFolder', 'In folder:')} {currentFolder.name}</CardDescription>}
-              <CardDescription>{t('stepPhotosAndNameTitle', 'Step 1: Photos & Asset Name')}</CardDescription>
+              <CardDescription>{t('stepNameInputTitle', 'Step 1: Asset Name')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="asset-name">{t('assetName', 'Asset Name')}</Label>
+                <Input
+                  id="asset-name"
+                  value={assetName}
+                  onChange={(e) => setAssetName(e.target.value)}
+                  placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
+                  disabled={isSavingAsset}
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end">
+              <Button onClick={handleNextToPhotos} disabled={!assetName.trim() || isSavingAsset}>
+                {t('nextStepAddPhotos', 'Next: Add Photos')} <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardFooter>
+          </Card>
+        );
+      case 'photos_capture':
+        return (
+          <Card className="max-w-3xl mx-auto">
+            <CardHeader>
+              <CardTitle className="text-xl sm:text-2xl font-headline">
+                {t('addPhotosForAssetTitle', 'Add Photos for:')} <span className="text-primary">{assetName}</span>
+              </CardTitle>
+              <CardDescription>{t('stepPhotosCaptureTitle', 'Step 2: Photos')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
@@ -462,19 +489,12 @@ export default function NewAssetPage() {
                   </div>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="asset-name">{t('assetName', 'Asset Name')}</Label>
-                <Input
-                  id="asset-name"
-                  value={assetName}
-                  onChange={(e) => setAssetName(e.target.value)}
-                  placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
-                  disabled={isSavingAsset}
-                />
-              </div>
             </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button onClick={handleNextToDescriptions} disabled={photoPreviews.length === 0 || !assetName.trim() || isSavingAsset}>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={() => setCurrentStep('name_input')} disabled={isSavingAsset}>
+                 {t('backToAssetName', 'Back to Asset Name')}
+              </Button>
+              <Button onClick={handleNextToDescriptions} disabled={photoPreviews.length === 0 || isSavingAsset}>
                 {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
@@ -487,7 +507,7 @@ export default function NewAssetPage() {
                <CardTitle className="text-xl sm:text-2xl font-headline">
                 {isEditMode ? t('editAssetDetailsTitle', 'Edit Details for:') : t('addDetailsForAssetTitle', 'Add Details for:')} <span className="text-primary">{assetName}</span>
                </CardTitle>
-              <CardDescription>{t('stepDescriptionsTitle', 'Step 2: Descriptions')}</CardDescription>
+              <CardDescription>{t('stepDescriptionsTitle', 'Step 3: Descriptions')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 {isEditMode && (
@@ -560,8 +580,8 @@ export default function NewAssetPage() {
                 </div>
             </CardContent>
             <CardFooter className="flex flex-row justify-between items-center gap-2 pt-4">
-              <Button variant="outline" onClick={() => setCurrentStep('photos_and_name')} disabled={isSavingAsset}>
-                {t('backToPhotosName', 'Back to Photos & Name')}
+              <Button variant="outline" onClick={() => setCurrentStep('photos_capture')} disabled={isSavingAsset}>
+                {t('backToPhotos', 'Back to Photos')}
               </Button>
               <Button onClick={handleSaveAsset} size="lg" disabled={isSavingAsset || (!isEditMode && photoPreviews.length === 0) || !assetName.trim()}>
                 {isSavingAsset && <Loader2 className="mr-2 h-4 w-4 animate-spin" /> }

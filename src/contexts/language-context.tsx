@@ -71,20 +71,28 @@ const translations: Record<Language, Record<string, string>> = {
 
     photosRequiredTitle: "Photos Required",
     photosRequiredDesc: "Please add at least one photo for the asset.",
+    
+    stepNameInputTitle: "Step 1: Asset Name",
+    stepPhotosCaptureTitle: "Step 2: Photos",
+    stepDescriptionsTitle: "Step 3: Descriptions",
+    
+    nextStepAddPhotos: "Next: Add Photos",
     nextStepDescriptions: "Next: Add Descriptions",
-    stepPhotosAndNameTitle: "Step 1: Photos & Asset Name",
+    
+    addPhotosForAssetTitle: "Add Photos for:",
     addPhotosSectionTitle: "Add Photos",
     managePhotosButton: "Manage Photos",
     morePhotosInModal: "+{count} more. Click \"Manage Photos\" to see all.",
 
     addDetailsForAssetTitle: "Add Details for:",
-    stepDescriptionsTitle: "Step 2: Descriptions",
     voiceDescriptionLabel: "Voice Description",
     recordVoiceDescriptionButton: "Record Voice Description",
     voiceTranscriptPlaceholder: "Voice transcript will appear here...",
     textDescriptionLabel: "Written Description",
     textDescriptionPlaceholder: "Type detailed written description here...",
-    backToPhotosName: "Back to Photos & Name",
+    
+    backToAssetName: "Back to Asset Name",
+    backToPhotos: "Back to Photos",
     saveAssetButton: "Save Asset",
 
     descriptionRequiredForSaveTitle: "Description Required",
@@ -365,21 +373,30 @@ const translations: Record<Language, Record<string, string>> = {
 
     photosRequiredTitle: "الصور مطلوبة",
     photosRequiredDesc: "الرجاء إضافة صورة واحدة على الأقل للأصل.",
+    
+    stepNameInputTitle: "الخطوة ١: اسم الأصل",
+    stepPhotosCaptureTitle: "الخطوة ٢: الصور",
+    stepDescriptionsTitle: "الخطوة ٣: الأوصاف",
+
+    nextStepAddPhotos: "التالي: إضافة الصور",
     nextStepDescriptions: "التالي: إضافة الأوصاف",
-    stepPhotosAndNameTitle: "الخطوة 1: الصور واسم الأصل",
+    
+    addPhotosForAssetTitle: "إضافة صور لـ:",
     addPhotosSectionTitle: "إضافة صور",
     managePhotosButton: "إدارة الصور",
     morePhotosInModal: "+{count} أخرى. انقر فوق \"إدارة الصور\" لرؤية الكل.",
 
     addDetailsForAssetTitle: "إضافة تفاصيل لـ:",
-    stepDescriptionsTitle: "الخطوة 2: الأوصاف",
     voiceDescriptionLabel: "الوصف الصوتي",
     recordVoiceDescriptionButton: "تسجيل الوصف الصوتي",
     voiceTranscriptPlaceholder: "سيظهر النص الصوتي هنا...",
     textDescriptionLabel: "الوصف المكتوب",
     textDescriptionPlaceholder: "اكتب وصفًا مكتوبًا مفصلاً هنا...",
-    backToPhotosName: "العودة إلى الصور والاسم",
+    
+    backToAssetName: "العودة إلى اسم الأصل",
+    backToPhotos: "العودة إلى الصور",
     saveAssetButton: "حفظ الأصل",
+
     descriptionRequiredForSaveTitle: "الوصف مطلوب",
     descriptionRequiredForSaveDesc: "يرجى تقديم شكل واحد على الأقل من الوصف (صوتي أو نصي).",
     unnamedAsset: "أصل غير مسمى",
@@ -638,4 +655,3 @@ export function useLanguage() {
   }
   return context;
 }
-
