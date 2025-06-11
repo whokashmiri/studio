@@ -323,8 +323,8 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitleModal: "Step 3: Descriptions & Save",
     provideNameForAsset: "Provide a name for your asset.",
     nextStepAssetName: "Next: Asset Name",
-    backToPhotoCapture: "Back to Photos",
-    backToAssetNameModal: "Back to Asset Name", // Differentiate from page flow if needed
+    backToPhotoCapture: "Back",
+    backToAssetNameModal: "Back ", // Differentiate from page flow if needed
     cancelAssetCreation: "Cancel",
     backToDashboard: "Back to Dashboard",
 

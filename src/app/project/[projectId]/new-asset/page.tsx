@@ -73,20 +73,18 @@ export default function NewAssetPage() {
   const backLinkText = project ? `${t('backTo', 'Back to')} ${project.name}` : t('backToProject', 'Back to Project');
 
   const handleCancelAllAndExit = useCallback(() => {
-    // Clear all states and navigate back
     setAssetName('');
     setPhotoPreviews([]);
     setAssetVoiceDescription('');
     setAssetTextDescription('');
     setIsEditMode(false);
-    // Close all modals
     setIsPhotosCaptureModalOpen(false);
     setIsNameInputModalOpen(false);
     setIsDescriptionsModalOpen(false);
     setIsCustomCameraOpen(false);
     setIsManagePhotosBatchModalOpen(false);
     router.push(backLinkHref);
-  }, [router, backLinkHref, projectId, currentFolder]);
+  }, [router, backLinkHref]);
 
   const loadProjectAndAsset = useCallback(async () => {
     setIsLoadingPage(true);
@@ -156,11 +154,8 @@ export default function NewAssetPage() {
     loadProjectAndAsset();
   }, [loadProjectAndAsset]);
 
-  // Effect to control which modal is open based on currentStep
   useEffect(() => {
     if (isLoadingPage) return;
-
-    // Always close all first to ensure only one is open
     setIsPhotosCaptureModalOpen(false);
     setIsNameInputModalOpen(false);
     setIsDescriptionsModalOpen(false);
@@ -174,21 +169,18 @@ export default function NewAssetPage() {
     }
   }, [currentStep, isLoadingPage]);
 
-
  useEffect(() => {
     let streamInstance: MediaStream | null = null;
     const getCameraStream = async () => {
       if (isCustomCameraOpen) {
-        // Check localStorage first
         const storedPermission = typeof window !== 'undefined' ? localStorage.getItem(CAMERA_PERMISSION_GRANTED_KEY) : null;
         if (storedPermission === 'true') {
-            setHasCameraPermission(true); // Assume still true, but browser will verify
+            setHasCameraPermission(true); 
         } else if (storedPermission === 'false') {
             setHasCameraPermission(false);
-            // No need to call getUserMedia if we know it was denied and not reset by user
             return; 
         } else {
-            setHasCameraPermission(null); // Unknown, will try to get
+            setHasCameraPermission(null);
         }
         
         try {
@@ -264,8 +256,7 @@ export default function NewAssetPage() {
     }
   }, [language]);
 
-
-  const handlePhotoUploadFromGallery = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUploadFromGallery = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       setIsProcessingGalleryPhotos(true);
       const newFiles = Array.from(event.target.files);
@@ -301,9 +292,9 @@ export default function NewAssetPage() {
       });
     }
     event.target.value = ''; 
-  };
+  }, [isManagePhotosBatchModalOpen, currentStep, toast]);
 
-  const handleCapturePhotoFromStream = () => {
+  const handleCapturePhotoFromStream = useCallback(() => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -318,52 +309,51 @@ export default function NewAssetPage() {
          toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
       }
     }
-  };
+  }, [hasCameraPermission, mediaStream, t, toast]);
 
-  const removePhotoFromSession = (indexToRemove: number) => {
+  const removePhotoFromSession = useCallback((indexToRemove: number) => {
     setCapturedPhotosInSession(prev => prev.filter((_, index) => index !== indexToRemove));
-  };
+  }, []);
 
-  const handleAddSessionPhotosToBatch = () => {
+  const handleAddSessionPhotosToBatch = useCallback(() => {
     setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
     setIsManagePhotosBatchModalOpen(false); 
-  };
+  }, [capturedPhotosInSession]);
 
-  const handleCancelCustomCamera = () => {
+  const handleCancelCustomCamera = useCallback(() => {
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
     if (currentStep === 'photos_capture') { 
         setIsManagePhotosBatchModalOpen(true);
     }
-  };
+  }, [currentStep]);
   
-  const removePhotoFromPreviews = (indexToRemove: number) => { 
+  const removePhotoFromPreviews = useCallback((indexToRemove: number) => { 
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
-  };
+  }, []);
 
-  // Navigation handlers
-  const handleNextFromPhotos = () => {
+  const handleNextFromPhotos = useCallback(() => {
     if (photoPreviews.length === 0 && !isEditMode) { 
       toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
       return;
     }
     setCurrentStep('name_input');
-  };
+  }, [photoPreviews.length, isEditMode, toast, t]);
 
-  const handleNextFromNameInput = () => {
+  const handleNextFromNameInput = useCallback(() => {
     if (!assetName.trim()) {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
       return;
     }
     setCurrentStep('descriptions');
-  };
+  }, [assetName, toast, t]);
 
-  const handleBackToPhotos = () => setCurrentStep('photos_capture');
-  const handleBackToNameInput = () => setCurrentStep('name_input');
+  const handleBackToPhotos = useCallback(() => setCurrentStep('photos_capture'), []);
+  const handleBackToNameInput = useCallback(() => setCurrentStep('name_input'), []);
 
-  const toggleListening = () => {
+  const toggleListening = useCallback(() => {
     if (!speechRecognitionRef.current || !speechRecognitionAvailable) {
       toast({ title: t('speechFeatureNotAvailableTitle', 'Feature Not Available'), description: t('speechFeatureNotAvailableDesc', 'Speech recognition is not supported or enabled in your browser.'), variant: 'destructive' });
       return;
@@ -383,9 +373,20 @@ export default function NewAssetPage() {
         setIsListening(false);
       }
     }
-  };
+  }, [speechRecognitionAvailable, isSavingAsset, isListening, t, toast]);
 
-  const handleSaveAsset = async () => {
+  // Helper to remove undefined properties from an object before saving to Firestore
+  const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => {
+    const newObj = { ...obj };
+    Object.keys(newObj).forEach(key => {
+      if (newObj[key] === undefined) {
+        delete newObj[key];
+      }
+    });
+    return newObj;
+  };
+  
+  const handleSaveAsset = useCallback(async () => {
     if (!project) {
       toast({ title: t('projectContextLost', "Project context lost"), variant: "destructive" });
       return;
@@ -455,18 +456,7 @@ export default function NewAssetPage() {
     } finally {
         setIsSavingAsset(false);
     }
-  };
-
-  // Helper to remove undefined properties from an object before saving to Firestore
-  const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => {
-    const newObj = { ...obj };
-    Object.keys(newObj).forEach(key => {
-      if (newObj[key] === undefined) {
-        delete newObj[key];
-      }
-    });
-    return newObj;
-  };
+  }, [project, assetName, photoPreviews, currentFolder, assetVoiceDescription, assetTextDescription, isEditMode, assetIdToEdit, t, toast, handleCancelAllAndExit]);
 
   if (isLoadingPage || !project && !assetIdToEdit) { 
     return (
@@ -582,7 +572,7 @@ export default function NewAssetPage() {
           </div>
           <DialogFooter className="flex justify-between">
             <Button variant="outline" onClick={handleBackToPhotos} disabled={isSavingAsset}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToPhotoCapture', 'Back to Photos')}
+              <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToPhotoCapture', 'Back')}
             </Button>
             <Button onClick={handleNextFromNameInput} disabled={!assetName.trim() || isSavingAsset}>
               {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
@@ -640,7 +630,7 @@ export default function NewAssetPage() {
           </div>
           <DialogFooter className="flex flex-row justify-end items-center gap-2 pt-4">
             <Button variant="outline" onClick={handleBackToNameInput} disabled={isSavingAsset}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToAssetNameModal', 'Back to Asset Name')}
+              <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToAssetNameModal', 'Back')}
             </Button>
             <Button onClick={handleSaveAsset} size="lg" disabled={isSavingAsset || (!isEditMode && photoPreviews.length === 0) || !assetName.trim()}>
               {isSavingAsset && <Loader2 className="mr-2 h-4 w-4 animate-spin" /> }
@@ -817,3 +807,4 @@ declare module "@radix-ui/react-dialog" {
 
 
     
+
