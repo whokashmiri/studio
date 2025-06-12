@@ -14,53 +14,46 @@
  * In a real implementation, this function would not exist on the client.
  * Instead, the client would send the file/data URI to a secure backend endpoint,
  * which would then use the Cloudinary SDK (with API Key and Secret) to perform the upload.
+ * 
+ * FOR PROTOTYPING: This function now returns the original fileDataUrl to ensure the
+ * previewed image matches the "uploaded" image. In a real scenario, it would return
+ * a Cloudinary URL.
+ * 
  * @param fileDataUrl The file to upload, as a base64 Data URI.
- * @returns A promise that resolves to a simulated Cloudinary URL, or null if the simulated upload fails.
+ * @returns A promise that resolves to the fileDataUrl itself for prototype display, or null if the simulated processing fails.
  */
 export async function uploadToCloudinary(fileDataUrl: string): Promise<string | null> {
-  console.log('Simulating upload to Cloudinary for a file...');
+  console.log('Simulating processing for Cloudinary (returning Data URI for prototype)...');
   // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
+  await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 500));
 
-  // Placeholder for actual Cloudinary upload logic (which should be on a server)
-  // For demonstration, we return a dynamic placeholder URL that uses placehold.co
-  // but is structured to look somewhat like a Cloudinary URL and uses res.cloudinary.com domain
-  // for compatibility with next/image remotePatterns.
-  
   // In a real backend:
   //   const cloudinary = require('cloudinary').v2;
   //   cloudinary.config({
-  //     cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME, // Or just process.env.CLOUDINARY_CLOUD_NAME
+  //     cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
   //     api_key: process.env.CLOUDINARY_API_KEY,
   //     api_secret: process.env.CLOUDINARY_API_SECRET,
   //     secure: true,
   //   });
   //   try {
-  //     // For Data URIs, Cloudinary can upload them directly.
-  //     // Consider using upload_preset for client-side unsigned uploads if that's your strategy,
-  //     // but signed uploads from a backend are generally more secure and flexible.
   //     const result = await cloudinary.uploader.upload(fileDataUrl, {
-  //       /* folder: "asset_photos", tags: "asset", etc. */
-  //       resource_type: "image" // Or "auto"
+  //       resource_type: "image"
   //     });
-  //     return result.secure_url;
+  //     return result.secure_url; // This would be a real Cloudinary URL
   //   } catch (error) {
   //     console.error("Actual Cloudinary Upload Error (simulated path):", error);
   //     return null;
   //   }
 
-  // Simulate a successful upload with a placeholder image from Cloudinary's demo account
-  // to ensure the URL is valid and works with the <Image> component.
-  const isLikelyImage = fileDataUrl.startsWith('data:image');
-  if (!isLikelyImage) {
-    console.warn('Simulated upload: Input does not look like an image Data URI.');
-    // Fallback or error for non-image data
+  // For prototype purposes, return the data URI itself so next/image can display it.
+  // This ensures the "uploaded" image matches the preview.
+  if (!fileDataUrl.startsWith('data:image')) {
+    console.warn('Simulated upload: Input does not look like an image Data URI. This might cause issues if it is not an image.');
+    // Potentially return null or an error indicator if it's critical that it's an image.
+    // For now, we'll pass it through.
   }
   
-  // Using a known, working Cloudinary sample image.
-  // Replace 'demo' with your actual cloud_name when implementing.
-  const simulatedUrl = `https://res.cloudinary.com/demo/image/upload/sample.jpg?timestamp=${Date.now()}&random=${Math.random().toString(36).substring(2,9)}`;
-  
-  console.log(`Simulated upload complete. Placeholder URL: ${simulatedUrl}`);
-  return simulatedUrl;
+  console.log(`Simulated processing complete. Returning Data URI for preview consistency: ${fileDataUrl.substring(0,50)}...`);
+  return fileDataUrl;
 }
+
