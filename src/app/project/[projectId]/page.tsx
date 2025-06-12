@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
-import { NewAssetModal } from '@/components/modals/new-asset-modal'; // New Import
+import { NewAssetModal } from '@/components/modals/new-asset-modal'; 
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function ProjectPage() {
@@ -40,7 +40,7 @@ export default function ProjectPage() {
   const [editingFolder, setEditingFolder] = useState<FolderType | null>(null);
   const [isEditFolderModalOpen, setIsEditFolderModalOpen] = useState(false);
 
-  const [isNewAssetModalOpen, setIsNewAssetModalOpen] = useState(false); // New state for modal
+  const [isNewAssetModalOpen, setIsNewAssetModalOpen] = useState(false); 
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -73,29 +73,30 @@ export default function ProjectPage() {
     if (projectId) {
       setIsLoadingData(true);
       try {
-        const foundProject = await FirestoreService.getProjectById(projectId);
-        setProject(foundProject || null);
+        const [foundProject, projectFolders, assetsForCurrentView] = await Promise.all([
+          FirestoreService.getProjectById(projectId),
+          FirestoreService.getFolders(projectId),
+          FirestoreService.getAssets(projectId, currentUrlFolderId || null)
+        ]);
 
-        if (foundProject) {
-          const [projectFolders, assetsForProjectRootOrFolder] = await Promise.all([
-            FirestoreService.getFolders(projectId),
-            FirestoreService.getAssets(projectId, currentUrlFolderId || null)
-          ]);
-          
-          setAllProjectFolders(projectFolders);
-
-          if (currentUrlFolderId) {
-            const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); 
-            setSelectedFolder(folderFromUrl || null);
-          } else {
-            setSelectedFolder(null);
-          }
-          setCurrentAssets(assetsForProjectRootOrFolder);
-
-        } else {
+        if (!foundProject) {
           toast({ title: t('projectNotFound', "Project not found"), variant: "destructive" });
           router.push('/');
+          setIsLoadingData(false); // Ensure loader stops on redirect
+          return;
         }
+        
+        setProject(foundProject);
+        setAllProjectFolders(projectFolders);
+        setCurrentAssets(assetsForCurrentView);
+
+        if (currentUrlFolderId) {
+          const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); 
+          setSelectedFolder(folderFromUrl || null);
+        } else {
+          setSelectedFolder(null);
+        }
+
       } catch (error) {
         console.error("Error loading project data:", error);
         toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
@@ -303,7 +304,7 @@ export default function ProjectPage() {
             onAddSubfolder={openNewFolderDialog}
             onEditFolder={handleOpenEditFolderModal}
             onDeleteFolder={handleFolderDeleted}
-            onEditAsset={handleEditAsset} // Editing still uses the old page for now
+            onEditAsset={handleEditAsset} 
             onDeleteAsset={handleDeleteAsset}
             currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
         />
@@ -337,7 +338,7 @@ export default function ProjectPage() {
             {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
           </Button>
           <Button
-            onClick={() => setIsNewAssetModalOpen(true)} // Open modal
+            onClick={() => setIsNewAssetModalOpen(true)} 
             className="flex-1"
             size="default"
             title={t('newAsset', 'New Asset')}
@@ -389,7 +390,6 @@ export default function ProjectPage() {
         />
       )}
       
-      {/* Render NewAssetModal */}
       {project && (
         <NewAssetModal
             isOpen={isNewAssetModalOpen}
@@ -402,3 +402,5 @@ export default function ProjectPage() {
     </div>
   );
 }
+
+    
