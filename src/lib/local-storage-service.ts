@@ -1,200 +1,74 @@
-
 "use client";
-import type { Project, Folder, Asset, Company } from '@/data/mock-data';
-import { mockProjects, mockFolders, mockAssets, mockCompanies } from '@/data/mock-data';
+import { useState, useEffect } from 'react';
+import type { Company } from '@/data/mock-data';
+import * as FirestoreService from '@/lib/firestore-service'; // Import FirestoreService
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Building, Loader2 } from 'lucide-react';
+import { useLanguage } from '@/contexts/language-context';
+import { useToast } from '@/hooks/use-toast';
 
-const PROJECTS_KEY = 'assetInspectorProjects';
-const FOLDERS_KEY = 'assetInspectorFolders';
-const ASSETS_KEY = 'assetInspectorAssets';
-const COMPANIES_KEY = 'assetInspectorCompanies'; 
-
-// Companies
-export function getCompanies(): Company[] {
-  if (typeof window !== 'undefined') {
-    const storedCompanies = localStorage.getItem(COMPANIES_KEY);
-    if (storedCompanies) {
-      return JSON.parse(storedCompanies);
-    } else {
-      localStorage.setItem(COMPANIES_KEY, JSON.stringify(mockCompanies));
-      return mockCompanies;
-    }
-  }
-  return [...mockCompanies]; 
+interface CompanySelectorProps {
+  onSelectCompany: (company: Company) => void;
 }
 
-export function saveCompanies(companies: Company[]): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies));
-  }
-}
+export function CompanySelector({ onSelectCompany }: CompanySelectorProps) {
+  const { t } = useLanguage();
+  const { toast } = useToast();
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-// Projects
-export function getProjects(): Project[] {
-  if (typeof window !== 'undefined') {
-    const storedProjects = localStorage.getItem(PROJECTS_KEY);
-    if (storedProjects) {
-      return JSON.parse(storedProjects);
-    } else {
-      localStorage.setItem(PROJECTS_KEY, JSON.stringify(mockProjects));
-      return mockProjects;
-    }
-  }
-  return [...mockProjects]; 
-}
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedCompanies = await FirestoreService.getCompanies();
+        setCompanies(fetchedCompanies);
+      } catch (error) {
+        console.error("Failed to fetch companies:", error);
+        toast({
+          title: t('error', 'Error'),
+          description: t('genericError', 'Could not load company data.'),
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCompanies();
+  }, [t, toast]);
 
-export function saveProjects(projects: Project[]): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-  }
-}
-
-export function addProject(newProject: Project): void {
-  if (typeof window !== 'undefined') {
-    const projects = getProjects();
-    projects.push(newProject);
-    saveProjects(projects);
-  }
-}
-
-export function updateProject(updatedProject: Project): void {
-  if (typeof window !== 'undefined') {
-    let projects = getProjects();
-    projects = projects.map(p => p.id === updatedProject.id ? updatedProject : p);
-    saveProjects(projects);
-  }
-}
-
-export function deleteProject(projectId: string): void {
-  if (typeof window !== 'undefined') {
-    // Delete associated assets
-    let assets = getAssets();
-    assets = assets.filter(a => a.projectId !== projectId);
-    saveAssets(assets);
-
-    // Delete associated folders
-    let folders = getFolders();
-    folders = folders.filter(f => f.projectId !== projectId);
-    saveFolders(folders);
-
-    // Delete the project
-    let projects = getProjects();
-    projects = projects.filter(p => p.id !== projectId);
-    saveProjects(projects);
-  }
-}
-
-
-// Folders
-export function getFolders(): Folder[] {
-  if (typeof window !== 'undefined') {
-    const storedFolders = localStorage.getItem(FOLDERS_KEY);
-    if (storedFolders) {
-      return JSON.parse(storedFolders);
-    } else {
-      localStorage.setItem(FOLDERS_KEY, JSON.stringify(mockFolders));
-      return mockFolders;
-    }
-  }
-  return [...mockFolders];
-}
-
-export function saveFolders(folders: Folder[]): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-  }
-}
-
-export function addFolder(newFolder: Folder): void {
-  if (typeof window !== 'undefined') {
-    const folders = getFolders();
-    folders.push(newFolder);
-    saveFolders(folders);
-  }
-}
-
-export function updateFolder(updatedFolder: Folder): void {
-  if (typeof window !== 'undefined') {
-    let folders = getFolders();
-    folders = folders.map(f => f.id === updatedFolder.id ? updatedFolder : f);
-    saveFolders(folders);
-  }
-}
-
-export function deleteFolder(folderId: string): void {
-  if (typeof window !== 'undefined') {
-    let folders = getFolders();
-    folders = folders.filter(f => f.id !== folderId);
-    saveFolders(folders);
-    // Note: This simple deleteFolder does not cascade delete assets within it.
-    // deleteFolderCascade handles that if needed specifically for a folder.
-    // Project deletion handles cascading its folders and assets.
-  }
-}
-
-export function deleteFolderCascade(folderId: string): void {
-  if (typeof window !== 'undefined') {
-    let allFolders = getFolders();
-    let allAssets = getAssets();
-    
-    const folderIdsToDelete: string[] = [folderId];
-    let currentLength = 0;
-    while (currentLength < folderIdsToDelete.length) {
-      currentLength = folderIdsToDelete.length;
-      allFolders.forEach(folder => {
-        if (folder.parentId && folderIdsToDelete.includes(folder.parentId) && !folderIdsToDelete.includes(folder.id)) {
-          folderIdsToDelete.push(folder.id);
-        }
-      });
-    }
-    
-    const updatedFolders = allFolders.filter(f => !folderIdsToDelete.includes(f.id));
-    const updatedAssets = allAssets.filter(a => !a.folderId || !folderIdsToDelete.includes(a.folderId));
-    
-    saveFolders(updatedFolders);
-    saveAssets(updatedAssets);
-  }
-}
-
-// Assets
-export function getAssets(): Asset[] {
-  if (typeof window !== 'undefined') {
-    const storedAssets = localStorage.getItem(ASSETS_KEY);
-    if (storedAssets) {
-      return JSON.parse(storedAssets);
-    } else {
-      localStorage.setItem(ASSETS_KEY, JSON.stringify(mockAssets));
-      return mockAssets;
-    }
-  }
-  return [...mockAssets];
-}
-
-export function saveAssets(assets: Asset[]): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(ASSETS_KEY, JSON.stringify(assets));
-  }
-}
-
-export function addAsset(newAsset: Asset): void {
-  if (typeof window !== 'undefined') {
-    const assets = getAssets();
-    assets.push(newAsset);
-    saveAssets(assets);
-  }
-}
-
-export function updateAsset(updatedAsset: Asset): void {
-  if (typeof window !== 'undefined') {
-    let assets = getAssets();
-    assets = assets.map(a => a.id === updatedAsset.id ? updatedAsset : a);
-    saveAssets(assets);
-  }
-}
-
-export function deleteAsset(assetId: string): void {
-  if (typeof window !== 'undefined') {
-    let assets = getAssets();
-    assets = assets.filter(a => a.id !== assetId);
-    saveAssets(assets);
-  }
+  return (
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl font-headline text-center">{t('selectCompany', 'Select a Company')}</CardTitle>
+          <CardDescription className="text-center">
+            {t('selectCompanyDesc', 'Choose a company profile to manage its inspection projects.')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {isLoading ? (
+            <div className="flex justify-center items-center py-6">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : companies.length > 0 ? (
+            companies.map((company) => (
+              <Button
+                key={company.id}
+                variant="outline"
+                className="w-full justify-start h-auto py-3 px-4 text-left"
+                onClick={() => onSelectCompany(company)}
+              >
+                <Building className="mr-3 h-5 w-5 text-primary" />
+                <span className="font-medium">{company.name}</span>
+              </Button>
+            ))
+          ) : (
+            <p className="text-muted-foreground text-center">{t('noCompaniesAvailable', 'No companies available.')}</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

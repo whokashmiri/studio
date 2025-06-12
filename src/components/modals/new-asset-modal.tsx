@@ -13,7 +13,7 @@ import type { Project, Asset, ProjectStatus, Folder as FolderType } from '@/data
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
-import { uploadToCloudinary } from '@/lib/cloudinary-service'; // Import Cloudinary service
+import { processImageForSaving } from '@/lib/image-handler-service'; // Import image handler service
 
 type AssetCreationStep = 'photos_capture' | 'name_input' | 'descriptions';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1Modal';
@@ -38,7 +38,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const [isManagePhotosBatchModalOpen, setIsManagePhotosBatchModalOpen] = useState(false); 
   const [isCustomCameraOpen, setIsCustomCameraOpen] = useState(false);
 
-  const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]); // Still Data URIs temporarily
+  const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]); 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
@@ -52,7 +52,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
 
   const [isSavingAsset, setIsSavingAsset] = useState(false);
-  const [isProcessingPhotos, setIsProcessingPhotos] = useState(false); // Combined loading state for gallery and session uploads
+  const [isProcessingPhotos, setIsProcessingPhotos] = useState(false); 
 
   const { toast } = useToast();
   const { t, language } = useLanguage();
@@ -173,7 +173,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     if (event.target.files) {
       setIsProcessingPhotos(true);
       const newFiles = Array.from(event.target.files);
-      const uploadedUrls: string[] = [];
+      const processedDataUris: string[] = [];
       
       if (newFiles.length === 0) {
         setIsProcessingPhotos(false);
@@ -195,14 +195,14 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             reader.readAsDataURL(file);
           });
           
-          const cloudinaryUrl = await uploadToCloudinary(dataUrl);
-          if (cloudinaryUrl) {
-            uploadedUrls.push(cloudinaryUrl);
+          const processedUrl = await processImageForSaving(dataUrl);
+          if (processedUrl) {
+            processedDataUris.push(processedUrl);
           } else {
-            toast({ title: "Upload Error", description: `Failed to upload ${file.name}.`, variant: "destructive"});
+            toast({ title: "Image Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive"});
           }
         }
-        setPhotoPreviews(prev => [...prev, ...uploadedUrls].slice(0, 10)); 
+        setPhotoPreviews(prev => [...prev, ...processedDataUris].slice(0, 10)); 
       } catch (error: any) {
          toast({ title: "Error", description: error.message || "An error occurred processing gallery photos.", variant: "destructive"});
       } finally {
@@ -222,7 +222,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       if (context) {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const photoDataUrl = canvas.toDataURL('image/jpeg'); 
-        setCapturedPhotosInSession(prev => [...prev, photoDataUrl]); // Store Data URI temporarily
+        setCapturedPhotosInSession(prev => [...prev, photoDataUrl]); 
       } else {
          toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
       }
@@ -236,17 +236,17 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const handleAddSessionPhotosToBatch = useCallback(async () => {
     if (capturedPhotosInSession.length === 0) return;
     setIsProcessingPhotos(true);
-    const newUploadedUrls: string[] = [];
+    const newProcessedDataUris: string[] = [];
     try {
       for (const photoDataUrl of capturedPhotosInSession) {
-        const cloudinaryUrl = await uploadToCloudinary(photoDataUrl);
-        if (cloudinaryUrl) {
-          newUploadedUrls.push(cloudinaryUrl);
+        const processedUrl = await processImageForSaving(photoDataUrl);
+        if (processedUrl) {
+          newProcessedDataUris.push(processedUrl);
         } else {
-          toast({ title: "Upload Error", description: "A photo from session failed to upload.", variant: "destructive"});
+          toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive"});
         }
       }
-      setPhotoPreviews(prev => [...prev, ...newUploadedUrls].slice(0, 10));
+      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris].slice(0, 10));
       setCapturedPhotosInSession([]);
       setIsCustomCameraOpen(false);
     } catch (error) {
@@ -343,7 +343,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           name: assetName,
           projectId: project.id,
           folderId: parentFolder ? parentFolder.id : null,
-          photos: photoPreviews, // These are now Cloudinary URLs
+          photos: photoPreviews, // These are now processed data URIs
         };
 
         if (assetVoiceDescription.trim()) {
@@ -415,7 +415,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                   <ScrollArea className="h-[200px] pr-2 border rounded-md p-2">
                       <div className="grid grid-cols-8 gap-1.5">
                       {photoPreviews.map((src, index) => ( 
-                          <div key={`main-preview-modal-${index}-${src.substring(src.length - 20)}`} className="relative group">
+                          <div key={`main-preview-modal-${index}-${src.substring(0,30)}`} className="relative group">
                           <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
                           </div>
                       ))}
@@ -575,7 +575,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                 <ScrollArea className="h-[300px] pr-3">
                   <div className="grid grid-cols-6 gap-1.5">
                     {photoPreviews.map((src, index) => (
-                      <div key={`batch-modal-${index}-${src.substring(src.length - 20)}`} className="relative group">
+                      <div key={`batch-modal-${index}-${src.substring(0,30)}`} className="relative group">
                         <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
                          <Button 
                             variant="destructive" 
@@ -606,14 +606,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             if (videoRef.current) videoRef.current.srcObject = null;
           }
           setIsCustomCameraOpen(isOpenState);
-          // If closing custom camera and photos were captured, decide if manage photos modal should open
-          if (!isOpenState && capturedPhotosInSession.length > 0 && currentStep === 'photos_capture') {
-             // await handleAddSessionPhotosToBatch(); // Automatically add them
-             // setIsManagePhotosBatchModalOpen(true); // Then open manager, or just let user click "Next"
-          } else if (!isOpenState && currentStep === 'photos_capture' && photoPreviews.length > 0 && !isManagePhotosBatchModalOpen ) {
-             // If no new photos from session, but existing photos are there, potentially open manage modal
-             // setIsManagePhotosBatchModalOpen(true); // This was part of old logic, might remove
-          }
         }}>
          <DialogContent variant="fullscreen" className="bg-black text-white">
            <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>

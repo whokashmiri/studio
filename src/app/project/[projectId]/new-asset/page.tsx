@@ -15,7 +15,7 @@ import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
-import { uploadToCloudinary } from '@/lib/cloudinary-service'; // Import Cloudinary service
+import { processImageForSaving } from '@/lib/image-handler-service'; // Import image handler service
 
 type AssetCreationStep = 'photos_capture' | 'name_input' | 'descriptions';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1';
@@ -46,7 +46,7 @@ export default function NewAssetPage() {
   const [isManagePhotosBatchModalOpen, setIsManagePhotosBatchModalOpen] = useState(false); 
   const [isCustomCameraOpen, setIsCustomCameraOpen] = useState(false);
 
-  const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]); // Still Data URIs temporarily
+  const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]); 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
@@ -60,7 +60,7 @@ export default function NewAssetPage() {
   const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
 
   const [isSavingAsset, setIsSavingAsset] = useState(false);
-  const [isProcessingPhotos, setIsProcessingPhotos] = useState(false); // Combined loading state
+  const [isProcessingPhotos, setIsProcessingPhotos] = useState(false); 
 
   const { toast } = useToast();
   const { t, language } = useLanguage();
@@ -124,7 +124,7 @@ export default function NewAssetPage() {
             setAssetName(foundAsset.name);
             setAssetVoiceDescription(foundAsset.voiceDescription || '');
             setAssetTextDescription(foundAsset.textDescription || '');
-            setPhotoPreviews(foundAsset.photos || []); // These will be Cloudinary URLs if already saved
+            setPhotoPreviews(foundAsset.photos || []); 
             setCurrentStep('descriptions'); 
           } else {
             toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
@@ -251,7 +251,7 @@ export default function NewAssetPage() {
     if (event.target.files) {
       setIsProcessingPhotos(true);
       const newFiles = Array.from(event.target.files);
-      const uploadedUrls: string[] = [];
+      const processedDataUris: string[] = [];
       
       if (newFiles.length === 0) {
         setIsProcessingPhotos(false);
@@ -272,14 +272,14 @@ export default function NewAssetPage() {
             reader.readAsDataURL(file);
           });
 
-          const cloudinaryUrl = await uploadToCloudinary(dataUrl);
-          if (cloudinaryUrl) {
-            uploadedUrls.push(cloudinaryUrl);
+          const processedUrl = await processImageForSaving(dataUrl);
+          if (processedUrl) {
+            processedDataUris.push(processedUrl);
           } else {
-             toast({ title: "Upload Error", description: `Failed to upload ${file.name}.`, variant: "destructive"});
+             toast({ title: "Image Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive"});
           }
         }
-        setPhotoPreviews(prev => [...prev, ...uploadedUrls].slice(0, 10)); 
+        setPhotoPreviews(prev => [...prev, ...processedDataUris].slice(0, 10)); 
       } catch (error: any) {
         toast({ title: "Error", description: error.message || "An error occurred processing gallery photos.", variant: "destructive"});
       } finally {
@@ -313,17 +313,17 @@ export default function NewAssetPage() {
   const handleAddSessionPhotosToBatch = useCallback(async () => {
     if (capturedPhotosInSession.length === 0) return;
     setIsProcessingPhotos(true);
-    const newUploadedUrls: string[] = [];
+    const newProcessedDataUris: string[] = [];
     try {
       for (const photoDataUrl of capturedPhotosInSession) {
-        const cloudinaryUrl = await uploadToCloudinary(photoDataUrl);
-        if (cloudinaryUrl) {
-          newUploadedUrls.push(cloudinaryUrl);
+        const processedUrl = await processImageForSaving(photoDataUrl);
+        if (processedUrl) {
+          newProcessedDataUris.push(processedUrl);
         } else {
-          toast({ title: "Upload Error", description: "A photo from session failed to upload.", variant: "destructive"});
+          toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive"});
         }
       }
-      setPhotoPreviews(prev => [...prev, ...newUploadedUrls].slice(0, 10));
+      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris].slice(0, 10));
       setCapturedPhotosInSession([]);
       setIsCustomCameraOpen(false);
     } catch (error) {
@@ -420,7 +420,7 @@ export default function NewAssetPage() {
           name: assetName,
           projectId: project.id,
           folderId: currentFolder ? currentFolder.id : null,
-          photos: photoPreviews, // These are now Cloudinary URLs
+          photos: photoPreviews, // These are now processed data URIs
         };
 
         if (assetVoiceDescription.trim()) {
@@ -529,7 +529,7 @@ export default function NewAssetPage() {
                   <ScrollArea className="h-[200px] pr-2 border rounded-md p-2">
                       <div className="grid grid-cols-8 gap-1.5">
                       {photoPreviews.map((src, index) => ( 
-                          <div key={`main-preview-${index}-${src.substring(src.length - 20)}`} className="relative group">
+                          <div key={`main-preview-${index}-${src.substring(0,30)}`} className="relative group">
                           <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
                           </div>
                       ))}
@@ -696,7 +696,7 @@ export default function NewAssetPage() {
                 <ScrollArea className="h-[300px] pr-3">
                   <div className="grid grid-cols-6 gap-1.5">
                     {photoPreviews.map((src, index) => (
-                      <div key={`batch-${index}-${src.substring(src.length - 20)}`} className="relative group">
+                      <div key={`batch-${index}-${src.substring(0,30)}`} className="relative group">
                         <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
                          <Button 
                             variant="destructive" 
