@@ -17,7 +17,12 @@ const baseNextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
-      // Removed Cloudinary remote pattern
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**', // Allows any path from this hostname
+      },
     ],
   },
   experimental: {
