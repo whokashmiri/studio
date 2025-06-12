@@ -21,6 +21,12 @@ import { Button } from '@/components/ui/button';
 // Define a type for project with asset count
 type ProjectWithAssetCount = Project & { assetCount: number };
 
+// Helper function moved outside the component
+const getInitials = (email?: string) => {
+  if (!email) return 'N/A';
+  return email.substring(0, 2).toUpperCase();
+};
+
 export default function AdminDashboardPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -30,7 +36,6 @@ export default function AdminDashboardPage() {
   const [companyProjects, setCompanyProjects] = useState<ProjectWithAssetCount[]>([]);
   const [inspectors, setInspectors] = useState<AuthenticatedUser[]>([]);
   const [valuators, setValuators] = useState<AuthenticatedUser[]>([]);
-  // const [allAssets, setAllAssets] = useState<Asset[]>([]); // Removed: asset counts now come with projects
   const [pageLoading, setPageLoading] = useState(true);
 
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -46,14 +51,12 @@ export default function AdminDashboardPage() {
     if (currentUser && currentUser.role === 'Admin' && currentUser.companyId) {
       setPageLoading(true);
       try {
-        // FirestoreService.getProjects now returns projects with assetCount
         const [projectsWithCounts, users] = await Promise.all([
           FirestoreService.getProjects(currentUser.companyId),
           FirestoreService.getAllUsersByCompany(currentUser.companyId),
         ]);
         
         setCompanyProjects(projectsWithCounts);
-        // setAllAssets([]); // No longer needed to fetch all assets for counts
         setInspectors(users.filter(u => u.role === 'Inspector'));
         setValuators(users.filter(u => u.role === 'Valuation'));
       } catch (error) {
@@ -75,21 +78,36 @@ export default function AdminDashboardPage() {
     }
   }, [authLoading, currentUser, router, loadAdminData]);
 
-  // Removed projectAssetCounts useMemo as project.assetCount is now directly available
-  // const projectAssetCounts = useMemo(() => { ... });
-
   const projectsByInspector = useMemo(() => {
-    const map = new Map<string, Project[]>(); // Keep Project type here as ProjectWithAssetCount extends Project
+    const map = new Map<string, ProjectWithAssetCount[]>();
+    // Initialize map with all inspectors
     inspectors.forEach(inspector => {
-      map.set(inspector.id, companyProjects.filter(p => p.assignedInspectorIds?.includes(inspector.id)));
+      map.set(inspector.id, []);
+    });
+    // Populate projects
+    companyProjects.forEach(project => {
+      project.assignedInspectorIds?.forEach(inspectorId => {
+        if (map.has(inspectorId)) {
+          map.get(inspectorId)!.push(project);
+        }
+      });
     });
     return map;
   }, [inspectors, companyProjects]);
 
   const projectsByValuator = useMemo(() => {
-    const map = new Map<string, Project[]>();
+    const map = new Map<string, ProjectWithAssetCount[]>();
+    // Initialize map with all valuators
     valuators.forEach(valuator => {
-      map.set(valuator.id, companyProjects.filter(p => p.assignedValuatorIds?.includes(valuator.id)));
+      map.set(valuator.id, []);
+    });
+    // Populate projects
+    companyProjects.forEach(project => {
+      project.assignedValuatorIds?.forEach(valuatorId => {
+        if (map.has(valuatorId)) {
+          map.get(valuatorId)!.push(project);
+        }
+      });
     });
     return map;
   }, [valuators, companyProjects]);
@@ -101,16 +119,24 @@ export default function AdminDashboardPage() {
 
   const handleToggleFavorite = useCallback(async (project: Project) => {
     const newIsFavorite = !project.isFavorite;
+    // Optimistic UI update
+    setCompanyProjects(prevProjects => 
+      prevProjects.map(p => p.id === project.id ? { ...p, isFavorite: newIsFavorite, lastAccessed: Date.now() } : p)
+    );
+
     const success = await FirestoreService.updateProject(project.id, { isFavorite: newIsFavorite });
     if (success) {
-      setCompanyProjects(prevProjects => 
-        prevProjects.map(p => p.id === project.id ? { ...p, isFavorite: newIsFavorite, lastAccessed: new Date().toISOString() } : p)
-      );
       toast({
           title: newIsFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
           description: t('projectFavoriteStatusUpdatedDesc',`Project "${project.name}" favorite status updated.`, {projectName: project.name}),
         });
+      // Optionally refetch specific project if server-generated lastAccessed is critical for immediate display
+      // For now, optimistic Date.now() is fine.
     } else {
+      // Revert optimistic update on failure
+      setCompanyProjects(prevProjects => 
+        prevProjects.map(p => p.id === project.id ? { ...p, isFavorite: !newIsFavorite, lastAccessed: project.lastAccessed } : p)
+      );
       toast({ title: "Error", description: "Failed to update favorite status.", variant: "destructive" });
     }
   }, [t, toast]);
@@ -120,23 +146,46 @@ export default function AdminDashboardPage() {
     setIsAssignModalOpen(true);
   }, []);
 
-  const handleProjectAssignmentsUpdated = useCallback(async (updatedProject: Project) => {
-    const refreshedProject = await FirestoreService.getProjectById(updatedProject.id);
-    if (refreshedProject) {
-        // Assuming getProjectById doesn't return assetCount, we need to preserve it or refetch list
-        // For simplicity, we'll refetch the whole list or update selectively if count is known
-        const refreshedProjectWithCount = await FirestoreService.getProjects(currentUser!.companyId); // Refetch for counts
-        setCompanyProjects(refreshedProjectWithCount.filter(p => p.companyId === currentUser!.companyId));
-    }
-  }, [currentUser]);
+  const handleProjectAssignmentsUpdated = useCallback((updatedProjectFromModal: Project) => {
+    // `updatedProjectFromModal` is of type `Project`, might not have `assetCount`
+    // It contains the latest `assignedInspectorIds` and `assignedValuatorIds`
+    setCompanyProjects(prevProjects =>
+      prevProjects.map(p => {
+        if (p.id === updatedProjectFromModal.id) {
+          return {
+            ...p, // Preserves assetCount and other fields from ProjectWithAssetCount
+            assignedInspectorIds: updatedProjectFromModal.assignedInspectorIds,
+            assignedValuatorIds: updatedProjectFromModal.assignedValuatorIds,
+            lastAccessed: Date.now(), // Optimistic update for lastAccessed
+          };
+        }
+        return p;
+      })
+    );
+    toast({
+      title: t('assignmentsUpdatedTitle', "Assignments Updated"),
+      description: t('assignmentsUpdatedDesc', `Assignments for project "${updatedProjectFromModal.name}" have been updated.`, { projectName: updatedProjectFromModal.name }),
+    });
+  }, [t, toast]);
 
-  const handleProjectUpdatedFromEdit = useCallback(async (updatedProject: Project) => {
-    const refreshedProject = await FirestoreService.getProjectById(updatedProject.id);
-    if (refreshedProject) {
-       const refreshedProjectsWithCount = await FirestoreService.getProjects(currentUser!.companyId); // Refetch for counts
-       setCompanyProjects(refreshedProjectsWithCount.filter(p => p.companyId === currentUser!.companyId));
-    }
-  }, [currentUser]);
+  const handleProjectUpdatedFromEdit = useCallback((updatedProjectFromModal: Project) => {
+    // `updatedProjectFromModal` is of type `Project`, contains new name, isFavorite, etc.
+    setCompanyProjects(prevProjects =>
+      prevProjects.map(p => {
+        if (p.id === updatedProjectFromModal.id) {
+          return {
+            ...p, // Preserves assetCount
+            name: updatedProjectFromModal.name,
+            isFavorite: updatedProjectFromModal.isFavorite,
+            // Include other editable fields if any
+            description: updatedProjectFromModal.description, 
+            lastAccessed: Date.now(), // Optimistic update for lastAccessed
+          };
+        }
+        return p;
+      })
+    );
+  }, []);
 
   const promptDeleteProject = useCallback((project: Project) => {
     setProjectToDelete(project);
@@ -151,7 +200,7 @@ export default function AdminDashboardPage() {
           title: t('projectDeletedTitle', 'Project Deleted'),
           description: t('projectDeletedDesc', `Project "${projectToDelete.name}" has been deleted.`, { projectName: projectToDelete.name }),
         });
-        loadAdminData(); // Reload all data, which is now more efficient
+        loadAdminData(); // Reload all data, as deletion is a major change.
       } else {
         toast({ title: "Error", description: "Failed to delete project.", variant: "destructive" });
       }
@@ -181,11 +230,6 @@ export default function AdminDashboardPage() {
     );
   }
   
-  const getInitials = (email?: string) => {
-    if (!email) return 'N/A';
-    return email.substring(0, 2).toUpperCase();
-  }
-
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
       <CardHeader className="px-0 pt-0">
@@ -210,7 +254,6 @@ export default function AdminDashboardPage() {
             <ScrollArea className="h-[400px] pr-3">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {companyProjects.map((project) => {
-                  // Use project.assetCount directly
                   return (
                      <ProjectCard
                         key={project.id}
