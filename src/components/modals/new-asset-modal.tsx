@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info, Loader2 } from 'lucide-react';
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info, Loader2, Volume2 } from 'lucide-react';
 import type { Project, Asset, ProjectStatus, Folder as FolderType } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +51,9 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const [speechRecognitionAvailable, setSpeechRecognitionAvailable] = useState(false);
   const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
 
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechSynthesisAvailable, setSpeechSynthesisAvailable] = useState(false);
+
   const [isSavingAsset, setIsSavingAsset] = useState(false);
   const [isProcessingPhotos, setIsProcessingPhotos] = useState(false); 
 
@@ -68,9 +71,18 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     setIsCustomCameraOpen(false);
     setIsSavingAsset(false);
     setIsProcessingPhotos(false);
+    setIsListening(false);
+    setIsSpeaking(false);
+    if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
   }, []);
 
   const handleModalClose = useCallback(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
     resetModalState();
     onClose();
   }, [resetModalState, onClose]);
@@ -81,8 +93,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     }
   }, [isOpen, project, parentFolder, resetModalState]);
 
-
- useEffect(() => {
+  useEffect(() => {
     let streamInstance: MediaStream | null = null;
     const getCameraStream = async () => {
       if (isCustomCameraOpen) {
@@ -161,6 +172,18 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     } else {
       setSpeechRecognitionAvailable(false);
     }
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      setSpeechSynthesisAvailable(true);
+    } else {
+      setSpeechSynthesisAvailable(false);
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, [toast, language, t]);
 
   useEffect(() => {
@@ -290,13 +313,18 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       toast({ title: t('speechFeatureNotAvailableTitle', 'Feature Not Available'), description: t('speechFeatureNotAvailableDesc', 'Speech recognition is not supported or enabled in your browser.'), variant: 'destructive' });
       return;
     }
-    if (isSavingAsset) return; 
+    if (isSavingAsset || isSpeaking) return; 
 
     if (isListening) {
       speechRecognitionRef.current.stop();
       setIsListening(false);
     } else {
       try {
+        // Cancel any ongoing speech synthesis before starting recognition
+        if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+        }
         speechRecognitionRef.current.start();
         setIsListening(true);
       } catch (e: any) {
@@ -305,7 +333,37 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         setIsListening(false);
       }
     }
-  }, [speechRecognitionAvailable, isSavingAsset, isListening, t, toast]);
+  }, [speechRecognitionAvailable, isSavingAsset, isListening, isSpeaking, t, toast]);
+
+  const handlePlayVoiceDescription = useCallback(() => {
+    if (!speechSynthesisAvailable || !assetVoiceDescription.trim()) {
+      toast({ title: t('speechFeatureNotAvailableTitle', 'Feature Not Available'), description: t('speechNoVoiceToPlayDesc', 'Speech synthesis is not available or no voice description to play.'), variant: 'destructive' });
+      return;
+    }
+    if (isSavingAsset || isListening || isSpeaking) return;
+
+    // Stop any ongoing recognition
+    if (speechRecognitionRef.current && isListening) {
+        speechRecognitionRef.current.stop();
+        setIsListening(false);
+    }
+
+    const utterance = new SpeechSynthesisUtterance(assetVoiceDescription);
+    utterance.lang = language === 'ar' ? 'ar-SA' : 'en-US';
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+    };
+    utterance.onend = () => {
+      setIsSpeaking(false);
+    };
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error', event);
+      toast({ title: t('speechSynthesisErrorTitle', 'Speech Playback Error'), description: event.error || 'Could not play voice description.', variant: 'destructive' });
+      setIsSpeaking(false);
+    };
+    window.speechSynthesis.speak(utterance);
+  }, [speechSynthesisAvailable, assetVoiceDescription, isSavingAsset, isListening, isSpeaking, language, t, toast]);
+
 
   const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => {
     const newObj = { ...obj };
@@ -343,7 +401,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           name: assetName,
           projectId: project.id,
           folderId: parentFolder ? parentFolder.id : null,
-          photos: photoPreviews, // These are now processed data URIs
+          photos: photoPreviews,
         };
 
         if (assetVoiceDescription.trim()) {
@@ -473,19 +531,33 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             <div className="flex-grow overflow-y-auto py-4 space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="asset-voice-description-modal">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
-                  {speechRecognitionAvailable ? (
-                    <Button onClick={toggleListening} variant="outline" className="w-full sm:w-auto" disabled={isSavingAsset || isListening}>
-                      <Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-destructive' : ''}`} />
-                      {isListening ? t('listening', 'Listening...') : t('recordVoiceDescriptionButton', 'Record Voice Description')}
-                    </Button>
-                  ) : (
-                     <Alert variant="default">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {speechRecognitionAvailable ? (
+                      <Button onClick={toggleListening} variant="outline" className="flex-1 min-w-[180px]" disabled={isSavingAsset || isListening || isSpeaking}>
+                        <Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-destructive' : ''}`} />
+                        {isListening ? t('listening', 'Listening...') : t('recordVoiceDescriptionButton', 'Record Voice Description')}
+                      </Button>
+                    ) : (
+                       <Alert variant="default" className="w-full">
+                          <Info className="h-4 w-4" />
+                          <AlertTitle>{t('speechFeatureNotAvailableTitle', 'Speech Recognition Not Available')}</AlertTitle>
+                          <AlertDescription>{t('speechFeatureNotAvailableDesc', 'Your browser does not support speech recognition.')}</AlertDescription>
+                       </Alert>
+                    )}
+                    {assetVoiceDescription.trim() && speechSynthesisAvailable && (
+                       <Button onClick={handlePlayVoiceDescription} variant="outline" className="flex-1 min-w-[120px]" disabled={isSavingAsset || isListening || isSpeaking}>
+                         <Volume2 className="mr-2 h-4 w-4" /> {t('playVoiceDescriptionButton', 'Listen')}
+                       </Button>
+                    )}
+                  </div>
+                  {!speechRecognitionAvailable && !speechSynthesisAvailable && assetVoiceDescription.trim() && (
+                     <Alert variant="default" className="mt-2">
                         <Info className="h-4 w-4" />
-                        <AlertTitle>{t('speechFeatureNotAvailableTitle', 'Speech Recognition Not Available')}</AlertTitle>
-                        <AlertDescription>{t('speechFeatureNotAvailableDesc', 'Your browser does not support speech recognition.')}</AlertDescription>
+                        <AlertTitle>{t('speechPlaybackNotAvailableTitle', 'Speech Playback Not Available')}</AlertTitle>
+                        <AlertDescription>{t('speechPlaybackNotAvailableDesc', 'Your browser does not support speech playback.')}</AlertDescription>
                      </Alert>
                   )}
-                  {assetVoiceDescription && (
+                  {assetVoiceDescription.trim() && (
                     <Textarea
                       id="asset-voice-description-display-modal"
                       value={assetVoiceDescription}
@@ -504,7 +576,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                     value={assetTextDescription}
                     onChange={(e) => setAssetTextDescription(e.target.value)}
                     placeholder={t('textDescriptionPlaceholder', 'Type detailed written description here...')}
-                    rows={5}
+                    rows={assetVoiceDescription.trim() ? 3 : 5} // Adjust rows based on voice description presence
                     className="resize-y"
                     disabled={isSavingAsset}
                   />
@@ -530,7 +602,15 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     <>
       <canvas ref={canvasRef} className="hidden"></canvas> 
 
-      <Dialog open={isOpen} onOpenChange={(openState) => { if (!openState) handleModalClose(); }}>
+      <Dialog open={isOpen} onOpenChange={(openState) => { 
+          if (!openState) {
+            if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+            }
+            setIsSpeaking(false);
+            handleModalClose(); 
+          }
+      }}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col" hideCloseButton={true}>
           {renderStepContent()}
         </DialogContent>
@@ -690,3 +770,4 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     </>
   );
 }
+

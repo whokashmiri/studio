@@ -88,6 +88,7 @@ const translations: Record<Language, Record<string, string>> = {
     addDetailsForAssetTitle: "Add Details for:",
     voiceDescriptionLabel: "Voice Description",
     recordVoiceDescriptionButton: "Record Voice Description",
+    playVoiceDescriptionButton: "Listen",
     voiceTranscriptPlaceholder: "Voice transcript will appear here...",
     textDescriptionLabel: "Written Description",
     textDescriptionPlaceholder: "Type detailed written description here...",
@@ -231,6 +232,10 @@ const translations: Record<Language, Record<string, string>> = {
     speechErrorNotAllowed: "Microphone access denied. Please allow microphone access.",
     speechErrorTitle: "Could not start speech recognition",
     speechStartErrorDesc: "Please ensure microphone permissions are granted.",
+    speechSynthesisErrorTitle: "Speech Playback Error",
+    speechNoVoiceToPlayDesc: "Speech synthesis is not available or no voice description to play.",
+    speechPlaybackNotAvailableTitle: "Speech Playback Not Available",
+    speechPlaybackNotAvailableDesc: "Your browser does not support speech playback.",
 
     assetsInFolder: "Assets in \"{folderName}\"",
     assetsInProjectRoot: "Assets in Project Root",
@@ -405,6 +410,7 @@ const translations: Record<Language, Record<string, string>> = {
     addDetailsForAssetTitle: "إضافة تفاصيل لـ:",
     voiceDescriptionLabel: "الوصف الصوتي",
     recordVoiceDescriptionButton: "تسجيل الوصف الصوتي",
+    playVoiceDescriptionButton: "استماع",
     voiceTranscriptPlaceholder: "سيظهر النص الصوتي هنا...",
     textDescriptionLabel: "الوصف المكتوب",
     textDescriptionPlaceholder: "اكتب وصفًا مكتوبًا مفصلاً هنا...",
@@ -548,6 +554,11 @@ const translations: Record<Language, Record<string, string>> = {
     speechErrorNotAllowed: "تم رفض الوصول إلى الميكروفون. يرجى السماح بالوصول إلى الميكروفون.",
     speechErrorTitle: "تعذر بدء التعرف على الكلام",
     speechStartErrorDesc: "يرجى التأكد من منح أذونات الميكروفون.",
+    speechSynthesisErrorTitle: "خطأ في تشغيل الكلام",
+    speechNoVoiceToPlayDesc: "ميزة نطق النص غير متوفرة أو لا يوجد وصف صوتي لتشغيله.",
+    speechPlaybackNotAvailableTitle: "تشغيل الكلام غير متوفر",
+    speechPlaybackNotAvailableDesc: "متصفحك لا يدعم تشغيل الكلام.",
+
 
     assetsInFolder: "الأصول في \"{folderName}\"",
     assetsInProjectRoot: "الأصول في جذر المشروع",
