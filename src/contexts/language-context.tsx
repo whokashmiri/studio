@@ -87,7 +87,7 @@ const translations: Record<Language, Record<string, string>> = {
 
     addDetailsForAssetTitle: "Add Details for:",
     voiceDescriptionLabel: "Voice Description",
-    recordVoiceDescriptionButton: "Record Voice Description",
+    recordVoiceDescriptionButton: "Record Voice",
     playVoiceDescriptionButton: "Listen",
     voiceTranscriptPlaceholder: "Voice transcript will appear here...",
     textDescriptionLabel: "Written Description",

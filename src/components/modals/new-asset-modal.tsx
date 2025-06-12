@@ -535,7 +535,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                     {speechRecognitionAvailable ? (
                       <Button onClick={toggleListening} variant="outline" className="flex-1 min-w-[180px]" disabled={isSavingAsset || isListening || isSpeaking}>
                         <Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-destructive' : ''}`} />
-                        {isListening ? t('listening', 'Listening...') : t('recordVoiceDescriptionButton', 'Record Voice Description')}
+                        {isListening ? t('listening', 'Listening...') : t('recordVoiceDescriptionButton', 'Record Voice ')}
                       </Button>
                     ) : (
                        <Alert variant="default" className="w-full">
