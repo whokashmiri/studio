@@ -27,33 +27,35 @@ export async function uploadToCloudinary(fileDataUrl: string): Promise<string | 
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 500));
 
-  // In a real backend:
-  //   const cloudinary = require('cloudinary').v2;
-  //   cloudinary.config({
-  //     cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  //     api_key: process.env.CLOUDINARY_API_KEY,
-  //     api_secret: process.env.CLOUDINARY_API_SECRET,
-  //     secure: true,
-  //   });
-  //   try {
-  //     const result = await cloudinary.uploader.upload(fileDataUrl, {
-  //       resource_type: "image"
-  //     });
-  //     return result.secure_url; // This would be a real Cloudinary URL
-  //   } catch (error) {
-  //     console.error("Actual Cloudinary Upload Error (simulated path):", error);
-  //     return null;
-  //   }
+  // --- THIS BLOCK IS FOR ILLUSTRATING A REAL BACKEND IMPLEMENTATION ---
+  // --- IT SHOULD NOT BE ACTIVE CODE IN THIS CLIENT-SIDE SERVICE ---
+  /*
+  const cloudinary = require('cloudinary').v2; 
+  cloudinary.config({
+    cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  });
+  try {
+    const result = await cloudinary.uploader.upload(fileDataUrl, {
+      resource_type: "image"
+    });
+    return result.secure_url; // This would be a real Cloudinary URL
+  } catch (error) {
+    console.error("Actual Cloudinary Upload Error (simulated path):", error);
+    return null;
+  }
+  */
+  // --- END OF ILLUSTRATIVE BACKEND BLOCK ---
 
   // For prototype purposes, return the data URI itself so next/image can display it.
   // This ensures the "uploaded" image matches the preview.
   if (!fileDataUrl.startsWith('data:image')) {
     console.warn('Simulated upload: Input does not look like an image Data URI. This might cause issues if it is not an image.');
-    // Potentially return null or an error indicator if it's critical that it's an image.
-    // For now, we'll pass it through.
   }
   
-  console.log(`Simulated processing complete. Returning Data URI for preview consistency: ${fileDataUrl.substring(0,50)}...`);
+  console.log(`Simulated processing complete. Returning Data URI for preview consistency.`);
   return fileDataUrl;
 }
 
