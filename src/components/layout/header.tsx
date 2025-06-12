@@ -9,25 +9,35 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/language-context';
 import { useState, useEffect } from 'react'; 
-import { usePathname } from 'next/navigation'; // Import usePathname
+import { usePathname, useRouter } from 'next/navigation'; // Import useRouter
 
 export function Header() {
   const { currentUser, isLoading, logout } = useAuth();
   const { t } = useLanguage();
   const [isNavigatingToAdmin, setIsNavigatingToAdmin] = useState(false);
-  const pathname = usePathname(); // Get current pathname
+  const pathname = usePathname(); 
+  const router = useRouter(); // Initialize useRouter
 
   const getInitials = (email?: string) => {
     if (!email) return '';
     return email.substring(0, 2).toUpperCase();
   }
 
-  // Reset navigation state when pathname changes
   useEffect(() => {
     if (isNavigatingToAdmin) {
       setIsNavigatingToAdmin(false);
     }
   }, [pathname, isNavigatingToAdmin]);
+
+  const handleAdminDashboardNavigation = () => {
+    if (pathname !== '/admin/dashboard') {
+      setIsNavigatingToAdmin(true);
+      router.push('/admin/dashboard');
+    } else {
+      // If already on the page, just ensure the menu closes (default behavior of onSelect)
+      // No need to set loader or navigate again
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -45,8 +55,6 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    {/* Placeholder for user image if available */}
-                    {/* <AvatarImage src="https://github.com/shadcn.png" alt={currentUser.email} /> */}
                     <AvatarFallback>
                         {getInitials(currentUser.email) || <UserCircle className="h-5 w-5"/>}
                     </AvatarFallback>
@@ -64,25 +72,19 @@ export function Header() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {currentUser.role === 'Admin' && (
-                  <Link href="/admin/dashboard" passHref legacyBehavior>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        if (pathname !== '/admin/dashboard') {
-                          setIsNavigatingToAdmin(true);
-                        }
-                      }}
-                      disabled={isNavigatingToAdmin}
-                    >
-                      {isNavigatingToAdmin ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <LayoutDashboard className="mr-2 h-4 w-4" />
-                      )}
-                      {isNavigatingToAdmin ? t('loading', 'Loading...') : t('adminDashboardMenuLink', 'Admin Dashboard')}
-                    </DropdownMenuItem>
-                  </Link>
+                  <DropdownMenuItem
+                    onSelect={handleAdminDashboardNavigation}
+                    disabled={isNavigatingToAdmin && pathname !== '/admin/dashboard'} // Disable only if actively navigating from different page
+                  >
+                    {isNavigatingToAdmin && pathname !== '/admin/dashboard' ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                    )}
+                    {isNavigatingToAdmin && pathname !== '/admin/dashboard' ? t('loading', 'Loading...') : t('adminDashboardMenuLink', 'Admin Dashboard')}
+                  </DropdownMenuItem>
                 )}
-                <DropdownMenuItem onClick={logout}>
+                <DropdownMenuItem onSelect={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   {t('logoutButton', 'Logout')}
                 </DropdownMenuItem>
@@ -100,5 +102,4 @@ export function Header() {
     </header>
   );
 }
-
     
