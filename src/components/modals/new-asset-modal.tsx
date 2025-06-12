@@ -192,7 +192,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           filesProcessed++;
           if (filesProcessed === newFiles.length) {
             setPhotoPreviews(prev => [...prev, ...newPhotoUrls].slice(0, 10)); 
-            if (!isManagePhotosBatchModalOpen && currentStep === 'photos_capture') setIsManagePhotosBatchModalOpen(true); 
+            // Removed automatic opening of manage photos modal
             setIsProcessingGalleryPhotos(false);
           }
         };
@@ -207,7 +207,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       });
     }
     if (event.target) event.target.value = ''; 
-  }, [isManagePhotosBatchModalOpen, currentStep, toast]);
+  }, [toast]);
 
   const handleCapturePhotoFromStream = useCallback(() => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream) {
@@ -234,20 +234,16 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    if (currentStep === 'photos_capture' && !isManagePhotosBatchModalOpen) {
-        setIsManagePhotosBatchModalOpen(true); 
-    } else {
-        setIsManagePhotosBatchModalOpen(false);
-    }
-  }, [capturedPhotosInSession, currentStep, isManagePhotosBatchModalOpen]);
+    // Removed automatic opening of manage photos modal
+    // If user wants to manage, they click the "Manage Photos" button explicitly
+  }, [capturedPhotosInSession]);
 
   const handleCancelCustomCamera = useCallback(() => {
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    if (currentStep === 'photos_capture' && photoPreviews.length > 0 && !isManagePhotosBatchModalOpen ) { 
-        setIsManagePhotosBatchModalOpen(true);
-    }
-  }, [currentStep, photoPreviews.length, isManagePhotosBatchModalOpen]);
+    // If coming from photos_capture step and photos exist, user can click "Manage Photos" button
+    // No need to auto-open it.
+  }, []);
   
   const removePhotoFromPreviews = useCallback((indexToRemove: number) => { 
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
@@ -259,6 +255,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       return;
     }
     setCurrentStep('name_input');
+    setIsManagePhotosBatchModalOpen(false); // Ensure manage photos modal is closed
   }, [photoPreviews.length, toast, t]);
 
   const handleNextFromNameInput = useCallback(() => {
@@ -670,3 +667,5 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     </>
   );
 }
+
+    

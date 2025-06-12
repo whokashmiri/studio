@@ -268,7 +268,7 @@ export default function NewAssetPage() {
           filesProcessed++;
           if (filesProcessed === newFiles.length) {
             setPhotoPreviews(prev => [...prev, ...newPhotoUrls].slice(0, 10)); 
-            if (!isManagePhotosBatchModalOpen && currentStep === 'photos_capture') setIsManagePhotosBatchModalOpen(true); 
+            // Removed: if (!isManagePhotosBatchModalOpen && currentStep === 'photos_capture') setIsManagePhotosBatchModalOpen(true); 
             setIsProcessingGalleryPhotos(false);
           }
         };
@@ -283,7 +283,7 @@ export default function NewAssetPage() {
       });
     }
     if (event.target) event.target.value = ''; 
-  }, [isManagePhotosBatchModalOpen, currentStep, toast]);
+  }, [toast]); // Removed currentStep and isManagePhotosBatchModalOpen from deps
 
   const handleCapturePhotoFromStream = useCallback(() => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream) {
@@ -310,21 +310,22 @@ export default function NewAssetPage() {
     setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    // If coming from photos_capture step, manage photos modal might open, or stay on photos_capture
-    if (currentStep === 'photos_capture' && !isManagePhotosBatchModalOpen) {
-        setIsManagePhotosBatchModalOpen(true); // Open if not already, to review batch
-    } else {
-        setIsManagePhotosBatchModalOpen(false); // Close if it was open from elsewhere
-    }
-  }, [capturedPhotosInSession, currentStep, isManagePhotosBatchModalOpen]);
+    // Removed:
+    // if (currentStep === 'photos_capture' && !isManagePhotosBatchModalOpen) {
+    //     setIsManagePhotosBatchModalOpen(true); 
+    // } else {
+    //     setIsManagePhotosBatchModalOpen(false); 
+    // }
+  }, [capturedPhotosInSession]); // Removed currentStep and isManagePhotosBatchModalOpen from deps
 
   const handleCancelCustomCamera = useCallback(() => {
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    if (currentStep === 'photos_capture' && photoPreviews.length > 0 && !isManagePhotosBatchModalOpen ) { 
-        setIsManagePhotosBatchModalOpen(true);
-    }
-  }, [currentStep, photoPreviews.length, isManagePhotosBatchModalOpen]);
+    // Removed: 
+    // if (currentStep === 'photos_capture' && photoPreviews.length > 0 && !isManagePhotosBatchModalOpen ) { 
+    //     setIsManagePhotosBatchModalOpen(true);
+    // }
+  }, []); // Removed currentStep, photoPreviews.length, isManagePhotosBatchModalOpen from deps
   
   const removePhotoFromPreviews = useCallback((indexToRemove: number) => { 
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
@@ -336,6 +337,7 @@ export default function NewAssetPage() {
       return;
     }
     setCurrentStep('name_input');
+    setIsManagePhotosBatchModalOpen(false); // Ensure manage photos modal is closed
   }, [photoPreviews.length, isEditMode, toast, t]);
 
   const handleNextFromNameInput = useCallback(() => {
@@ -801,3 +803,5 @@ export default function NewAssetPage() {
 //     hideCloseButton?: boolean;
 //   }
 // }
+
+    
