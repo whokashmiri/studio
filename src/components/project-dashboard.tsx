@@ -5,14 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { NewProjectModal } from '@/components/modals/new-project-modal';
 import { EditProjectModal } from '@/components/modals/edit-project-modal';
-import type { Company, Project, ProjectStatus } from '@/data/mock-data'; // Removed Asset type
+import type { Company, Project, ProjectStatus } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
 import { FolderPlus, CheckCircle, Star, Clock, Sparkles, Loader2 } from 'lucide-react';
 import { ProjectCard } from './project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/contexts/language-context';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/auth-context'; 
+import { useAuth } from '@/contexts/auth-context';
 import Link from 'next/link';
 
 interface ProjectDashboardProps {
@@ -20,16 +20,14 @@ interface ProjectDashboardProps {
   onLogout: () => void;
 }
 
-// Define a type for project with asset count
 type ProjectWithAssetCount = Project & { assetCount: number };
 
 export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
-  const { currentUser } = useAuth(); 
+  const { currentUser } = useAuth();
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [projects, setProjects] = useState<ProjectWithAssetCount[]>([]); // Use new type
-  // const [allAssets, setAllAssets] = useState<Asset[]>([]); // Removed allAssets state
+  const [projects, setProjects] = useState<ProjectWithAssetCount[]>([]);
   const [activeTab, setActiveTab] = useState<ProjectStatus | 'favorite'>('recent');
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [loadingProjectId, setLoadingProjectId] = useState<string | null>(null);
@@ -37,13 +35,12 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
 
-  const fetchProjectsAndAssets = useCallback(async () => {
+  const fetchProjectsAndCounts = useCallback(async () => {
     if (!company?.id || !currentUser) return;
     setIsLoadingProjects(true);
     try {
-      const fetchedProjectsWithCounts = await FirestoreService.getProjects(company.id); // Fetches projects with counts
+      const fetchedProjectsWithCounts = await FirestoreService.getProjects(company.id);
       setProjects(fetchedProjectsWithCounts);
-      // Removed fetching all assets logic
     } catch (error) {
       console.error("Failed to fetch projects or assets:", error);
       toast({ title: "Error", description: "Could not load project data.", variant: "destructive" });
@@ -53,8 +50,8 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
   }, [company?.id, currentUser, toast]);
 
   useEffect(() => {
-    fetchProjectsAndAssets();
-  }, [fetchProjectsAndAssets]);
+    fetchProjectsAndCounts();
+  }, [fetchProjectsAndCounts]);
 
   const filteredProjects = useMemo(() => {
     if (!currentUser) return [];
@@ -72,10 +69,10 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
       return p.status === activeTab;
     }).sort((a, b) => {
       if (activeTab === 'recent' && a.lastAccessed && b.lastAccessed) {
-        return new Date(b.lastAccessed).getTime() - new Date(a.lastAccessed).getTime();
+        return b.lastAccessed - a.lastAccessed; // Sort by number
       }
       if (activeTab === 'new' && a.createdAt && b.createdAt) {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return b.createdAt - a.createdAt; // Sort by number
       }
       if (a.isFavorite && !b.isFavorite && activeTab === 'favorite') return -1;
       if (!a.isFavorite && b.isFavorite && activeTab === 'favorite') return 1;
@@ -83,15 +80,10 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
     });
   }, [projects, company.id, activeTab, currentUser]);
 
-  // Removed projectAssetCounts useMemo hook
-
   const handleProjectCreated = useCallback(async (newProject: Project) => {
-    // Fetch the project again to get asset count if not already included, or simply add with count 0
-    // For simplicity, refetching all projects is easier here or assume count is 0 for new project display temporarily
-    // A better approach would be for addProject to return the count or the dashboard to fetch a single project with count
-    await fetchProjectsAndAssets(); // Refetch all to get updated counts and sorting
-    setActiveTab('new'); 
-  }, [setActiveTab, fetchProjectsAndAssets]);
+    await fetchProjectsAndCounts();
+    setActiveTab('new');
+  }, [setActiveTab, fetchProjectsAndCounts]);
 
 
   const handleOpenEditModal = useCallback((project: Project) => {
@@ -100,33 +92,44 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
   }, []);
 
   const handleProjectUpdated = useCallback(async (updatedProject: Project) => {
-     // Refetch projects to ensure counts and all data are fresh
-    await fetchProjectsAndAssets();
+    await fetchProjectsAndCounts();
     if (editingProject && editingProject.id === updatedProject.id) {
         setEditingProject(null);
     }
-  }, [editingProject, fetchProjectsAndAssets]);
+  }, [editingProject, fetchProjectsAndCounts]);
 
   const handleToggleFavorite = useCallback(async (projectToToggle: ProjectWithAssetCount) => {
     const newIsFavorite = !projectToToggle.isFavorite;
-    const success = await FirestoreService.updateProject(projectToToggle.id, { 
+    // Optimistic UI update
+    const optimisticUpdatedProject = { ...projectToToggle, isFavorite: newIsFavorite, lastAccessed: Date.now() };
+    setProjects(currentProjects =>
+      currentProjects.map(p =>
+        p.id === optimisticUpdatedProject.id ? optimisticUpdatedProject : p
+      )
+    );
+
+    const success = await FirestoreService.updateProject(projectToToggle.id, {
       isFavorite: newIsFavorite,
-    });
+    }); // lastAccessed is handled by serverTimestamp in updateProject
+
     if (success) {
-      const updatedProject = { ...projectToToggle, isFavorite: newIsFavorite, lastAccessed: new Date().toISOString() };
-      setProjects(currentProjects => 
-        currentProjects.map(p => 
-          p.id === updatedProject.id ? updatedProject : p
-        )
-      );
       toast({
         title: newIsFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
         description: t('projectFavoriteStatusUpdatedDesc', `Project "${projectToToggle.name}" favorite status updated.`, { projectName: projectToToggle.name}),
       });
+      // Optionally refetch to get exact server timestamp for lastAccessed if critical,
+      // but for favorite toggle, optimistic Date.now() is usually fine.
+      // await fetchProjectsAndCounts(); // Uncomment if precise server lastAccessed is needed immediately
     } else {
+      // Revert optimistic update on failure
+      setProjects(currentProjects =>
+        currentProjects.map(p =>
+          p.id === projectToToggle.id ? projectToToggle : p // Revert to original projectToToggle
+        )
+      );
       toast({ title: "Error", description: "Failed to update favorite status.", variant: "destructive" });
     }
-  }, [t, toast]);
+  }, [t, toast]); // Removed fetchProjectsAndCounts from here to rely on optimistic update mostly
 
   const tabItems: { value: ProjectStatus | 'favorite'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
     { value: 'recent', labelKey: 'recent', defaultLabel: 'Recent', icon: Clock },
@@ -174,7 +177,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
                     <div key={project.id} onClick={() => handleProjectCardClick(project.id)}>
                       <ProjectCard
                         project={project}
-                        assetCount={project.assetCount} // Use project.assetCount directly
+                        assetCount={project.assetCount}
                         onEditProject={handleOpenEditModal}
                         onToggleFavorite={() => handleToggleFavorite(project)}
                         isLoading={loadingProjectId === project.id}
@@ -193,7 +196,7 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
       </Tabs>
 
       {canCreateProject && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40 md:static md:bg-transparent md:p-0 md:border-none md:flex md:justify-end">
+        <div className="fixed bottom-4 left-0 right-0 p-2 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2 md:static md:bg-transparent md:p-0 md:border-none md:flex md:justify-end">
           <Button size="lg" onClick={() => setIsNewModalOpen(true)} className="w-full md:w-auto shadow-lg md:shadow-none">
             <FolderPlus className="mr-2 h-5 w-5" />
             {t('createNewProject', 'Create New Project')}

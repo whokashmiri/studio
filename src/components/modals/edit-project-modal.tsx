@@ -46,27 +46,24 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
 
     setIsSaving(true);
 
-    const projectUpdateData: Partial<Project> = {
+    const projectUpdateData: Partial<Omit<Project, 'createdAt' | 'lastAccessed'>> = {
       name: projectName,
       isFavorite: isFavorite,
-      // description will not be updated here, assuming it's handled elsewhere or not editable in this modal
-      // lastAccessed will be updated by serverTimestamp in FirestoreService
     };
 
     const success = await FirestoreService.updateProject(project.id, projectUpdateData);
-    
+
     setIsSaving(false);
 
     if (success) {
-      // Fetch the updated project to get server-generated timestamps
       const updatedProjectWithTimestamps = await FirestoreService.getProjectById(project.id);
       if (updatedProjectWithTimestamps) {
         onProjectUpdated(updatedProjectWithTimestamps);
       } else {
-        // Fallback if fetch fails, use client-side optimistic update
-        onProjectUpdated({ ...project, ...projectUpdateData, lastAccessed: new Date().toISOString() });
+        // Fallback with client-side numeric timestamp for lastAccessed
+        onProjectUpdated({ ...project, ...projectUpdateData, lastAccessed: Date.now() });
       }
-      onClose(); 
+      onClose();
       toast({
         title: t('projectUpdatedTitle', "Project Updated"),
         description: t('projectUpdatedDesc', `Project "${projectName}" has been successfully updated.`, { projectName: projectName }),

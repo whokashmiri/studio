@@ -1,5 +1,5 @@
 
-import { getDb } from './firebase/config'; 
+import { getDb } from './firebase/config';
 import {
   collection,
   doc,
@@ -16,7 +16,7 @@ import {
   serverTimestamp,
   QuerySnapshot,
   DocumentData,
-  getCountFromServer, // Import getCountFromServer
+  getCountFromServer,
 } from 'firebase/firestore';
 import type { Project, Folder, Asset, Company, MockStoredUser, AuthenticatedUser, UserRole } from '@/data/mock-data';
 import { mockCompanies as initialMockCompanies } from '@/data/mock-data';
@@ -28,16 +28,15 @@ const ASSETS_COLLECTION = 'assets';
 const USERS_COLLECTION = 'users';
 
 
-// Helper to convert Firestore Timestamps to ISO strings
 const convertTimestamps = (data: DocumentData): any => {
   const newData: any = { ...data };
   for (const key in newData) {
     if (newData[key] instanceof Timestamp) {
-      newData[key] = newData[key].toDate().toISOString();
+      newData[key] = newData[key].toDate().getTime(); // Changed to getTime()
     } else if (typeof newData[key] === 'object' && newData[key] !== null && !Array.isArray(newData[key])) {
       newData[key] = convertTimestamps(newData[key]);
     } else if (Array.isArray(newData[key])) {
-      newData[key] = newData[key].map(item => 
+      newData[key] = newData[key].map(item =>
         typeof item === 'object' && item !== null && !(item instanceof Timestamp) ? convertTimestamps(item) : item
       );
     }
@@ -54,7 +53,6 @@ const processSnapshot = <T>(snapshot: QuerySnapshot<DocumentData>): T[] => {
   return snapshot.docs.map(docSnap => processDoc<T>(docSnap));
 };
 
-// Helper to remove undefined properties from an object before saving to Firestore
 const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => {
   const newObj = { ...obj };
   Object.keys(newObj).forEach(key => {
@@ -93,7 +91,7 @@ export async function addCompany(companyData: Omit<Company, 'id'>): Promise<Comp
   try {
     const dataToSave = {
       ...companyData,
-      name: companyData.name.toUpperCase() // Ensure name is uppercased
+      name: companyData.name.toUpperCase()
     };
     const docRef = await addDoc(collection(getDb(), COMPANIES_COLLECTION), dataToSave);
     return { id: docRef.id, ...dataToSave };
@@ -134,20 +132,20 @@ export async function getUserByEmail(email: string): Promise<MockStoredUser | nu
 }
 
 export async function addUser(userData: MockStoredUser): Promise<AuthenticatedUser | null> {
-  const { password, ...userForDb } = userData; 
-  
+  const { password, ...userForDb } = userData;
+
   try {
-    const userDocRef = doc(getDb(), USERS_COLLECTION, userData.id); 
+    const userDocRef = doc(getDb(), USERS_COLLECTION, userData.id);
     const dataToSave = {
       ...userForDb,
       email: userForDb.email.toLowerCase(),
-      companyName: userForDb.companyName.toUpperCase(), 
-      ...(password && { password }), 
+      companyName: userForDb.companyName.toUpperCase(),
+      ...(password && { password }),
     };
     await setDoc(userDocRef, removeUndefinedProps(dataToSave));
-    
+
     const { password: _, ...authenticatedUser } = userData;
-    return { ...authenticatedUser, companyName: dataToSave.companyName }; 
+    return { ...authenticatedUser, companyName: dataToSave.companyName };
   } catch (error) {
     console.error("Error adding user: ", error);
     return null;
@@ -179,7 +177,6 @@ export async function getProjects(companyId?: string): Promise<Array<Project & {
     const snapshot = await getDocs(q);
     const projectsData = processSnapshot<Project>(snapshot);
 
-    // For each project, get asset count
     const projectsWithCounts = await Promise.all(
       projectsData.map(async (project) => {
         const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
@@ -212,7 +209,7 @@ export async function getProjectById(projectId: string): Promise<Project | null>
   }
 }
 
-export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' | 'lastAccessed'> & { createdAt?: string, lastAccessed?: string }): Promise<Project | null> {
+export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' | 'lastAccessed'>): Promise<Project | null> {
   try {
     const dataToSave = removeUndefinedProps({
       ...projectData,
@@ -220,7 +217,6 @@ export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' |
       lastAccessed: serverTimestamp(),
     });
     const docRef = await addDoc(collection(getDb(), PROJECTS_COLLECTION), dataToSave);
-    // Fetch the project again to get server-generated timestamps correctly converted
     const newProjectDoc = await getDoc(docRef);
      if (newProjectDoc.exists()) {
       return processDoc<Project>(newProjectDoc);
@@ -232,12 +228,12 @@ export async function addProject(projectData: Omit<Project, 'id' | 'createdAt' |
   }
 }
 
-export async function updateProject(projectId: string, projectData: Partial<Project>): Promise<boolean> {
+export async function updateProject(projectId: string, projectData: Partial<Omit<Project, 'createdAt' | 'lastAccessed'>>): Promise<boolean> {
   try {
     const docRef = doc(getDb(), PROJECTS_COLLECTION, projectId);
     const dataToUpdate = removeUndefinedProps({
         ...projectData,
-        lastAccessed: serverTimestamp() 
+        lastAccessed: serverTimestamp()
     });
     await updateDoc(docRef, dataToUpdate);
     return true;
@@ -250,21 +246,18 @@ export async function updateProject(projectId: string, projectData: Partial<Proj
 export async function deleteProject(projectId: string): Promise<boolean> {
   const batch = writeBatch(getDb());
   try {
-    // Delete folders associated with the project
     const foldersToDeleteQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("projectId", "==", projectId));
     const foldersSnapshot = await getDocs(foldersToDeleteQuery);
     foldersSnapshot.forEach(folderDoc => {
       batch.delete(doc(getDb(), FOLDERS_COLLECTION, folderDoc.id));
     });
 
-    // Delete assets associated with the project (even those not in a subfolder)
     const assetsInProjectQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId));
     const assetsSnapshot = await getDocs(assetsInProjectQuery);
     assetsSnapshot.forEach(assetDoc => {
       batch.delete(doc(getDb(), ASSETS_COLLECTION, assetDoc.id));
     });
-    
-    // Delete the project itself
+
     batch.delete(doc(getDb(), PROJECTS_COLLECTION, projectId));
 
     await batch.commit();
@@ -327,27 +320,24 @@ export async function updateFolder(folderId: string, folderData: Partial<Folder>
 
 export async function deleteFolderCascade(folderId: string): Promise<boolean> {
   const batch = writeBatch(getDb());
-  const foldersProcessed = new Set<string>(); 
-  
+  const foldersProcessed = new Set<string>();
+
   async function findAndDeleteRecursive(currentFolderId: string) {
     if (foldersProcessed.has(currentFolderId)) return;
     foldersProcessed.add(currentFolderId);
 
-    // Delete assets directly in this folder
     const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("folderId", "==", currentFolderId));
     const assetsSnapshot = await getDocs(assetsQuery);
     assetsSnapshot.forEach(assetDoc => {
       batch.delete(doc(getDb(), ASSETS_COLLECTION, assetDoc.id));
     });
 
-    // Find and recursively delete subfolders
     const subfoldersQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("parentId", "==", currentFolderId));
     const subfoldersSnapshot = await getDocs(subfoldersQuery);
     for (const subfolderDoc of subfoldersSnapshot.docs) {
-      await findAndDeleteRecursive(subfolderDoc.id); 
+      await findAndDeleteRecursive(subfolderDoc.id);
     }
-    
-    // Delete the current folder itself
+
     batch.delete(doc(getDb(), FOLDERS_COLLECTION, currentFolderId));
   }
 
@@ -366,9 +356,9 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
 export async function getAssets(projectId: string, folderId?: string | null): Promise<Asset[]> {
   try {
     let q;
-    if (folderId === undefined) { // Query for assets directly under project (folderId is explicitly null)
+    if (folderId === undefined) {
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
-    } else { // Query for assets under a specific folder (folderId is a string) or also for project root if folderId is null
+    } else {
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
     }
     const snapshot = await getDocs(q);
@@ -394,7 +384,7 @@ export async function getAssetById(assetId: string): Promise<Asset | null> {
 }
 
 
-export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: string, updatedAt?: string }): Promise<Asset | null> {
+export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>): Promise<Asset | null> {
   try {
     const dataToSave = removeUndefinedProps({
       ...assetData,
@@ -402,7 +392,6 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
       updatedAt: serverTimestamp(),
     });
     const docRef = await addDoc(collection(getDb(), ASSETS_COLLECTION), dataToSave);
-    // Fetch the asset again to get server-generated timestamps correctly converted
     const newAssetDoc = await getDoc(docRef);
     if (newAssetDoc.exists()) {
         return processDoc<Asset>(newAssetDoc);
@@ -414,7 +403,7 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
   }
 }
 
-export async function updateAsset(assetId: string, assetData: Partial<Asset>): Promise<boolean> {
+export async function updateAsset(assetId: string, assetData: Partial<Omit<Asset, 'createdAt' | 'updatedAt'>>): Promise<boolean> {
   try {
     const docRef = doc(getDb(), ASSETS_COLLECTION, assetId);
     const dataToUpdate = removeUndefinedProps({

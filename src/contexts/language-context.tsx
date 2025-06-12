@@ -301,8 +301,8 @@ const translations: Record<Language, Record<string, string>> = {
     editProjectAdminPlaceholder: "Project editing from admin dashboard is a placeholder.",
 
     assignUsersButtonTitle: "Assign Users",
-    assignUsersToProjectTitle: "Assign Users to Project:",
-    assignUsersModalDesc: "Select an inspector and/or a valuator for this project.",
+    assignUsersToProjectTitle: "Assign Users:",
+    // assignUsersModalDesc: "Select an inspector and/or a valuator for this project.",
     assignInspector: "Assign Inspector", 
     assignInspectorsLabel: "Assign Inspectors", 
     assignValuator: "Assign Valuator", 

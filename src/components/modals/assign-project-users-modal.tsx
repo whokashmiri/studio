@@ -118,10 +118,10 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
     }}>
       <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="font-headline">{t('assignUsersToProjectTitle', 'Assign Users to Project:')} {project.name}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="font-headline">{t('assignUsersToProjectTitle', 'Assign Users:')} {project.name}</DialogTitle>
+          {/* <DialogDescription>
             {t('assignUsersModalDesc', 'Select inspectors and/or valuators for this project.')}
-          </DialogDescription>
+          </DialogDescription> */}
         </DialogHeader>
         {isLoadingUsers ? (
           <div className="flex justify-center items-center py-10">

@@ -1,6 +1,6 @@
 
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProjectDashboard } from '@/components/project-dashboard';
 import type { Company } from '@/data/mock-data';
@@ -13,22 +13,27 @@ export default function HomePage() {
   const { currentUser, isLoading, logout } = useAuth();
   const router = useRouter();
   const { t } = useLanguage();
-  const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
+
+  const currentCompany = useMemo(() => {
+    if (currentUser) {
+      return {
+        id: currentUser.companyId,
+        name: currentUser.companyName,
+      };
+    }
+    return null;
+  }, [currentUser]);
 
   useEffect(() => {
     if (!isLoading && !currentUser) {
       router.push('/login');
-    } else if (currentUser) {
-      // Fetch company details if needed, or assume currentUser.companyName is sufficient
-      // For simplicity, we'll use company details from currentUser
-      setCurrentCompany({
-        id: currentUser.companyId,
-        name: currentUser.companyName,
-      });
+    } else if (currentUser && currentCompany) {
       setPageLoading(false);
     }
-  }, [isLoading, currentUser, router]);
+    // If currentUser is null, currentCompany will be null,
+    // pageLoading will remain true, and the loader below will show until redirection.
+  }, [isLoading, currentUser, currentCompany, router]);
 
   if (isLoading || pageLoading || !currentUser || !currentCompany) {
     return (
@@ -45,7 +50,7 @@ export default function HomePage() {
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
       <ProjectDashboard
         company={currentCompany}
-        onLogout={logout} 
+        onLogout={logout}
       />
     </div>
   );
