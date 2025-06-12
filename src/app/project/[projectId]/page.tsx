@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
+import { NewAssetModal } from '@/components/modals/new-asset-modal'; // New Import
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function ProjectPage() {
@@ -29,8 +30,8 @@ export default function ProjectPage() {
   const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
   const [currentAssets, setCurrentAssets] = useState<Asset[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [isNavigatingToNewAsset, setIsNavigatingToNewAsset] = useState(false);
-  const [isNavigatingToHome, setIsNavigatingToHome] = useState(false); // New state for home navigation
+  
+  const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
 
   const [newFolderName, setNewFolderName] = useState('');
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
@@ -38,6 +39,8 @@ export default function ProjectPage() {
 
   const [editingFolder, setEditingFolder] = useState<FolderType | null>(null);
   const [isEditFolderModalOpen, setIsEditFolderModalOpen] = useState(false);
+
+  const [isNewAssetModalOpen, setIsNewAssetModalOpen] = useState(false); // New state for modal
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -179,6 +182,7 @@ export default function ProjectPage() {
   }, [loadProjectData, project, setProject]);
 
   const handleEditAsset = useCallback((asset: Asset) => {
+    // Editing still uses the page for now
     const editUrl = `/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
     router.push(editUrl); 
   }, [projectId, router]);
@@ -195,6 +199,14 @@ export default function ProjectPage() {
     }
   }, [t, toast, loadProjectData]);
 
+  const handleAssetCreatedInModal = useCallback(() => {
+    setIsNewAssetModalOpen(false);
+    loadProjectData(); // Refresh assets list
+    if (project) { // Mark project as recent
+        FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
+    }
+  }, [loadProjectData, project]);
+
   if (isLoadingData || !project) {
     return (
         <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
@@ -206,7 +218,6 @@ export default function ProjectPage() {
     );
   }
 
-  const newAssetHref = `/project/${project.id}/new-asset${selectedFolder ? `?folderId=${selectedFolder.id}` : ''}`;
   const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && currentAssets.length === 0;
 
   return (
@@ -246,22 +257,15 @@ export default function ProjectPage() {
               </Button>
             )}
             {!isMobile && (
-              <Link href={newAssetHref} passHref legacyBehavior>
-                  <Button
-                    onClick={() => setIsNavigatingToNewAsset(true)}
-                    disabled={isNavigatingToNewAsset}
-                    className="w-full sm:w-auto"
-                    size="default"
-                    title={t('newAsset', 'New Asset')}
-                  >
-                    {isNavigatingToNewAsset ? (
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : (
-                        <FilePlus className="mr-2 h-5 w-5" />
-                    )}
-                    {isNavigatingToNewAsset ? t('loading', 'Loading...') : t('newAsset', 'New Asset')}
-                  </Button>
-                </Link>
+                <Button
+                  onClick={() => setIsNewAssetModalOpen(true)} // Open modal
+                  className="w-full sm:w-auto"
+                  size="default"
+                  title={t('newAsset', 'New Asset')}
+                >
+                  <FilePlus className="mr-2 h-5 w-5" />
+                  {t('newAsset', 'New Asset')}
+                </Button>
             )}
         </div>
       </div>
@@ -299,7 +303,7 @@ export default function ProjectPage() {
             onAddSubfolder={openNewFolderDialog}
             onEditFolder={handleOpenEditFolderModal}
             onDeleteFolder={handleFolderDeleted}
-            onEditAsset={handleEditAsset}
+            onEditAsset={handleEditAsset} // Editing still uses the old page for now
             onDeleteAsset={handleDeleteAsset}
             currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
         />
@@ -332,22 +336,15 @@ export default function ProjectPage() {
             <FolderPlus className="mr-2 h-5 w-5" />
             {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
           </Button>
-          <Link href={newAssetHref} passHref legacyBehavior>
-            <Button
-              onClick={() => setIsNavigatingToNewAsset(true)}
-              disabled={isNavigatingToNewAsset}
-              className="flex-1"
-              size="default"
-              title={t('newAsset', 'New Asset')}
-            >
-              {isNavigatingToNewAsset ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                <FilePlus className="mr-2 h-5 w-5" />
-              )}
-              {isNavigatingToNewAsset ? t('loading', 'Loading...') : t('newAsset', 'New Asset')}
-            </Button>
-          </Link>
+          <Button
+            onClick={() => setIsNewAssetModalOpen(true)} // Open modal
+            className="flex-1"
+            size="default"
+            title={t('newAsset', 'New Asset')}
+          >
+            <FilePlus className="mr-2 h-5 w-5" />
+            {t('newAsset', 'New Asset')}
+          </Button>
         </div>
       )}
 
@@ -391,7 +388,17 @@ export default function ProjectPage() {
           onFolderUpdated={handleFolderUpdated}
         />
       )}
+      
+      {/* Render NewAssetModal */}
+      {project && (
+        <NewAssetModal
+            isOpen={isNewAssetModalOpen}
+            onClose={() => setIsNewAssetModalOpen(false)}
+            project={project}
+            parentFolder={selectedFolder}
+            onAssetCreated={handleAssetCreatedInModal}
+        />
+      )}
     </div>
   );
 }
-
