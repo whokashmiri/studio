@@ -13,9 +13,10 @@ import type { Project, Asset, ProjectStatus, Folder as FolderType } from '@/data
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
+import { uploadToCloudinary } from '@/lib/cloudinary-service'; // Import Cloudinary service
 
 type AssetCreationStep = 'photos_capture' | 'name_input' | 'descriptions';
-const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1Modal'; // Unique key for modal
+const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1Modal';
 
 interface NewAssetModalProps {
     isOpen: boolean;
@@ -37,7 +38,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const [isManagePhotosBatchModalOpen, setIsManagePhotosBatchModalOpen] = useState(false); 
   const [isCustomCameraOpen, setIsCustomCameraOpen] = useState(false);
 
-  const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]);
+  const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]); // Still Data URIs temporarily
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
@@ -51,7 +52,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
 
   const [isSavingAsset, setIsSavingAsset] = useState(false);
-  const [isProcessingGalleryPhotos, setIsProcessingGalleryPhotos] = useState(false);
+  const [isProcessingPhotos, setIsProcessingPhotos] = useState(false); // Combined loading state for gallery and session uploads
 
   const { toast } = useToast();
   const { t, language } = useLanguage();
@@ -66,7 +67,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     setIsManagePhotosBatchModalOpen(false);
     setIsCustomCameraOpen(false);
     setIsSavingAsset(false);
-    // Don't reset camera permission or speech availability as they are environment dependent
+    setIsProcessingPhotos(false);
   }, []);
 
   const handleModalClose = useCallback(() => {
@@ -74,11 +75,8 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     onClose();
   }, [resetModalState, onClose]);
 
-  // Effect to reset state when modal is re-opened (if desired, or if project/folder context changes)
   useEffect(() => {
     if (isOpen) {
-      // Reset if opening from a closed state or if primary context changes
-      // This is a simplified reset. More complex logic might be needed if modal could stay mounted but hidden.
       resetModalState();
     }
   }, [isOpen, project, parentFolder, resetModalState]);
@@ -171,43 +169,48 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     }
   }, [language]);
 
-  const handlePhotoUploadFromGallery = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUploadFromGallery = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      setIsProcessingGalleryPhotos(true);
+      setIsProcessingPhotos(true);
       const newFiles = Array.from(event.target.files);
-      const newPhotoUrls: string[] = [];
-      let filesProcessed = 0;
+      const uploadedUrls: string[] = [];
       
       if (newFiles.length === 0) {
-        setIsProcessingGalleryPhotos(false);
+        setIsProcessingPhotos(false);
         return;
       }
 
-      newFiles.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (loadEvent) => {
-          if (loadEvent.target?.result) {
-             newPhotoUrls.push(loadEvent.target.result as string);
+      try {
+        for (const file of newFiles) {
+          const reader = new FileReader();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = (loadEvent) => {
+              if (loadEvent.target?.result) {
+                resolve(loadEvent.target.result as string);
+              } else {
+                reject(new Error('Failed to read file.'));
+              }
+            };
+            reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
+            reader.readAsDataURL(file);
+          });
+          
+          const cloudinaryUrl = await uploadToCloudinary(dataUrl);
+          if (cloudinaryUrl) {
+            uploadedUrls.push(cloudinaryUrl);
+          } else {
+            toast({ title: "Upload Error", description: `Failed to upload ${file.name}.`, variant: "destructive"});
           }
-          filesProcessed++;
-          if (filesProcessed === newFiles.length) {
-            setPhotoPreviews(prev => [...prev, ...newPhotoUrls].slice(0, 10)); 
-            // Removed automatic opening of manage photos modal
-            setIsProcessingGalleryPhotos(false);
-          }
-        };
-        reader.onerror = () => {
-            filesProcessed++;
-            toast({ title: "Error", description: `Failed to read file ${file.name}`, variant: "destructive"});
-            if (filesProcessed === newFiles.length) {
-                setIsProcessingGalleryPhotos(false);
-            }
-        };
-        reader.readAsDataURL(file);
-      });
+        }
+        setPhotoPreviews(prev => [...prev, ...uploadedUrls].slice(0, 10)); 
+      } catch (error: any) {
+         toast({ title: "Error", description: error.message || "An error occurred processing gallery photos.", variant: "destructive"});
+      } finally {
+        setIsProcessingPhotos(false);
+      }
     }
     if (event.target) event.target.value = ''; 
-  }, [toast]);
+  }, [toast, t]);
 
   const handleCapturePhotoFromStream = useCallback(() => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream) {
@@ -219,7 +222,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       if (context) {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const photoDataUrl = canvas.toDataURL('image/jpeg'); 
-        setCapturedPhotosInSession(prev => [...prev, photoDataUrl]);
+        setCapturedPhotosInSession(prev => [...prev, photoDataUrl]); // Store Data URI temporarily
       } else {
          toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
       }
@@ -230,19 +233,32 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     setCapturedPhotosInSession(prev => prev.filter((_, index) => index !== indexToRemove));
   }, []);
 
-  const handleAddSessionPhotosToBatch = useCallback(() => {
-    setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
-    setCapturedPhotosInSession([]);
-    setIsCustomCameraOpen(false);
-    // Removed automatic opening of manage photos modal
-    // If user wants to manage, they click the "Manage Photos" button explicitly
-  }, [capturedPhotosInSession]);
-
+  const handleAddSessionPhotosToBatch = useCallback(async () => {
+    if (capturedPhotosInSession.length === 0) return;
+    setIsProcessingPhotos(true);
+    const newUploadedUrls: string[] = [];
+    try {
+      for (const photoDataUrl of capturedPhotosInSession) {
+        const cloudinaryUrl = await uploadToCloudinary(photoDataUrl);
+        if (cloudinaryUrl) {
+          newUploadedUrls.push(cloudinaryUrl);
+        } else {
+          toast({ title: "Upload Error", description: "A photo from session failed to upload.", variant: "destructive"});
+        }
+      }
+      setPhotoPreviews(prev => [...prev, ...newUploadedUrls].slice(0, 10));
+      setCapturedPhotosInSession([]);
+      setIsCustomCameraOpen(false);
+    } catch (error) {
+       toast({ title: "Error", description: "Failed to process session photos.", variant: "destructive"});
+    } finally {
+      setIsProcessingPhotos(false);
+    }
+  }, [capturedPhotosInSession, toast, t]);
+  
   const handleCancelCustomCamera = useCallback(() => {
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    // If coming from photos_capture step and photos exist, user can click "Manage Photos" button
-    // No need to auto-open it.
   }, []);
   
   const removePhotoFromPreviews = useCallback((indexToRemove: number) => { 
@@ -255,7 +271,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       return;
     }
     setCurrentStep('name_input');
-    setIsManagePhotosBatchModalOpen(false); // Ensure manage photos modal is closed
+    setIsManagePhotosBatchModalOpen(false); 
   }, [photoPreviews.length, toast, t]);
 
   const handleNextFromNameInput = useCallback(() => {
@@ -327,7 +343,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           name: assetName,
           projectId: project.id,
           folderId: parentFolder ? parentFolder.id : null,
-          photos: photoPreviews,
+          photos: photoPreviews, // These are now Cloudinary URLs
         };
 
         if (assetVoiceDescription.trim()) {
@@ -344,8 +360,8 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                 title: t('assetSavedTitle', "Asset Saved"), 
                 description: t('assetSavedDesc', `Asset "${newAsset.name}" has been saved.`, { assetName: newAsset.name })
             });
-            onAssetCreated(); // Callback to parent (ProjectPage)
-            handleModalClose(); // Close modal and reset state
+            onAssetCreated(); 
+            handleModalClose(); 
         } else {
             toast({ title: "Error", description: "Failed to save asset.", variant: "destructive" });
         }
@@ -370,12 +386,12 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             </DialogHeader>
             <div className="flex-grow overflow-y-auto py-4 space-y-6">
               <div className="flex flex-col sm:flex-row gap-2 mt-1">
-                  <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1" disabled={isSavingAsset || isProcessingGalleryPhotos}>
+                  <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1" disabled={isSavingAsset || isProcessingPhotos}>
                       <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
                   </Button>
-                  <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1" disabled={isSavingAsset || isProcessingGalleryPhotos}>
-                      {isProcessingGalleryPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
-                      {isProcessingGalleryPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
+                  <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1" disabled={isSavingAsset || isProcessingPhotos}>
+                      {isProcessingPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
+                      {isProcessingPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
                   </Button>
                   <input
                       type="file"
@@ -385,21 +401,21 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                       ref={galleryInputRef}
                       className="hidden"
                       onChange={handlePhotoUploadFromGallery}
-                      disabled={isProcessingGalleryPhotos}
+                      disabled={isProcessingPhotos}
                   />
               </div>
               {photoPreviews.length > 0 && (
                 <div className="mt-4 space-y-2">
                   <div className="flex justify-between items-center">
                     <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                    <Button variant="outline" size="sm" onClick={() => setIsManagePhotosBatchModalOpen(true)} disabled={isSavingAsset}>
+                    <Button variant="outline" size="sm" onClick={() => setIsManagePhotosBatchModalOpen(true)} disabled={isSavingAsset || isProcessingPhotos}>
                        <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
                     </Button>
                   </div>
                   <ScrollArea className="h-[200px] pr-2 border rounded-md p-2">
                       <div className="grid grid-cols-8 gap-1.5">
                       {photoPreviews.map((src, index) => ( 
-                          <div key={`main-preview-modal-${index}-${src.substring(0,20)}`} className="relative group">
+                          <div key={`main-preview-modal-${index}-${src.substring(src.length - 20)}`} className="relative group">
                           <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
                           </div>
                       ))}
@@ -409,10 +425,10 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
               )}
             </div>
             <DialogFooter className="flex justify-between">
-              <Button variant="outline" onClick={handleModalClose} disabled={isSavingAsset}>
+              <Button variant="outline" onClick={handleModalClose} disabled={isSavingAsset || isProcessingPhotos}>
                 {t('cancelAssetCreation', 'Cancel')}
               </Button>
-              <Button onClick={handleNextFromPhotos} disabled={isSavingAsset || photoPreviews.length === 0}>
+              <Button onClick={handleNextFromPhotos} disabled={isSavingAsset || isProcessingPhotos || photoPreviews.length === 0}>
                 {t('nextStepAssetName', 'Next: Asset Name')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </DialogFooter>
@@ -534,12 +550,12 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                 variant="outline" 
                 onClick={() => { setIsCustomCameraOpen(true); setIsManagePhotosBatchModalOpen(false); }} 
                 className="w-full sm:w-auto"
-                disabled={isProcessingGalleryPhotos || isSavingAsset}>
+                disabled={isProcessingPhotos || isSavingAsset}>
                 <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
               </Button>
-              <Button variant="outline" onClick={() => galleryInputModalRef.current?.click()} className="w-full sm:w-auto" disabled={isProcessingGalleryPhotos || isSavingAsset}>
-                {isProcessingGalleryPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
-                {isProcessingGalleryPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
+              <Button variant="outline" onClick={() => galleryInputModalRef.current?.click()} className="w-full sm:w-auto" disabled={isProcessingPhotos || isSavingAsset}>
+                {isProcessingPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
+                {isProcessingPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
                <input 
                   type="file"
@@ -549,7 +565,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                   ref={galleryInputModalRef} 
                   className="hidden"
                   onChange={handlePhotoUploadFromGallery}
-                  disabled={isProcessingGalleryPhotos || isSavingAsset}
+                  disabled={isProcessingPhotos || isSavingAsset}
                 />
             </div>
 
@@ -559,7 +575,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                 <ScrollArea className="h-[300px] pr-3">
                   <div className="grid grid-cols-6 gap-1.5">
                     {photoPreviews.map((src, index) => (
-                      <div key={`batch-modal-${index}-${src.substring(0,20)}`} className="relative group">
+                      <div key={`batch-modal-${index}-${src.substring(src.length - 20)}`} className="relative group">
                         <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
                          <Button 
                             variant="destructive" 
@@ -567,7 +583,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                             className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                             onClick={() => removePhotoFromPreviews(index)}
                             title={t('removePhotoTitle', "Remove photo")}
-                            disabled={isSavingAsset}
+                            disabled={isSavingAsset || isProcessingPhotos}
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -590,6 +606,14 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             if (videoRef.current) videoRef.current.srcObject = null;
           }
           setIsCustomCameraOpen(isOpenState);
+          // If closing custom camera and photos were captured, decide if manage photos modal should open
+          if (!isOpenState && capturedPhotosInSession.length > 0 && currentStep === 'photos_capture') {
+             // await handleAddSessionPhotosToBatch(); // Automatically add them
+             // setIsManagePhotosBatchModalOpen(true); // Then open manager, or just let user click "Next"
+          } else if (!isOpenState && currentStep === 'photos_capture' && photoPreviews.length > 0 && !isManagePhotosBatchModalOpen ) {
+             // If no new photos from session, but existing photos are there, potentially open manage modal
+             // setIsManagePhotosBatchModalOpen(true); // This was part of old logic, might remove
+          }
         }}>
          <DialogContent variant="fullscreen" className="bg-black text-white">
            <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
@@ -619,7 +643,12 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             </div>
 
             <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
-              {capturedPhotosInSession.length > 0 && (
+              {isProcessingPhotos && (
+                <div className="absolute inset-x-0 top-0 flex justify-center pt-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-white" />
+                </div>
+              )}
+              {capturedPhotosInSession.length > 0 && !isProcessingPhotos && (
                 <ScrollArea className="w-full mb-3 sm:mb-4 max-h-[70px] sm:max-h-[80px] whitespace-nowrap">
                   <div className="flex space-x-2 pb-1">
                     {capturedPhotosInSession.map((src, index) => (
@@ -631,6 +660,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                           className="absolute -top-1 -right-1 h-5 w-5 bg-black/60 hover:bg-red-600/80 border-none p-0"
                           onClick={() => removePhotoFromSession(index)}
                           aria-label={t('removePhotoTitle', "Remove photo")}
+                          disabled={isProcessingPhotos}
                         >
                           <X className="h-3 w-3" />
                         </Button>
@@ -641,12 +671,12 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
               )}
 
               <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/10 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base">
+                <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/10 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base"  disabled={isProcessingPhotos}>
                   {t('cancel', 'Cancel')}
                 </Button>
                 <Button 
                   onClick={handleCapturePhotoFromStream} 
-                  disabled={!hasCameraPermission || mediaStream === null}
+                  disabled={!hasCameraPermission || mediaStream === null || isProcessingPhotos}
                   className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white text-black hover:bg-neutral-200 focus:ring-4 focus:ring-white/50 flex items-center justify-center p-0 border-2 border-neutral-700 shadow-xl disabled:bg-neutral-600 disabled:opacity-70"
                   aria-label={t('capturePhoto', 'Capture Photo')}
                 >
@@ -655,10 +685,11 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                 <Button 
                   variant={capturedPhotosInSession.length > 0 ? "default" : "ghost"}
                   onClick={handleAddSessionPhotosToBatch} 
-                  disabled={capturedPhotosInSession.length === 0}
+                  disabled={capturedPhotosInSession.length === 0 || isProcessingPhotos}
                   className={`py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base transition-colors duration-150 ${capturedPhotosInSession.length > 0 ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'text-white hover:bg-white/10'}`}
                 >
-                   {t('doneWithSessionAddPhotos', 'Add ({count})', { count: capturedPhotosInSession.length })}
+                   {isProcessingPhotos && capturedPhotosInSession.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null }
+                   {isProcessingPhotos && capturedPhotosInSession.length > 0 ? t('saving', 'Processing...') : t('doneWithSessionAddPhotos', 'Add ({count})', { count: capturedPhotosInSession.length })}
                 </Button>
               </div>
             </div>
@@ -667,5 +698,3 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     </>
   );
 }
-
-    
