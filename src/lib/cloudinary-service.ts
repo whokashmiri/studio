@@ -24,8 +24,6 @@
 export async function uploadToCloudinary(fileDataUrl: string): Promise<string | null> {
   // --- SERVER-SIDE LOGIC ---
   // This block is intended for a server-side environment (e.g., Next.js API Route or Server Action).
-  // It will NOT work correctly for actual uploads if this service is only run on the client-side
-  // due to Node.js module dependencies (like 'fs') and security of API secrets.
   if (typeof window === 'undefined') {
     console.log('Attempting Cloudinary upload (server-side context)...');
     try {
@@ -33,8 +31,9 @@ export async function uploadToCloudinary(fileDataUrl: string): Promise<string | 
       const cloudinary = require('cloudinary').v2;
 
       if (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET || !process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) {
-        console.error('Cloudinary API Key, Secret, or Cloud Name is not configured on the server. Falling back to client simulation for prototype.');
+        console.error('Cloudinary API Key, Secret, or Cloud Name is not configured on the server. Falling back to client simulation for prototype. Image will be a data URI.');
         // In a real server-only scenario, you'd throw an error or return a proper error response here.
+        // For prototype consistency when server config is missing, we fall through to client-side simulation.
       } else {
         cloudinary.config({
           cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
@@ -44,17 +43,15 @@ export async function uploadToCloudinary(fileDataUrl: string): Promise<string | 
         });
 
         const result = await cloudinary.uploader.upload(fileDataUrl, {
-          resource_type: "auto", // "auto" is generally more flexible for various file types
-          // You might want to add other upload options here, e.g., folder, tags, transformations.
+          resource_type: "auto", 
         });
-        console.log('Actual Cloudinary upload successful (server-side context). URL:', result.secure_url);
+        console.log('Actual Cloudinary upload successful (server-side context). URL to be stored:', result.secure_url);
         return result.secure_url;
       }
     } catch (error) {
-      console.error("Cloudinary Upload Error (server-side context):", error);
+      console.error("Cloudinary Upload Error (server-side context). Falling back to client simulation. Error:", error);
       // Fall through to client-side simulation for prototyping if server logic fails.
       // In a pure server endpoint, you would return an appropriate error response or throw.
-      // return null; // Or re-throw, or return a structured error.
     }
   }
 
@@ -67,9 +64,8 @@ export async function uploadToCloudinary(fileDataUrl: string): Promise<string | 
 
   if (!fileDataUrl || !fileDataUrl.startsWith('data:')) {
     console.warn('Simulated upload (client-side): Input does not appear to be a valid Data URI. This might cause display issues.');
-    // Depending on requirements, you might return null or an error indicator here.
   }
   
-  console.log('Client-side simulation complete. Returning Data URI for consistent prototype display.');
-  return fileDataUrl; // Return the Data URI itself for client-side display consistency in the prototype.
+  console.log('Client-side simulation complete. URL to be stored (Data URI):', fileDataUrl.substring(0, 100) + (fileDataUrl.length > 100 ? '...' : '')); // Log a snippet for brevity
+  return fileDataUrl; 
 }
