@@ -78,7 +78,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitle: "Step 3: Descriptions", // Old key, might be unused
 
     nextStepAddPhotos: "Next: Add Photos", // Old key
-    nextStepDescriptions: "Next: Add Descriptions",
+    nextStepDescriptions: "Next: Save ",
     
     addPhotosForAssetTitle: "Add Photos for:",
     addPhotosSectionTitle: "Add Photos",
@@ -95,7 +95,7 @@ const translations: Record<Language, Record<string, string>> = {
     
     backToAssetName: "Back", // Old key for page flow
     backToPhotos: "Back ", // Old key for page flow
-    saveAssetButton: "Save ",
+    saveAssetButton: "Finish ",
 
     descriptionRequiredForSaveTitle: "Description Required",
     descriptionRequiredForSaveDesc: "Please provide at least one form of description (voice or text).",

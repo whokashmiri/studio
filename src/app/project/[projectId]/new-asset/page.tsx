@@ -387,17 +387,18 @@ export default function NewAssetPage() {
       toast({ title: t('speechFeatureNotAvailableTitle', 'Feature Not Available'), description: t('speechFeatureNotAvailableDesc', 'Speech recognition is not supported or enabled in your browser.'), variant: 'destructive' });
       return;
     }
-    if (isSavingAsset || isSpeaking) return; 
+    if (isSavingAsset) return; 
 
     if (isListening) {
       speechRecognitionRef.current.stop();
       setIsListening(false);
     } else {
+      // Cancel any ongoing speech synthesis before starting recognition
+      if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+          window.speechSynthesis.cancel();
+          setIsSpeaking(false);
+      }
       try {
-        if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
-            window.speechSynthesis.cancel();
-            setIsSpeaking(false);
-        }
         speechRecognitionRef.current.start();
         setIsListening(true);
       } catch (e: any) {
@@ -413,8 +414,9 @@ export default function NewAssetPage() {
       toast({ title: t('speechFeatureNotAvailableTitle', 'Feature Not Available'), description: t('speechNoVoiceToPlayDesc', 'Speech synthesis is not available or no voice description to play.'), variant: 'destructive' });
       return;
     }
-    if (isSavingAsset || isListening || isSpeaking) return;
+    if (isSavingAsset) return;
 
+    // Stop any ongoing recognition before playing
     if (speechRecognitionRef.current && isListening) {
         speechRecognitionRef.current.stop();
         setIsListening(false);
@@ -434,7 +436,7 @@ export default function NewAssetPage() {
       setIsSpeaking(false);
     };
     window.speechSynthesis.speak(utterance);
-  }, [speechSynthesisAvailable, assetVoiceDescription, isSavingAsset, isListening, isSpeaking, language, t, toast]);
+  }, [speechSynthesisAvailable, assetVoiceDescription, isSavingAsset, isListening, language, t, toast]);
 
 
   const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => {
@@ -642,7 +644,7 @@ export default function NewAssetPage() {
                   <Label htmlFor="asset-voice-description">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
                   <div className="flex items-center gap-2 flex-wrap">
                     {speechRecognitionAvailable ? (
-                      <Button onClick={toggleListening} variant="outline" className="flex-1 min-w-[180px]" disabled={isSavingAsset || isListening || isSpeaking}>
+                      <Button onClick={toggleListening} variant="outline" className="flex-1 min-w-[180px]" disabled={isSavingAsset || isSpeaking}>
                         <Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-destructive' : ''}`} />
                         {isListening ? t('listening', 'Listening...') : t('recordVoiceDescriptionButton', 'Record Voice')}
                       </Button>
@@ -654,7 +656,7 @@ export default function NewAssetPage() {
                        </Alert>
                     )}
                      {assetVoiceDescription.trim() && speechSynthesisAvailable && (
-                       <Button onClick={handlePlayVoiceDescription} variant="outline" className="flex-1 min-w-[120px]" disabled={isSavingAsset || isListening || isSpeaking}>
+                       <Button onClick={handlePlayVoiceDescription} variant="outline" className="flex-1 min-w-[120px]" disabled={isSavingAsset || isListening}>
                          <Volume2 className="mr-2 h-4 w-4" /> {t('playVoiceDescriptionButton', 'Listen')}
                        </Button>
                     )}
