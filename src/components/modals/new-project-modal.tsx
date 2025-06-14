@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context'; 
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -94,7 +95,12 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
         setProjectName(''); 
       }
     }}>
-      <DialogContent className="w-full max-h-[90vh] flex flex-col p-4 sm:p-6 sm:max-w-md">
+      <DialogContent 
+        className={cn(
+          "w-full max-h-[90vh] flex flex-col p-4 sm:p-6 sm:max-w-md",
+          isSaving && "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700"
+        )}
+      >
         <DialogHeader>
           <DialogTitle className="font-headline">{t('createNewProject', 'Create New Project')}</DialogTitle>
           <DialogDescription>

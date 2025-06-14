@@ -16,6 +16,7 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { processImageForSaving } from '@/lib/image-handler-service'; 
+import { cn } from '@/lib/utils';
 
 type AssetCreationStep = 'photos_capture' | 'name_input' | 'descriptions';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1';
@@ -846,7 +847,13 @@ export default function NewAssetPage() {
             handleCancelAllAndExit(); 
           }
         }}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col" hideCloseButton={isRecording}>
+        <DialogContent 
+          className={cn(
+            "sm:max-w-2xl max-h-[85vh] flex flex-col",
+            isSavingAsset && "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700"
+          )} 
+          hideCloseButton={isRecording}
+        >
           {renderStepContent()}
         </DialogContent>
       </Dialog>
@@ -1003,4 +1010,3 @@ export default function NewAssetPage() {
     </div>
   );
 }
-

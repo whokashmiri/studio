@@ -10,6 +10,7 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface EditFolderModalProps {
   isOpen: boolean;
@@ -74,7 +75,12 @@ export function EditFolderModal({ isOpen, onClose, folder, onFolderUpdated }: Ed
         onClose();
       }
     }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent 
+        className={cn(
+          "sm:max-w-md",
+          isSaving && "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700"
+        )}
+      >
         <DialogHeader>
           <DialogTitle className="font-headline">{t('editFolderModalTitle', 'Edit Folder Name')}</DialogTitle>
           <DialogDescription>

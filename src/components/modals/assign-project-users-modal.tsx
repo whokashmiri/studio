@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { Loader2, Search, UserPlus, UserCheck, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { cn } from '@/lib/utils';
 
 
 interface AssignProjectUsersModalProps {
@@ -269,7 +270,12 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
     <Dialog open={isOpen} onOpenChange={(openState) => {
       if (!openState) onClose();
     }}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+      <DialogContent 
+        className={cn(
+          "sm:max-w-lg max-h-[90vh] flex flex-col",
+          isSaving && "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700"
+        )}
+      >
         <DialogHeader>
           <DialogTitle className="font-headline">{t('assignUsersToProjectTitle', 'Assign Users to:')} {project.name}</DialogTitle>
           <DialogDescription>
