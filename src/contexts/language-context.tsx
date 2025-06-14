@@ -348,7 +348,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitleModal: "Step 3: Descriptions & Save",
     provideNameForAsset: "Provide a name for your asset.",
     nextStepAssetName: "Next: Asset Name",
-    cancelAssetCreation: "Cancel", 
+    cancelAssetCreation: "Cancel Asset Creation", 
     backToDashboard: "Back to Dashboard",
 
 
@@ -728,3 +728,4 @@ export function useLanguage() {
   }
   return context;
 }
+

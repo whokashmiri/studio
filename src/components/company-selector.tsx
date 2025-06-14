@@ -73,3 +73,4 @@ export function CompanySelector({ onSelectCompany }: CompanySelectorProps) {
     </div>
   );
 }
+
