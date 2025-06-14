@@ -143,15 +143,37 @@ export async function addUser(userData: MockStoredUser): Promise<AuthenticatedUs
       ...userForDb,
       email: userForDb.email.toLowerCase(),
       companyName: userForDb.companyName.toUpperCase(),
-      ...(password && { password }),
+      ...(password && { password }), // Include password only if provided
     };
     await setDoc(userDocRef, removeUndefinedProps(dataToSave));
 
-    const { password: _, ...authenticatedUser } = userData; // eslint-disable-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _, ...authenticatedUser } = userData;
     return { ...authenticatedUser, companyName: dataToSave.companyName };
   } catch (error) {
     console.error("Error adding user: ", error);
     return null;
+  }
+}
+
+export async function updateUserRoleAndCompany(
+  userId: string,
+  newRole: UserRole,
+  companyId: string,
+  companyName: string
+): Promise<boolean> {
+  try {
+    const userRef = doc(getDb(), USERS_COLLECTION, userId);
+    const updateData: Partial<AuthenticatedUser> = {
+      role: newRole,
+      companyId: companyId,
+      companyName: companyName.toUpperCase(), // Ensure company name is stored in uppercase
+    };
+    await updateDoc(userRef, removeUndefinedProps(updateData));
+    return true;
+  } catch (error) {
+    console.error("Error updating user role and company: ", error);
+    return false;
   }
 }
 
