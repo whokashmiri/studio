@@ -1,43 +1,18 @@
 
 "use client";
-import { useState, useEffect } from 'react';
 import type { Company } from '@/data/mock-data';
-import * as FirestoreService from '@/lib/firestore-service'; // Import FirestoreService
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building, Loader2 } from 'lucide-react';
+import { Building } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
-import { useToast } from '@/hooks/use-toast';
 
 interface CompanySelectorProps {
+  companies: Company[]; // Changed: Now accepts companies as a prop
   onSelectCompany: (company: Company) => void;
 }
 
-export function CompanySelector({ onSelectCompany }: CompanySelectorProps) {
+export function CompanySelector({ companies, onSelectCompany }: CompanySelectorProps) {
   const { t } = useLanguage();
-  const { toast } = useToast();
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      setIsLoading(true);
-      try {
-        const fetchedCompanies = await FirestoreService.getCompanies();
-        setCompanies(fetchedCompanies);
-      } catch (error) {
-        console.error("Failed to fetch companies:", error);
-        toast({
-          title: t('error', 'Error'),
-          description: t('genericError', 'Could not load company data.'),
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchCompanies();
-  }, [t, toast]);
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
@@ -49,11 +24,8 @@ export function CompanySelector({ onSelectCompany }: CompanySelectorProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {isLoading ? (
-            <div className="flex justify-center items-center py-6">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : companies.length > 0 ? (
+          {/*isLoading state is removed as data is passed via props */}
+          {companies.length > 0 ? (
             companies.map((company) => (
               <Button
                 key={company.id}
@@ -66,11 +38,11 @@ export function CompanySelector({ onSelectCompany }: CompanySelectorProps) {
               </Button>
             ))
           ) : (
-            <p className="text-muted-foreground text-center">{t('noCompaniesAvailable', 'No companies available.')}</p>
+            // This case should ideally be handled by HomePage, but good to have a fallback
+            <p className="text-muted-foreground text-center">{t('noCompaniesAvailable', 'No companies available for you.')}</p>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
-

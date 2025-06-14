@@ -21,6 +21,10 @@ export interface Project {
   createdByUserRole?: UserRole;
 }
 
+// Added for explicit typing where asset count is included
+export type ProjectWithAssetCount = Project & { assetCount: number };
+
+
 export interface Folder {
   id: string;
   name: string;
