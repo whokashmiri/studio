@@ -59,6 +59,9 @@ const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => 
     if (newObj[key] === undefined) {
       delete newObj[key];
     }
+    if (newObj[key] === null) { // Also remove nulls if not explicitly desired for Firestore 'delete field'
+      delete newObj[key];
+    }
   });
   return newObj;
 };
@@ -131,6 +134,16 @@ export async function getUserByEmail(email: string): Promise<MockStoredUser | nu
   }
 }
 
+export async function getAllUsers(): Promise<AuthenticatedUser[]> {
+  try {
+    const snapshot = await getDocs(collection(getDb(), USERS_COLLECTION));
+    return processSnapshot<AuthenticatedUser>(snapshot);
+  } catch (error) {
+    console.error("Error getting all users:", error);
+    return [];
+  }
+}
+
 export async function addUser(userData: MockStoredUser): Promise<AuthenticatedUser | null> {
   const { password, ...userForDb } = userData;
 
@@ -140,15 +153,37 @@ export async function addUser(userData: MockStoredUser): Promise<AuthenticatedUs
       ...userForDb,
       email: userForDb.email.toLowerCase(),
       companyName: userForDb.companyName.toUpperCase(),
-      ...(password && { password }),
+      ...(password && { password }), // Include password only if provided
     };
     await setDoc(userDocRef, removeUndefinedProps(dataToSave));
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...authenticatedUser } = userData;
     return { ...authenticatedUser, companyName: dataToSave.companyName };
   } catch (error) {
     console.error("Error adding user: ", error);
     return null;
+  }
+}
+
+export async function updateUserRoleAndCompany(
+  userId: string,
+  newRole: UserRole,
+  companyId: string,
+  companyName: string
+): Promise<boolean> {
+  try {
+    const userRef = doc(getDb(), USERS_COLLECTION, userId);
+    const updateData: Partial<AuthenticatedUser> = {
+      role: newRole,
+      companyId: companyId,
+      companyName: companyName.toUpperCase(), // Ensure company name is stored in uppercase
+    };
+    await updateDoc(userRef, removeUndefinedProps(updateData));
+    return true;
+  } catch (error) {
+    console.error("Error updating user role and company: ", error);
+    return false;
   }
 }
 
@@ -356,9 +391,12 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
 export async function getAssets(projectId: string, folderId?: string | null): Promise<Asset[]> {
   try {
     let q;
-    if (folderId === undefined) {
+    if (folderId === undefined) { // Query for assets directly under project (folderId is null)
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
-    } else {
+    } else if (folderId === null) { // Explicitly querying for assets with folderId: null
+        q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
+    }
+     else { // Query for assets within a specific folder
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
     }
     const snapshot = await getDocs(q);
@@ -386,11 +424,18 @@ export async function getAssetById(assetId: string): Promise<Asset | null> {
 
 export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>): Promise<Asset | null> {
   try {
-    const dataToSave = removeUndefinedProps({
+    // Ensure recordedAudioDataUrl is explicitly set to null if not provided, to avoid Firestore treating undefined as "no change"
+    const dataWithNullForOptionalAudio = {
       ...assetData,
+      recordedAudioDataUrl: assetData.recordedAudioDataUrl || null,
+    };
+
+    const dataToSave = removeUndefinedProps({
+      ...dataWithNullForOptionalAudio,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+
     const docRef = await addDoc(collection(getDb(), ASSETS_COLLECTION), dataToSave);
     const newAssetDoc = await getDoc(docRef);
     if (newAssetDoc.exists()) {
@@ -403,13 +448,22 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
   }
 }
 
-export async function updateAsset(assetId: string, assetData: Partial<Omit<Asset, 'createdAt' | 'updatedAt'>>): Promise<boolean> {
+export async function updateAsset(assetId: string, assetData: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>>): Promise<boolean> {
   try {
     const docRef = doc(getDb(), ASSETS_COLLECTION, assetId);
+    
+    const dataWithNullForOptionalAudio = {
+      ...assetData,
+      // If recordedAudioDataUrl is part of assetData and is explicitly undefined, it will be removed by removeUndefinedProps.
+      // If it's meant to be cleared, it should be passed as null.
+      recordedAudioDataUrl: assetData.recordedAudioDataUrl === undefined ? undefined : (assetData.recordedAudioDataUrl || null),
+    };
+
     const dataToUpdate = removeUndefinedProps({
-        ...assetData,
+        ...dataWithNullForOptionalAudio,
         updatedAt: serverTimestamp()
     });
+
     await updateDoc(docRef, dataToUpdate);
     return true;
   } catch (error) {

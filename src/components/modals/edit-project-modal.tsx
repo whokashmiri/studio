@@ -11,6 +11,7 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -85,7 +86,12 @@ export function EditProjectModal({ isOpen, onClose, project, onProjectUpdated }:
         onClose();
       }
     }}>
-      <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
+      <DialogContent 
+        className={cn(
+          "sm:max-w-md max-h-[80vh] flex flex-col",
+          isSaving && "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700"
+        )}
+      >
         <DialogHeader>
           <DialogTitle className="font-headline">{t('editProjectTitle', 'Edit Project')}</DialogTitle>
           <DialogDescription>

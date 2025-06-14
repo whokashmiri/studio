@@ -18,7 +18,9 @@ const translations: Record<Language, Record<string, string>> = {
     appName: "Asset Inspector Pro",
     selectCompany: "Select a Company",
     selectCompanyDesc: "Choose a company profile to manage its inspection projects.",
-    noCompaniesAvailable: "No companies available.",
+    noCompaniesAvailable: "No companies available for you.",
+    noCompaniesAssociatedTitle: "No Companies Found",
+    noCompaniesAssociatedDesc: "There are no companies currently associated with your account. Please contact an administrator if you believe this is an error.",
     currentCompany: "Current Company",
     switchCompany: "Switch Company", 
     selectCompanyPrompt: "Select Company",
@@ -34,15 +36,18 @@ const translations: Record<Language, Record<string, string>> = {
     cancel: "Cancel",
     save: "Save",
     saving: "Saving...",
-    loading: "Loading...", // Added loading key
+    loading: "Loading...", 
+    preparingDashboard: "Preparing dashboard...",
+    companyInfoMissingTitle: "Company Information Missing",
+    companyInfoMissingDesc: "Your account is not associated with a company. Please contact support.",
     newAsset: "New Asset",
     takePhotos: "Take Photos", 
     uploadFromGallery: "Upload from Gallery",
     assetName: "Asset Name",
     description: "Description", 
-    speechToText: "Speech to Text",
+    speechToText: "Speech to Text", 
     skip: "Skip",
-    noProjectsFound: "No projects found in this category.", // Generic, can be overridden by more specific keys
+    noProjectsFound: "No projects found in this category.", 
     noProjectsFoundInTab: "No projects found in \"{tabName}\" tab.",
     folders: "Folders",
     assets: "Assets",
@@ -73,12 +78,12 @@ const translations: Record<Language, Record<string, string>> = {
     photosRequiredTitle: "Photos Required",
     photosRequiredDesc: "Please add at least one photo for the asset.",
     
-    stepNameInputTitle: "Step 1: Asset Name", // Old key, might be unused
-    stepPhotosCaptureTitle: "Step 2: Photos", // Old key, might be unused
-    stepDescriptionsTitle: "Step 3: Descriptions", // Old key, might be unused
+    stepNameInputTitle: "Step 1: Asset Name", 
+    stepPhotosCaptureTitle: "Step 2: Photos", 
+    stepDescriptionsTitle: "Step 3: Descriptions",
 
-    nextStepAddPhotos: "Next: Add Photos", // Old key
-    nextStepDescriptions: "Next: Add Descriptions",
+    nextStepAddPhotos: "Next: Add Photos", 
+    nextStepDescriptions: "Next: Add Descriptions", 
     
     addPhotosForAssetTitle: "Add Photos for:",
     addPhotosSectionTitle: "Add Photos",
@@ -87,15 +92,17 @@ const translations: Record<Language, Record<string, string>> = {
 
     addDetailsForAssetTitle: "Add Details for:",
     voiceDescriptionLabel: "Voice Description",
-    recordVoiceDescriptionButton: "Record Voice",
+    recordVoiceDescriptionButton: "Record Voice", 
     playVoiceDescriptionButton: "Listen",
+    pauseAudio: "Pause",
+    finishRecording: "Finish Recording",
     voiceTranscriptPlaceholder: "Voice transcript will appear here...",
     textDescriptionLabel: "Written Description",
     textDescriptionPlaceholder: "Type detailed written description here...",
     
-    backToAssetName: "Back", // Old key for page flow
-    backToPhotos: "Back ", // Old key for page flow
-    saveAssetButton: "Save ",
+    backToPhotoCapture: "Back", 
+    backToAssetNameModal: "Back", 
+    saveAssetButton: "Finish", 
 
     descriptionRequiredForSaveTitle: "Description Required",
     descriptionRequiredForSaveDesc: "Please provide at least one form of description (voice or text).",
@@ -114,7 +121,7 @@ const translations: Record<Language, Record<string, string>> = {
     inFolder: "In folder:",
     forProject: "for",
 
-    listening: "Listening...",
+    listening: "Listening...", 
 
     cameraErrorTitle: "Camera Error",
     cameraErrorDesc: "Could not access the camera.",
@@ -137,7 +144,7 @@ const translations: Record<Language, Record<string, string>> = {
     noPhotosInBatch: "No photos in the current batch yet.",
     projectContextLost: "Project context lost",
     noDescriptionAvailable: "No description available.",
-    voiceDescriptionOnly: "Voice description available",
+    voiceDescriptionOnly: "Voice description available", 
     textAndVoiceDescShort: "{text} (voice available)",
     created: "Created",
     accessed: "Accessed",
@@ -225,17 +232,17 @@ const translations: Record<Language, Record<string, string>> = {
     customCameraViewTitle: "Custom Camera View",
     customCameraDialogTitle: "Camera",
 
-    speechFeatureNotAvailableTitle: "Speech Recognition Not Available",
-    speechFeatureNotAvailableDesc: "Your browser does not support speech recognition, or it is not enabled. You can still type the description manually.",
+    speechFeatureNotAvailableTitle: "Voice Recording Not Available", 
+    speechFeatureNotAvailableDesc: "Your browser may not support voice recording or microphone access is denied.", 
     speechErrorNoSpeech: "No speech detected. Please try again.",
     speechErrorAudioCapture: "Audio capture failed. Check microphone permissions.",
     speechErrorNotAllowed: "Microphone access denied. Please allow microphone access.",
     speechErrorTitle: "Could not start speech recognition",
     speechStartErrorDesc: "Please ensure microphone permissions are granted.",
-    speechSynthesisErrorTitle: "Speech Playback Error",
-    speechNoVoiceToPlayDesc: "Speech synthesis is not available or no voice description to play.",
-    speechPlaybackNotAvailableTitle: "Speech Playback Not Available",
-    speechPlaybackNotAvailableDesc: "Your browser does not support speech playback.",
+    speechSynthesisErrorTitle: "Speech Playback Error", 
+    speechNoVoiceToPlayDesc: "Speech synthesis is not available or no voice description to play.", 
+    speechPlaybackNotAvailableTitle: "Speech Playback Not Available", 
+    speechPlaybackNotAvailableDesc: "Your browser does not support speech playback.", 
 
     assetsInFolder: "Assets in \"{folderName}\"",
     assetsInProjectRoot: "Assets in Project Root",
@@ -306,12 +313,12 @@ const translations: Record<Language, Record<string, string>> = {
     editProjectAdminPlaceholder: "Project editing from admin dashboard is a placeholder.",
 
     assignUsersButtonTitle: "Assign Users",
-    assignUsersToProjectTitle: "Assign Users:",
-    // assignUsersModalDesc: "Select an inspector and/or a valuator for this project.",
+    assignUsersToProjectTitle: "Assign Users to:",
+    assignUsersModalDescExtended: "Search for users by email to add them as Inspectors or Valuators to your company, then assign them to this project.",
     assignInspector: "Assign Inspector", 
-    assignInspectorsLabel: "Assign Inspectors", 
+    assignInspectorsLabel: "Assign Inspectors from Company", 
     assignValuator: "Assign Valuator", 
-    assignValuatorsLabel: "Assign Valuators", 
+    assignValuatorsLabel: "Assign Valuators from Company", 
     selectInspectorPlaceholder: "Select an Inspector",
     selectValuatorPlaceholder: "Select a Valuator",
     unassign: "Unassign / None", 
@@ -320,8 +327,25 @@ const translations: Record<Language, Record<string, string>> = {
     assignmentsUpdatedDesc: "Assignments for project \"{projectName}\" have been updated.",
     assignedProjectsListTitle: "Assigned Projects:",
     noProjectsAssigned: "No projects currently assigned.",
-    noInspectorsFoundInCompany: "No inspectors found in this company.",
-    noValuatorsFoundInCompany: "No valuators found in this company.",
+    noInspectorsFoundInCompany: "No inspectors currently in your company. Use search to add or assign roles.",
+    noValuatorsFoundInCompany: "No valuators currently in your company. Use search to add or assign roles.",
+    userNotFoundForInvite: "User with email \"{email}\" not found. They need an account to be assigned.",
+    userRoleUpdatedTitle: "User Role Updated",
+    userRoleUpdatedDesc: "User {email} is now a {role} in {companyName}.",
+    makeInspectorButton: "Make Inspector",
+    addAsInspectorButton: "Add as Inspector",
+    makeValuatorButton: "Make Valuator",
+    addAsValuatorButton: "Add as Valuator",
+    userAlreadyRoleInCompany: "Already a {role} in this company.",
+    noActionsAvailableForUser: "User found. No immediate role actions needed for this company.",
+    searchUserByEmailLabel: "Search User by Email",
+    emailPlaceholder: "user@example.com",
+    searchResultsTitle: "Search Results",
+    currentRoleLabel: "Role:",
+    inYourCompanyShort: "(Your Company)",
+    associatedWithCompanyLabel: "With:",
+    noCompanyAffiliationLabel: "No current company affiliation",
+
 
     // New keys for modal flow
     stepPhotosCaptureTitleModal: "Step 1: Capture Photos",
@@ -329,9 +353,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitleModal: "Step 3: Descriptions & Save",
     provideNameForAsset: "Provide a name for your asset.",
     nextStepAssetName: "Next: Asset Name",
-    backToPhotoCapture: "Back",
-    backToAssetNameModal: "Back ", // Differentiate from page flow if needed
-    cancelAssetCreation: "Cancel",
+    cancelAssetCreation: "Cancel Asset Creation", 
     backToDashboard: "Back to Dashboard",
 
 
@@ -340,7 +362,9 @@ const translations: Record<Language, Record<string, string>> = {
     appName: "مفتش الأصول برو",
     selectCompany: "اختر شركة",
     selectCompanyDesc: "اختر ملف تعريف شركة لإدارة مشاريع الفحص الخاصة بها.",
-    noCompaniesAvailable: "لا توجد شركات متاحة.",
+    noCompaniesAvailable: "لا توجد شركات متاحة لك.",
+    noCompaniesAssociatedTitle: "لم يتم العثور على شركات",
+    noCompaniesAssociatedDesc: "لا توجد شركات مرتبطة حاليًا بحسابك. يرجى الاتصال بالمسؤول إذا كنت تعتقد أن هذا خطأ.",
     currentCompany: "الشركة الحالية",
     switchCompany: "تبديل الشركة",
     selectCompanyPrompt: "اختر شركة",
@@ -356,7 +380,10 @@ const translations: Record<Language, Record<string, string>> = {
     cancel: "إلغاء",
     save: "حفظ",
     saving: "جاري الحفظ...",
-    loading: "جاري التحميل...", // Added loading key
+    loading: "جاري التحميل...", 
+    preparingDashboard: "جاري إعداد لوحة التحكم...",
+    companyInfoMissingTitle: "معلومات الشركة مفقودة",
+    companyInfoMissingDesc: "حسابك غير مرتبط بشركة. يرجى الاتصال بالدعم.",
     newAsset: "أصل جديد",
     takePhotos: "التقاط صور",
     uploadFromGallery: "تحميل من المعرض",
@@ -400,7 +427,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitle: "الخطوة ٣: الأوصاف",
 
     nextStepAddPhotos: "التالي: إضافة الصور", 
-    nextStepDescriptions: "التالي: إضافة الأوصاف",
+    nextStepDescriptions: "التالي: إضافة الأوصاف", 
     
     addPhotosForAssetTitle: "إضافة صور لـ:",
     addPhotosSectionTitle: "إضافة صور",
@@ -409,15 +436,17 @@ const translations: Record<Language, Record<string, string>> = {
 
     addDetailsForAssetTitle: "إضافة تفاصيل لـ:",
     voiceDescriptionLabel: "الوصف الصوتي",
-    recordVoiceDescriptionButton: "تسجيل الوصف الصوتي",
+    recordVoiceDescriptionButton: "تسجيل صوتي", 
     playVoiceDescriptionButton: "استماع",
+    pauseAudio: "إيقاف مؤقت",
+    finishRecording: "إنهاء التسجيل",
     voiceTranscriptPlaceholder: "سيظهر النص الصوتي هنا...",
     textDescriptionLabel: "الوصف المكتوب",
     textDescriptionPlaceholder: "اكتب وصفًا مكتوبًا مفصلاً هنا...",
     
-    backToAssetName: "العودة إلى اسم الأصل", 
-    backToPhotos: "العودة إلى الصور", 
-    saveAssetButton: "حفظ الأصل",
+    backToPhotoCapture: "رجوع", 
+    backToAssetNameModal: "رجوع", 
+    saveAssetButton: "حفظ الأصل", 
 
     descriptionRequiredForSaveTitle: "الوصف مطلوب",
     descriptionRequiredForSaveDesc: "يرجى تقديم شكل واحد على الأقل من الوصف (صوتي أو نصي).",
@@ -547,8 +576,8 @@ const translations: Record<Language, Record<string, string>> = {
     customCameraViewTitle: "عرض الكاميرا المخصص",
     customCameraDialogTitle: "الكاميرا",
 
-    speechFeatureNotAvailableTitle: "ميزة التعرف على الكلام غير متوفرة",
-    speechFeatureNotAvailableDesc: "متصفحك لا يدعم التعرف على الكلام، أو أنه غير ممكّن. لا يزال بإمكانك كتابة الوصف يدويًا.",
+    speechFeatureNotAvailableTitle: "تسجيل الصوت غير متوفر", 
+    speechFeatureNotAvailableDesc: "قد لا يدعم متصفحك تسجيل الصوت أو تم رفض الوصول إلى الميكروفون.", 
     speechErrorNoSpeech: "لم يتم اكتشاف أي كلام. يرجى المحاولة مرة أخرى.",
     speechErrorAudioCapture: "فشل التقاط الصوت. تحقق من أذونات الميكروفون.",
     speechErrorNotAllowed: "تم رفض الوصول إلى الميكروفون. يرجى السماح بالوصول إلى الميكروفون.",
@@ -629,11 +658,11 @@ const translations: Record<Language, Record<string, string>> = {
 
     assignUsersButtonTitle: "تعيين المستخدمين",
     assignUsersToProjectTitle: "تعيين مستخدمين للمشروع:",
-    assignUsersModalDesc: "اختر مفتشًا و/أو مقيمًا لهذا المشروع.",
+    assignUsersModalDescExtended: "ابحث عن المستخدمين عن طريق البريد الإلكتروني لإضافتهم كمفتشين أو مقيمين لشركتك، ثم قم بتعيينهم لهذا المشروع.",
     assignInspector: "تعيين مفتش", 
-    assignInspectorsLabel: "تعيين مفتشين", 
+    assignInspectorsLabel: "تعيين مفتشين من الشركة", 
     assignValuator: "تعيين مقيم", 
-    assignValuatorsLabel: "تعيين مقيمين", 
+    assignValuatorsLabel: "تعيين مقيمين من الشركة", 
     selectInspectorPlaceholder: "اختر مفتشًا",
     selectValuatorPlaceholder: "اختر مقيمًا",
     unassign: "إلغاء التعيين / لا أحد",
@@ -642,8 +671,24 @@ const translations: Record<Language, Record<string, string>> = {
     assignmentsUpdatedDesc: "تم تحديث التعيينات للمشروع \"{projectName}\".",
     assignedProjectsListTitle: "المشاريع المعينة:",
     noProjectsAssigned: "لا توجد مشاريع معينة حاليًا.",
-    noInspectorsFoundInCompany: "لا يوجد مفتشون في هذه الشركة.",
-    noValuatorsFoundInCompany: "لا يوجد مقيمون في هذه الشركة.",
+    noInspectorsFoundInCompany: "لا يوجد مفتشون حاليًا في شركتك. استخدم البحث لإضافة أو تعيين أدوار.",
+    noValuatorsFoundInCompany: "لا يوجد مقيمون حاليًا في شركتك. استخدم البحث لإضافة أو تعيين أدوار.",
+    userNotFoundForInvite: "المستخدم بالبريد الإلكتروني \"{email}\" غير موجود. يحتاجون إلى حساب ليتم تعيينهم.",
+    userRoleUpdatedTitle: "تم تحديث دور المستخدم",
+    userRoleUpdatedDesc: "المستخدم {email} هو الآن {role} في {companyName}.",
+    makeInspectorButton: "جعله مفتشًا",
+    addAsInspectorButton: "إضافة كمفتش",
+    makeValuatorButton: "جعله مقيمًا",
+    addAsValuatorButton: "إضافة كمقيم",
+    userAlreadyRoleInCompany: "بالفعل {role} في هذه الشركة.",
+    noActionsAvailableForUser: "تم العثور على المستخدم. لا توجد إجراءات دور فورية مطلوبة لهذه الشركة.",
+    searchUserByEmailLabel: "البحث عن مستخدم بالبريد الإلكتروني",
+    emailPlaceholder: "user@example.com",
+    searchResultsTitle: "نتائج البحث",
+    currentRoleLabel: "الدور:",
+    inYourCompanyShort: "(شركتك)",
+    associatedWithCompanyLabel: "مع:",
+    noCompanyAffiliationLabel: "لا يوجد انتماء حالي لشركة",
     
     // New keys for modal flow
     stepPhotosCaptureTitleModal: "الخطوة 1: التقاط الصور",
@@ -651,9 +696,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitleModal: "الخطوة 3: الأوصاف والحفظ",
     provideNameForAsset: "أدخل اسمًا للأصل الخاص بك.",
     nextStepAssetName: "التالي: اسم الأصل",
-    backToPhotoCapture: "العودة إلى الصور",
-    backToAssetNameModal: "العودة إلى اسم الأصل",
-    cancelAssetCreation: "إلغاء إنشاء الأصل",
+    cancelAssetCreation: "إلغاء إنشاء الأصل", 
     backToDashboard: "العودة إلى لوحة التحكم",
 
   },
@@ -696,4 +739,3 @@ export function useLanguage() {
   return context;
 }
 
-    
