@@ -42,7 +42,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
 
   const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]); 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null); // General stream for camera/mic
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null); 
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -94,7 +94,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
 
   const handleModalClose = useCallback(() => {
     resetModalState();
-    if (mediaStream) { // Stop the general media stream
+    if (mediaStream) { 
         mediaStream.getTracks().forEach(track => track.stop());
         setMediaStream(null);
     }
@@ -107,18 +107,16 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     }
   }, [isOpen, project, parentFolder, resetModalState]);
 
-  // Effect for Camera/Video stream (for photo capture step or custom camera modal)
   useEffect(() => {
     let streamInstanceForEffect: MediaStream | null = null;
     const getCameraStreamForEffect = async () => {
-      if (isCustomCameraOpen) { // Only get camera stream when custom camera is open
+      if (isCustomCameraOpen) { 
         const storedPermission = typeof window !== 'undefined' ? localStorage.getItem(CAMERA_PERMISSION_GRANTED_KEY) : null;
         if (storedPermission === 'true') setHasCameraPermission(true);
         else if (storedPermission === 'false') setHasCameraPermission(false);
         else setHasCameraPermission(null);
         
         try {
-          // Request video-only stream for camera preview
           streamInstanceForEffect = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
           setMediaStream(prevStream => {
             if (prevStream && prevStream.id !== streamInstanceForEffect?.id) {
@@ -136,8 +134,8 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           setHasCameraPermission(false);
           if (typeof window !== 'undefined') localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'false');
         }
-      } else { // If custom camera is not open, ensure its stream is stopped
-         if (mediaStream && mediaStream.getVideoTracks().length > 0 && !isRecording) { // Check if it's a video stream and not recording audio
+      } else { 
+         if (mediaStream && mediaStream.getVideoTracks().length > 0 && !isRecording) { 
              mediaStream.getTracks().forEach(track => track.stop());
              setMediaStream(null);
         }
@@ -151,7 +149,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         streamInstanceForEffect.getTracks().forEach(track => track.stop());
       }
     };
-  }, [isCustomCameraOpen]); // Removed isRecording from here to avoid stopping audio stream prematurely
+  }, [isCustomCameraOpen, isRecording]);
 
 
   useEffect(() => {
@@ -185,7 +183,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
                 mediaRecorderRef.current.stop();
             }
-            setIsRecording(false); // Ensure recording state is reset
+            setIsRecording(false); 
         }
       };
     } else {
@@ -196,7 +194,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         speechRecognitionRef.current.stop();
       }
     };
-  }, [toast, t, isRecording]); // isRecording dependency is important here
+  }, [toast, t, isRecording]); 
 
   useEffect(() => {
     if (speechRecognitionRef.current) {
@@ -245,7 +243,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       }
     }
     if (event.target) event.target.value = ''; 
-  }, [toast, t]);
+  }, [toast]); 
 
   const handleCapturePhotoFromStream = useCallback(() => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream && mediaStream.getVideoTracks().length > 0) {
@@ -291,12 +289,11 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     } finally {
       setIsProcessingPhotos(false);
     }
-  }, [capturedPhotosInSession, toast, t]);
+  }, [capturedPhotosInSession, toast]);
   
   const handleCancelCustomCamera = useCallback(() => {
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    // Camera stream (video only) cleanup is handled by the isCustomCameraOpen useEffect
   }, []);
   
   const removePhotoFromPreviews = useCallback((indexToRemove: number) => { 
@@ -317,7 +314,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
       return;
     }
-    // No need to pre-fetch audio stream here; toggleRecording will handle it.
     setCurrentStep('descriptions');
   }, [assetName, toast, t]);
 
@@ -351,12 +347,12 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             const reader = new FileReader();
             reader.readAsDataURL(audioBlob);
             reader.onloadend = () => { setRecordedAudioDataUrl(reader.result as string); };
-            audioChunksRef.current = []; // Clear for next recording
+            audioChunksRef.current = []; 
         };
         recorder.onerror = (event: Event) => {
             const mediaRecorderError = event as unknown as { error?: DOMException };
             console.error('MediaRecorder.onerror event:', mediaRecorderError.error || event);
-            toast({ title: "Recording Error", description: `MediaRecorder failed: ${mediaRecorderError.error?.name || 'Unknown error'}.`, variant: "destructive" });
+            toast({ title: "Recording Error", description: `MediaRecorder failed: ${mediaRecorderError.error?.name || 'Unknown error'}. Check console.`, variant: "destructive" });
             setIsRecording(false);
             if (speechRecognitionRef.current) speechRecognitionRef.current.stop();
         };
@@ -374,13 +370,11 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         }
     } catch (e: any) {
         console.error("Error initializing or starting MediaRecorder instance:", e);
-        toast({ title: "Recording Setup Error", description: `Could not initialize/start MediaRecorder: ${e.message}. Check console.`, variant: "destructive" });
+        toast({ title: "Recording Setup Error", description: `Could not initialize/start MediaRecorder: ${e.message || 'Unknown error'}. Check console and microphone.`, variant: "destructive" });
         setIsRecording(false); 
         if (speechRecognitionRef.current) speechRecognitionRef.current.stop();
-        streamForRecording.getTracks().forEach(track => track.stop());
-        if (mediaStream?.id === streamForRecording.id) setMediaStream(null);
     }
-  }, [toast, t, speechRecognitionAvailable, speechRecognitionRef, mediaStream]);
+  }, [toast, t, speechRecognitionAvailable, speechRecognitionRef]);
 
 
   const toggleRecording = useCallback(async () => {
@@ -399,19 +393,18 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             speechRecognitionRef.current.stop();
         }
         setIsRecording(false);
-        // Let the useEffect for isCustomCameraOpen or modal closure handle stopping the `mediaStream`
-        // to avoid premature closure if it's also used for camera.
-        // If it's a dedicated audio stream, it should be stopped if toggleRecording isn't called again.
+        
+        if (mediaStream && mediaStream.getAudioTracks().length > 0 && !isCustomCameraOpen) {
+             mediaStream.getTracks().forEach(track => track.stop());
+             setMediaStream(null);
+        }
     } else { 
         setRecordedAudioDataUrl(null); 
         setAssetVoiceDescription(''); 
 
         try {
-            // Always get a fresh audio-only stream
             const newAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-
-            // Stop any previous stream (camera or old audio) before setting the new one
-            if (mediaStream) {
+            if (mediaStream && mediaStream.id !== newAudioStream.id) {
                 mediaStream.getTracks().forEach(track => track.stop());
             }
             setMediaStream(newAudioStream); 
@@ -432,7 +425,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     }
   }, [
     isRecording, isSavingAsset, mediaStream, t, toast, isAudioPlaying, 
-    startRecordingWithStream, speechRecognitionRef, setMediaStream
+    startRecordingWithStream, speechRecognitionRef, setMediaStream, isCustomCameraOpen
 ]);
 
 
@@ -442,7 +435,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             audioPlayerRef.current.pause();
             setIsAudioPlaying(false);
         } else {
-            if (isRecording) { // Stop recording if trying to play
+            if (isRecording) { 
                 if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
                     mediaRecorderRef.current.stop();
                 }
@@ -532,7 +525,8 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         if (newAsset) {
             toast({ 
                 title: t('assetSavedTitle', "Asset Saved"), 
-                description: t('assetSavedDesc', `Asset "${newAsset.name}" has been saved.`, { assetName: newAsset.name })
+                description: t('assetSavedDesc', `Asset "${newAsset.name}" has been saved.`, { assetName: newAsset.name }),
+                variant: "success-yellow" 
             });
             onAssetCreated(); 
             handleModalClose(); 
