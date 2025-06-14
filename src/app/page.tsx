@@ -5,70 +5,72 @@ import { useRouter } from 'next/navigation';
 import { ProjectDashboard } from '@/components/project-dashboard';
 import type { Company } from '@/data/mock-data';
 import { useAuth } from '@/contexts/auth-context';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldAlert } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
-import { CompanySelector } from '@/components/company-selector'; // New import
+import { Button } from '@/components/ui/button';
 
 export default function HomePage() {
-  const { currentUser, isLoading, logout: authLogout } = useAuth();
+  const { currentUser, isLoading: authIsLoading, logout: authLogout } = useAuth();
   const router = useRouter();
   const { t } = useLanguage();
-  
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-  const [pageLoading, setPageLoading] = useState(true);
+  const [pageIsLoading, setPageIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!isLoading) { // Auth loading is complete
+    if (!authIsLoading) { 
       if (!currentUser) {
         router.push('/login');
+      } else if (!currentUser.companyId || !currentUser.companyName) {
+        console.error("User is logged in but has no company information. Cannot display dashboard.");
+        setPageIsLoading(false); // Stop loading to show error message
       } else {
-        // User is logged in. If no company is selected yet, pageLoading remains true
-        // until CompanySelector is shown or a company is selected.
-        // If a company IS selected, pageLoading will be set to false.
-        setPageLoading(!selectedCompany); 
+        setPageIsLoading(false); // User and their company info are available
       }
+    } else {
+        setPageIsLoading(true); // Auth is still loading
     }
-  }, [isLoading, currentUser, selectedCompany, router]);
+  }, [authIsLoading, currentUser, router]);
 
-  const handleSelectCompany = (company: Company) => {
-    setSelectedCompany(company);
-    setPageLoading(false); // Page is ready to show dashboard
-  };
-
-  const handleLogout = () => {
-    authLogout();
-    setSelectedCompany(null); // Reset selected company on logout
-    // AuthProvider's logout will handle redirecting to /login
-  };
-
-  if (isLoading || (!currentUser && !isLoading)) { // Show loader if auth is loading or if redirecting (currentUser is null but auth isn't loading anymore)
+  if (authIsLoading || (pageIsLoading && currentUser)) { // Show loader if auth is loading OR if page is still loading after auth (e.g. waiting for company check)
     return (
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground mt-4">
-          {isLoading ? t('loadingUserSession', 'Loading user session...') : t('redirectingToLogin', 'Redirecting to login...')}
+          {authIsLoading ? t('loadingUserSession', 'Loading user session...') : t('preparingDashboard', 'Preparing dashboard...')}
         </p>
       </div>
     );
   }
 
-  if (currentUser && !selectedCompany) {
-    // User is logged in, but no company selected yet
-    return <CompanySelector onSelectCompany={handleSelectCompany} />;
+  // If auth is done, currentUser is available, but company info is missing
+  if (currentUser && (!currentUser.companyId || !currentUser.companyName) && !pageIsLoading) {
+    return (
+      <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold">{t('companyInfoMissingTitle', 'Company Information Missing')}</h1>
+        <p className="text-muted-foreground">{t('companyInfoMissingDesc', 'Your account is not associated with a company. Please contact support.')}</p>
+        <Button onClick={authLogout} className="mt-4">{t('logoutButton', 'Logout')}</Button>
+      </div>
+    );
   }
 
-  if (currentUser && selectedCompany && !pageLoading) {
+  // If auth is done, currentUser and their company info are available
+  if (currentUser && currentUser.companyId && currentUser.companyName && !pageIsLoading) {
+    const userCompany: Company = {
+      id: currentUser.companyId,
+      name: currentUser.companyName,
+    };
     return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8">
         <ProjectDashboard
-          company={selectedCompany}
-          onLogout={handleLogout} 
+          company={userCompany}
+          onLogout={authLogout} 
         />
       </div>
     );
   }
   
-  // Fallback loader if other conditions aren't met (e.g., initial render before effects)
+  // Fallback loader if redirecting or other unhandled state
+  // This should ideally not be reached if the logic above is comprehensive
   return (
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -78,4 +80,3 @@ export default function HomePage() {
       </div>
     );
 }
-

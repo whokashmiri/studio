@@ -34,15 +34,18 @@ const translations: Record<Language, Record<string, string>> = {
     cancel: "Cancel",
     save: "Save",
     saving: "Saving...",
-    loading: "Loading...", // Added loading key
+    loading: "Loading...", 
+    preparingDashboard: "Preparing dashboard...",
+    companyInfoMissingTitle: "Company Information Missing",
+    companyInfoMissingDesc: "Your account is not associated with a company. Please contact support.",
     newAsset: "New Asset",
     takePhotos: "Take Photos", 
     uploadFromGallery: "Upload from Gallery",
     assetName: "Asset Name",
     description: "Description", 
-    speechToText: "Speech to Text", // May be less relevant now with direct audio recording
+    speechToText: "Speech to Text", 
     skip: "Skip",
-    noProjectsFound: "No projects found in this category.", // Generic, can be overridden by more specific keys
+    noProjectsFound: "No projects found in this category.", 
     noProjectsFoundInTab: "No projects found in \"{tabName}\" tab.",
     folders: "Folders",
     assets: "Assets",
@@ -116,7 +119,7 @@ const translations: Record<Language, Record<string, string>> = {
     inFolder: "In folder:",
     forProject: "for",
 
-    listening: "Listening...", // Still relevant for SpeechRecognition part
+    listening: "Listening...", 
 
     cameraErrorTitle: "Camera Error",
     cameraErrorDesc: "Could not access the camera.",
@@ -139,7 +142,7 @@ const translations: Record<Language, Record<string, string>> = {
     noPhotosInBatch: "No photos in the current batch yet.",
     projectContextLost: "Project context lost",
     noDescriptionAvailable: "No description available.",
-    voiceDescriptionOnly: "Voice description available", // This might change contextually if only audio is present
+    voiceDescriptionOnly: "Voice description available", 
     textAndVoiceDescShort: "{text} (voice available)",
     created: "Created",
     accessed: "Accessed",
@@ -227,17 +230,17 @@ const translations: Record<Language, Record<string, string>> = {
     customCameraViewTitle: "Custom Camera View",
     customCameraDialogTitle: "Camera",
 
-    speechFeatureNotAvailableTitle: "Voice Recording Not Available", // Updated
-    speechFeatureNotAvailableDesc: "Your browser may not support voice recording or microphone access is denied.", // Updated
+    speechFeatureNotAvailableTitle: "Voice Recording Not Available", 
+    speechFeatureNotAvailableDesc: "Your browser may not support voice recording or microphone access is denied.", 
     speechErrorNoSpeech: "No speech detected. Please try again.",
     speechErrorAudioCapture: "Audio capture failed. Check microphone permissions.",
     speechErrorNotAllowed: "Microphone access denied. Please allow microphone access.",
     speechErrorTitle: "Could not start speech recognition",
     speechStartErrorDesc: "Please ensure microphone permissions are granted.",
-    speechSynthesisErrorTitle: "Speech Playback Error", // Less relevant now
-    speechNoVoiceToPlayDesc: "Speech synthesis is not available or no voice description to play.", // Less relevant
-    speechPlaybackNotAvailableTitle: "Speech Playback Not Available", // Less relevant
-    speechPlaybackNotAvailableDesc: "Your browser does not support speech playback.", // Less relevant
+    speechSynthesisErrorTitle: "Speech Playback Error", 
+    speechNoVoiceToPlayDesc: "Speech synthesis is not available or no voice description to play.", 
+    speechPlaybackNotAvailableTitle: "Speech Playback Not Available", 
+    speechPlaybackNotAvailableDesc: "Your browser does not support speech playback.", 
 
     assetsInFolder: "Assets in \"{folderName}\"",
     assetsInProjectRoot: "Assets in Project Root",
@@ -373,7 +376,10 @@ const translations: Record<Language, Record<string, string>> = {
     cancel: "إلغاء",
     save: "حفظ",
     saving: "جاري الحفظ...",
-    loading: "جاري التحميل...", // Added loading key
+    loading: "جاري التحميل...", 
+    preparingDashboard: "جاري إعداد لوحة التحكم...",
+    companyInfoMissingTitle: "معلومات الشركة مفقودة",
+    companyInfoMissingDesc: "حسابك غير مرتبط بشركة. يرجى الاتصال بالدعم.",
     newAsset: "أصل جديد",
     takePhotos: "التقاط صور",
     uploadFromGallery: "تحميل من المعرض",
@@ -566,8 +572,8 @@ const translations: Record<Language, Record<string, string>> = {
     customCameraViewTitle: "عرض الكاميرا المخصص",
     customCameraDialogTitle: "الكاميرا",
 
-    speechFeatureNotAvailableTitle: "تسجيل الصوت غير متوفر", // Updated
-    speechFeatureNotAvailableDesc: "قد لا يدعم متصفحك تسجيل الصوت أو تم رفض الوصول إلى الميكروفون.", // Updated
+    speechFeatureNotAvailableTitle: "تسجيل الصوت غير متوفر", 
+    speechFeatureNotAvailableDesc: "قد لا يدعم متصفحك تسجيل الصوت أو تم رفض الوصول إلى الميكروفون.", 
     speechErrorNoSpeech: "لم يتم اكتشاف أي كلام. يرجى المحاولة مرة أخرى.",
     speechErrorAudioCapture: "فشل التقاط الصوت. تحقق من أذونات الميكروفون.",
     speechErrorNotAllowed: "تم رفض الوصول إلى الميكروفون. يرجى السماح بالوصول إلى الميكروفون.",
