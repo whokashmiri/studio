@@ -318,7 +318,7 @@ export default function NewAssetPage() {
              toast({ title: "Image Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive"});
           }
         }
-        setPhotoPreviews(prev => [...prev, ...processedDataUris].slice(0, 10)); 
+        setPhotoPreviews(prev => [...prev, ...processedDataUris].slice(0, 50)); 
       } catch (error: any) {
         toast({ title: "Error", description: error.message || "An error occurred processing gallery photos.", variant: "destructive"});
       } finally {
@@ -364,7 +364,7 @@ export default function NewAssetPage() {
           toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive"});
         }
       }
-      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris].slice(0, 10));
+      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris].slice(0, 50));
       setCapturedPhotosInSession([]);
       setIsCustomCameraOpen(false);
     } catch (error) {
@@ -445,7 +445,7 @@ export default function NewAssetPage() {
         };
 
        recorder.start();
-       // setIsRecording(true) is set in toggleRecording after startRecordingWithStream is called successfully
+       setIsRecording(true);
        
        if (speechRecognitionRef.current && speechRecognitionAvailable) {
           try {
@@ -453,7 +453,6 @@ export default function NewAssetPage() {
           } catch (e: any) {
             console.error("Error starting speech recognition:", e);
             toast({ title: t('speechErrorTitle', 'Could not start speech recognition'), description: e.message || t('speechStartErrorDesc', 'Ensure microphone permissions.'), variant: 'warning' });
-            // Don't stop media recorder here, let it continue if it started
           }
        }
     } catch (e: any) { 
@@ -463,7 +462,6 @@ export default function NewAssetPage() {
        if (speechRecognitionRef.current) {
             speechRecognitionRef.current.stop();
        }
-       // If streamForRecording was created in toggleRecording, it should be stopped
        streamForRecording.getTracks().forEach(track => track.stop());
        if(mediaStream?.id === streamForRecording.id) setMediaStream(null);
     }
@@ -485,24 +483,17 @@ export default function NewAssetPage() {
             speechRecognitionRef.current.stop();
         }
         setIsRecording(false);
-        // mediaStream used for audio recording will be stopped by its own effect if modal closes or by next recording start
     } else { // Start new recording
         setRecordedAudioDataUrl(null); 
         setAssetVoiceDescription(''); 
 
         try {
-            // Always get a fresh audio-only stream
             const newAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-
-            // Stop any previous stream (camera or old audio) before setting the new one
             if (mediaStream) {
                 mediaStream.getTracks().forEach(track => track.stop());
             }
-            setMediaStream(newAudioStream); // Set as the current general stream (for cleanup)
-            
-            startRecordingWithStream(newAudioStream); // Pass the fresh stream directly
-            setIsRecording(true); // Set recording state after successfully initiating startRecordingWithStream
-        
+            setMediaStream(newAudioStream); 
+            startRecordingWithStream(newAudioStream); 
         } catch (err) {
             console.error("Error getting dedicated audio stream for recording:", err);
             const typedError = err as Error;
@@ -1010,3 +1001,5 @@ export default function NewAssetPage() {
     </div>
   );
 }
+
+    

@@ -237,7 +237,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             toast({ title: "Image Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive"});
           }
         }
-        setPhotoPreviews(prev => [...prev, ...processedDataUris].slice(0, 10)); 
+        setPhotoPreviews(prev => [...prev, ...processedDataUris].slice(0, 50)); 
       } catch (error: any) {
          toast({ title: "Error", description: error.message || "An error occurred processing gallery photos.", variant: "destructive"});
       } finally {
@@ -283,7 +283,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive"});
         }
       }
-      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris].slice(0, 10));
+      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris].slice(0, 50));
       setCapturedPhotosInSession([]);
       setIsCustomCameraOpen(false); 
     } catch (error) {
@@ -362,7 +362,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         };
 
         recorder.start();
-        // setIsRecording(true) is set in toggleRecording after startRecordingWithStream is called successfully
+        setIsRecording(true);
         
         if (speechRecognitionRef.current && speechRecognitionAvailable) {
             try {
@@ -370,7 +370,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             } catch (e: any) {
                 console.error("Error starting speech recognition:", e);
                 toast({ title: t('speechErrorTitle', 'Could not start speech recognition'), description: e.message || t('speechStartErrorDesc', 'Ensure microphone permissions.'), variant: 'warning' });
-                // Don't stop media recorder here, let it continue if it started
             }
         }
     } catch (e: any) {
@@ -378,7 +377,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         toast({ title: "Recording Setup Error", description: `Could not initialize/start MediaRecorder: ${e.message}. Check console.`, variant: "destructive" });
         setIsRecording(false); 
         if (speechRecognitionRef.current) speechRecognitionRef.current.stop();
-        // If streamForRecording was created in toggleRecording, it should be stopped
         streamForRecording.getTracks().forEach(track => track.stop());
         if (mediaStream?.id === streamForRecording.id) setMediaStream(null);
     }
@@ -389,11 +387,11 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     if (isSavingAsset) return;
     
     if (audioPlayerRef.current && isAudioPlaying) { 
-        audioPlayerRef.current.pause(); // Stop playback if any
+        audioPlayerRef.current.pause(); 
         setIsAudioPlaying(false);
     }
 
-    if (isRecording) { // Stop current recording
+    if (isRecording) { 
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
             mediaRecorderRef.current.stop();
         }
@@ -401,8 +399,10 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             speechRecognitionRef.current.stop();
         }
         setIsRecording(false);
-        // mediaStream used for audio recording will be stopped by its own effect if modal closes or by next recording start
-    } else { // Start new recording
+        // Let the useEffect for isCustomCameraOpen or modal closure handle stopping the `mediaStream`
+        // to avoid premature closure if it's also used for camera.
+        // If it's a dedicated audio stream, it should be stopped if toggleRecording isn't called again.
+    } else { 
         setRecordedAudioDataUrl(null); 
         setAssetVoiceDescription(''); 
 
@@ -414,10 +414,9 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             if (mediaStream) {
                 mediaStream.getTracks().forEach(track => track.stop());
             }
-            setMediaStream(newAudioStream); // Set as the current general stream (for cleanup)
+            setMediaStream(newAudioStream); 
             
-            startRecordingWithStream(newAudioStream); // Pass the fresh stream directly
-            setIsRecording(true); // Set recording state after successfully initiating startRecordingWithStream
+            startRecordingWithStream(newAudioStream); 
         
         } catch (err) {
             console.error("Error getting dedicated audio stream for recording:", err);
@@ -882,3 +881,5 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     </>
   );
 }
+
+    
