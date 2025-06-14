@@ -40,7 +40,7 @@ const translations: Record<Language, Record<string, string>> = {
     uploadFromGallery: "Upload from Gallery",
     assetName: "Asset Name",
     description: "Description", 
-    speechToText: "Speech to Text",
+    speechToText: "Speech to Text", // May be less relevant now with direct audio recording
     skip: "Skip",
     noProjectsFound: "No projects found in this category.", // Generic, can be overridden by more specific keys
     noProjectsFoundInTab: "No projects found in \"{tabName}\" tab.",
@@ -73,12 +73,12 @@ const translations: Record<Language, Record<string, string>> = {
     photosRequiredTitle: "Photos Required",
     photosRequiredDesc: "Please add at least one photo for the asset.",
     
-    stepNameInputTitle: "Step 1: Asset Name", // Old key, might be unused
-    stepPhotosCaptureTitle: "Step 2: Photos", // Old key, might be unused
-    stepDescriptionsTitle: "Step 3: Descriptions", // Old key, might be unused
+    stepNameInputTitle: "Step 1: Asset Name", 
+    stepPhotosCaptureTitle: "Step 2: Photos", 
+    stepDescriptionsTitle: "Step 3: Descriptions",
 
-    nextStepAddPhotos: "Next: Add Photos", // Old key
-    nextStepDescriptions: "Next: Add Descriptions", // Refined from "Next: Save "
+    nextStepAddPhotos: "Next: Add Photos", 
+    nextStepDescriptions: "Next: Add Descriptions", 
     
     addPhotosForAssetTitle: "Add Photos for:",
     addPhotosSectionTitle: "Add Photos",
@@ -87,15 +87,17 @@ const translations: Record<Language, Record<string, string>> = {
 
     addDetailsForAssetTitle: "Add Details for:",
     voiceDescriptionLabel: "Voice Description",
-    recordVoiceDescriptionButton: "Record Voice", // Refined
+    recordVoiceDescriptionButton: "Record Voice", 
     playVoiceDescriptionButton: "Listen",
+    pauseAudio: "Pause",
+    finishRecording: "Finish Recording",
     voiceTranscriptPlaceholder: "Voice transcript will appear here...",
     textDescriptionLabel: "Written Description",
     textDescriptionPlaceholder: "Type detailed written description here...",
     
-    backToPhotoCapture: "Back", // Refined
-    backToAssetNameModal: "Back", // Refined
-    saveAssetButton: "Save Asset", // Refined from "Finish "
+    backToPhotoCapture: "Back", 
+    backToAssetNameModal: "Back", 
+    saveAssetButton: "Save Asset", 
 
     descriptionRequiredForSaveTitle: "Description Required",
     descriptionRequiredForSaveDesc: "Please provide at least one form of description (voice or text).",
@@ -114,7 +116,7 @@ const translations: Record<Language, Record<string, string>> = {
     inFolder: "In folder:",
     forProject: "for",
 
-    listening: "Listening...",
+    listening: "Listening...", // Still relevant for SpeechRecognition part
 
     cameraErrorTitle: "Camera Error",
     cameraErrorDesc: "Could not access the camera.",
@@ -137,7 +139,7 @@ const translations: Record<Language, Record<string, string>> = {
     noPhotosInBatch: "No photos in the current batch yet.",
     projectContextLost: "Project context lost",
     noDescriptionAvailable: "No description available.",
-    voiceDescriptionOnly: "Voice description available",
+    voiceDescriptionOnly: "Voice description available", // This might change contextually if only audio is present
     textAndVoiceDescShort: "{text} (voice available)",
     created: "Created",
     accessed: "Accessed",
@@ -225,17 +227,17 @@ const translations: Record<Language, Record<string, string>> = {
     customCameraViewTitle: "Custom Camera View",
     customCameraDialogTitle: "Camera",
 
-    speechFeatureNotAvailableTitle: "Speech Recognition Not Available",
-    speechFeatureNotAvailableDesc: "Your browser does not support speech recognition, or it is not enabled. You can still type the description manually.",
+    speechFeatureNotAvailableTitle: "Voice Recording Not Available", // Updated
+    speechFeatureNotAvailableDesc: "Your browser may not support voice recording or microphone access is denied.", // Updated
     speechErrorNoSpeech: "No speech detected. Please try again.",
     speechErrorAudioCapture: "Audio capture failed. Check microphone permissions.",
     speechErrorNotAllowed: "Microphone access denied. Please allow microphone access.",
     speechErrorTitle: "Could not start speech recognition",
     speechStartErrorDesc: "Please ensure microphone permissions are granted.",
-    speechSynthesisErrorTitle: "Speech Playback Error",
-    speechNoVoiceToPlayDesc: "Speech synthesis is not available or no voice description to play.",
-    speechPlaybackNotAvailableTitle: "Speech Playback Not Available",
-    speechPlaybackNotAvailableDesc: "Your browser does not support speech playback.",
+    speechSynthesisErrorTitle: "Speech Playback Error", // Less relevant now
+    speechNoVoiceToPlayDesc: "Speech synthesis is not available or no voice description to play.", // Less relevant
+    speechPlaybackNotAvailableTitle: "Speech Playback Not Available", // Less relevant
+    speechPlaybackNotAvailableDesc: "Your browser does not support speech playback.", // Less relevant
 
     assetsInFolder: "Assets in \"{folderName}\"",
     assetsInProjectRoot: "Assets in Project Root",
@@ -329,9 +331,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitleModal: "Step 3: Descriptions & Save",
     provideNameForAsset: "Provide a name for your asset.",
     nextStepAssetName: "Next: Asset Name",
-    // backToPhotoCapture: "Back", // Handled by generic "Back"
-    // backToAssetNameModal: "Back", // Handled by generic "Back"
-    cancelAssetCreation: "Cancel Asset Creation", // Used in page, modal uses generic "Cancel"
+    cancelAssetCreation: "Cancel", // For modal "Cancel" button on photo step
     backToDashboard: "Back to Dashboard",
 
 
@@ -400,7 +400,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitle: "الخطوة ٣: الأوصاف",
 
     nextStepAddPhotos: "التالي: إضافة الصور", 
-    nextStepDescriptions: "التالي: إضافة الأوصاف", // Refined
+    nextStepDescriptions: "التالي: إضافة الأوصاف", 
     
     addPhotosForAssetTitle: "إضافة صور لـ:",
     addPhotosSectionTitle: "إضافة صور",
@@ -409,15 +409,17 @@ const translations: Record<Language, Record<string, string>> = {
 
     addDetailsForAssetTitle: "إضافة تفاصيل لـ:",
     voiceDescriptionLabel: "الوصف الصوتي",
-    recordVoiceDescriptionButton: "تسجيل صوتي", // Refined
+    recordVoiceDescriptionButton: "تسجيل صوتي", 
     playVoiceDescriptionButton: "استماع",
+    pauseAudio: "إيقاف مؤقت",
+    finishRecording: "إنهاء التسجيل",
     voiceTranscriptPlaceholder: "سيظهر النص الصوتي هنا...",
     textDescriptionLabel: "الوصف المكتوب",
     textDescriptionPlaceholder: "اكتب وصفًا مكتوبًا مفصلاً هنا...",
     
-    backToPhotoCapture: "رجوع", // Refined
-    backToAssetNameModal: "رجوع", // Refined
-    saveAssetButton: "حفظ الأصل", // Refined
+    backToPhotoCapture: "رجوع", 
+    backToAssetNameModal: "رجوع", 
+    saveAssetButton: "حفظ الأصل", 
 
     descriptionRequiredForSaveTitle: "الوصف مطلوب",
     descriptionRequiredForSaveDesc: "يرجى تقديم شكل واحد على الأقل من الوصف (صوتي أو نصي).",
@@ -547,8 +549,8 @@ const translations: Record<Language, Record<string, string>> = {
     customCameraViewTitle: "عرض الكاميرا المخصص",
     customCameraDialogTitle: "الكاميرا",
 
-    speechFeatureNotAvailableTitle: "ميزة التعرف على الكلام غير متوفرة",
-    speechFeatureNotAvailableDesc: "متصفحك لا يدعم التعرف على الكلام، أو أنه غير ممكّن. لا يزال بإمكانك كتابة الوصف يدويًا.",
+    speechFeatureNotAvailableTitle: "تسجيل الصوت غير متوفر", // Updated
+    speechFeatureNotAvailableDesc: "قد لا يدعم متصفحك تسجيل الصوت أو تم رفض الوصول إلى الميكروفون.", // Updated
     speechErrorNoSpeech: "لم يتم اكتشاف أي كلام. يرجى المحاولة مرة أخرى.",
     speechErrorAudioCapture: "فشل التقاط الصوت. تحقق من أذونات الميكروفون.",
     speechErrorNotAllowed: "تم رفض الوصول إلى الميكروفون. يرجى السماح بالوصول إلى الميكروفون.",
@@ -651,9 +653,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitleModal: "الخطوة 3: الأوصاف والحفظ",
     provideNameForAsset: "أدخل اسمًا للأصل الخاص بك.",
     nextStepAssetName: "التالي: اسم الأصل",
-    // backToPhotoCapture: "رجوع", // Handled by generic "رجوع"
-    // backToAssetNameModal: "رجوع", // Handled by generic "رجوع"
-    cancelAssetCreation: "إلغاء إنشاء الأصل", // Used on page
+    cancelAssetCreation: "إلغاء", // For modal "Cancel" button on photo step
     backToDashboard: "العودة إلى لوحة التحكم",
 
   },
@@ -695,6 +695,3 @@ export function useLanguage() {
   }
   return context;
 }
-
-    
-

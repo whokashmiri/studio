@@ -34,7 +34,8 @@ export interface Asset {
   projectId: string;
   folderId: string | null;
   photos: string[];
-  voiceDescription?: string;
+  voiceDescription?: string; // Text transcript
+  recordedAudioDataUrl?: string; // Data URI of the actual recorded audio
   textDescription?: string;
   createdAt: number; // Changed from string to number
   updatedAt?: number; // Changed from string to number
@@ -63,3 +64,4 @@ export const mockCompanies: Company[] = [
 export const mockProjects: Project[] = [];
 export const mockFolders: Folder[] = [];
 export const mockAssets: Asset[] = [];
+
