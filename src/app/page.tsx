@@ -3,80 +3,76 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProjectDashboard } from '@/components/project-dashboard';
+import { CompanySelector } from '@/components/company-selector'; // Import CompanySelector
 import type { Company } from '@/data/mock-data';
 import { useAuth } from '@/contexts/auth-context';
-import { Loader2, ShieldAlert } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
-import { Button } from '@/components/ui/button';
 
 export default function HomePage() {
   const { currentUser, isLoading: authIsLoading, logout: authLogout } = useAuth();
   const router = useRouter();
   const { t } = useLanguage();
-  const [pageIsLoading, setPageIsLoading] = useState(true);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [pageIsLoading, setPageIsLoading] = useState(true); // General page loading state
 
   useEffect(() => {
-    if (!authIsLoading) { 
+    if (!authIsLoading) {
       if (!currentUser) {
         router.push('/login');
-      } else if (!currentUser.companyId || !currentUser.companyName) {
-        console.error("User is logged in but has no company information. Cannot display dashboard.");
-        setPageIsLoading(false); // Stop loading to show error message
+        // No need to setPageIsLoading(false) here as redirect will occur
       } else {
-        setPageIsLoading(false); // User and their company info are available
+        // User is logged in, determine whether to show company selector or dashboard
+        setPageIsLoading(false); // Ready to show content (selector or dashboard)
       }
     } else {
-        setPageIsLoading(true); // Auth is still loading
+      setPageIsLoading(true); // Auth is still loading
     }
   }, [authIsLoading, currentUser, router]);
 
-  if (authIsLoading || (pageIsLoading && currentUser)) { // Show loader if auth is loading OR if page is still loading after auth (e.g. waiting for company check)
+  const handleSelectCompany = (company: Company) => {
+    setSelectedCompany(company);
+  };
+
+  const handleLogoutAndReset = () => {
+    authLogout();
+    setSelectedCompany(null); // Reset company selection on logout
+  };
+
+  if (authIsLoading || pageIsLoading) {
     return (
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground mt-4">
-          {authIsLoading ? t('loadingUserSession', 'Loading user session...') : t('preparingDashboard', 'Preparing dashboard...')}
+          {authIsLoading ? t('loadingUserSession', 'Loading user session...') : t('loading', 'Loading...')}
         </p>
       </div>
     );
   }
 
-  // If auth is done, currentUser is available, but company info is missing
-  if (currentUser && (!currentUser.companyId || !currentUser.companyName) && !pageIsLoading) {
-    return (
-      <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
-        <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
-        <h1 className="text-2xl font-bold">{t('companyInfoMissingTitle', 'Company Information Missing')}</h1>
-        <p className="text-muted-foreground">{t('companyInfoMissingDesc', 'Your account is not associated with a company. Please contact support.')}</p>
-        <Button onClick={authLogout} className="mt-4">{t('logoutButton', 'Logout')}</Button>
-      </div>
-    );
+  // This state should not be reached if !currentUser pushes to /login
+  // But as a fallback, or if there's a brief moment before redirect completes:
+  if (!currentUser) {
+      return (
+         <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg text-muted-foreground mt-4">{t('redirectingToLogin', 'Redirecting to login...')}</p>
+        </div>
+      );
   }
 
-  // If auth is done, currentUser and their company info are available
-  if (currentUser && currentUser.companyId && currentUser.companyName && !pageIsLoading) {
-    const userCompany: Company = {
-      id: currentUser.companyId,
-      name: currentUser.companyName,
-    };
-    return (
-      <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <ProjectDashboard
-          company={userCompany}
-          onLogout={authLogout} 
-        />
-      </div>
-    );
+  // If currentUser is loaded, but no company has been selected yet
+  if (!selectedCompany) {
+    return <CompanySelector onSelectCompany={handleSelectCompany} />;
   }
-  
-  // Fallback loader if redirecting or other unhandled state
-  // This should ideally not be reached if the logic above is comprehensive
+
+  // If currentUser is loaded AND a company has been selected
   return (
-      <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-         <p className="text-lg text-muted-foreground mt-4">
-          {t('loading', 'Loading...')}
-        </p>
-      </div>
-    );
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+      <ProjectDashboard
+        company={selectedCompany}
+        onLogout={handleLogoutAndReset}
+      />
+    </div>
+  );
 }
