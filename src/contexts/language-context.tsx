@@ -78,7 +78,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitle: "Step 3: Descriptions", // Old key, might be unused
 
     nextStepAddPhotos: "Next: Add Photos", // Old key
-    nextStepDescriptions: "Next: Save ",
+    nextStepDescriptions: "Next: Add Descriptions", // Refined from "Next: Save "
     
     addPhotosForAssetTitle: "Add Photos for:",
     addPhotosSectionTitle: "Add Photos",
@@ -87,15 +87,15 @@ const translations: Record<Language, Record<string, string>> = {
 
     addDetailsForAssetTitle: "Add Details for:",
     voiceDescriptionLabel: "Voice Description",
-    recordVoiceDescriptionButton: "Record Voice",
+    recordVoiceDescriptionButton: "Record Voice", // Refined
     playVoiceDescriptionButton: "Listen",
     voiceTranscriptPlaceholder: "Voice transcript will appear here...",
     textDescriptionLabel: "Written Description",
     textDescriptionPlaceholder: "Type detailed written description here...",
     
-    backToAssetName: "Back", // Old key for page flow
-    backToPhotos: "Back ", // Old key for page flow
-    saveAssetButton: "Finish ",
+    backToPhotoCapture: "Back", // Refined
+    backToAssetNameModal: "Back", // Refined
+    saveAssetButton: "Save Asset", // Refined from "Finish "
 
     descriptionRequiredForSaveTitle: "Description Required",
     descriptionRequiredForSaveDesc: "Please provide at least one form of description (voice or text).",
@@ -329,9 +329,9 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitleModal: "Step 3: Descriptions & Save",
     provideNameForAsset: "Provide a name for your asset.",
     nextStepAssetName: "Next: Asset Name",
-    backToPhotoCapture: "Back",
-    backToAssetNameModal: "Back ", // Differentiate from page flow if needed
-    cancelAssetCreation: "Cancel",
+    // backToPhotoCapture: "Back", // Handled by generic "Back"
+    // backToAssetNameModal: "Back", // Handled by generic "Back"
+    cancelAssetCreation: "Cancel Asset Creation", // Used in page, modal uses generic "Cancel"
     backToDashboard: "Back to Dashboard",
 
 
@@ -400,7 +400,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitle: "الخطوة ٣: الأوصاف",
 
     nextStepAddPhotos: "التالي: إضافة الصور", 
-    nextStepDescriptions: "التالي: إضافة الأوصاف",
+    nextStepDescriptions: "التالي: إضافة الأوصاف", // Refined
     
     addPhotosForAssetTitle: "إضافة صور لـ:",
     addPhotosSectionTitle: "إضافة صور",
@@ -409,15 +409,15 @@ const translations: Record<Language, Record<string, string>> = {
 
     addDetailsForAssetTitle: "إضافة تفاصيل لـ:",
     voiceDescriptionLabel: "الوصف الصوتي",
-    recordVoiceDescriptionButton: "تسجيل الوصف الصوتي",
+    recordVoiceDescriptionButton: "تسجيل صوتي", // Refined
     playVoiceDescriptionButton: "استماع",
     voiceTranscriptPlaceholder: "سيظهر النص الصوتي هنا...",
     textDescriptionLabel: "الوصف المكتوب",
     textDescriptionPlaceholder: "اكتب وصفًا مكتوبًا مفصلاً هنا...",
     
-    backToAssetName: "العودة إلى اسم الأصل", 
-    backToPhotos: "العودة إلى الصور", 
-    saveAssetButton: "حفظ الأصل",
+    backToPhotoCapture: "رجوع", // Refined
+    backToAssetNameModal: "رجوع", // Refined
+    saveAssetButton: "حفظ الأصل", // Refined
 
     descriptionRequiredForSaveTitle: "الوصف مطلوب",
     descriptionRequiredForSaveDesc: "يرجى تقديم شكل واحد على الأقل من الوصف (صوتي أو نصي).",
@@ -651,9 +651,9 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitleModal: "الخطوة 3: الأوصاف والحفظ",
     provideNameForAsset: "أدخل اسمًا للأصل الخاص بك.",
     nextStepAssetName: "التالي: اسم الأصل",
-    backToPhotoCapture: "العودة إلى الصور",
-    backToAssetNameModal: "العودة إلى اسم الأصل",
-    cancelAssetCreation: "إلغاء إنشاء الأصل",
+    // backToPhotoCapture: "رجوع", // Handled by generic "رجوع"
+    // backToAssetNameModal: "رجوع", // Handled by generic "رجوع"
+    cancelAssetCreation: "إلغاء إنشاء الأصل", // Used on page
     backToDashboard: "العودة إلى لوحة التحكم",
 
   },
@@ -697,3 +697,4 @@ export function useLanguage() {
 }
 
     
+
