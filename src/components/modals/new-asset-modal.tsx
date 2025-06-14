@@ -30,8 +30,8 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const [currentStep, setCurrentStep] = useState<AssetCreationStep>('photos_capture');
   
   const [assetName, setAssetName] = useState('');
-  const [assetVoiceDescription, setAssetVoiceDescription] = useState(''); // For text transcript
-  const [recordedAudioDataUrl, setRecordedAudioDataUrl] = useState<string | null>(null); // For actual audio
+  const [assetVoiceDescription, setAssetVoiceDescription] = useState(''); 
+  const [recordedAudioDataUrl, setRecordedAudioDataUrl] = useState<string | null>(null); 
   const [assetTextDescription, setAssetTextDescription] = useState('');
   
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); 
@@ -84,7 +84,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         mediaRecorderRef.current.stop();
     }
-    if (speechRecognitionRef.current && isRecording) { // Assuming isRecording also implies speech recognition active
+    if (speechRecognitionRef.current && isRecording) { 
         speechRecognitionRef.current.stop();
     }
   }, [isRecording]);
@@ -102,19 +102,17 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
 
  useEffect(() => {
     let streamInstance: MediaStream | null = null;
-    const getCameraAndMicStream = async () => { // Renamed for clarity
-      if (isCustomCameraOpen || (currentStep === 'descriptions' && isOpen)) { // Need stream for MediaRecorder too
+    const getCameraAndMicStream = async () => { 
+      if (isCustomCameraOpen || (currentStep === 'descriptions' && isOpen)) { 
         const storedPermission = typeof window !== 'undefined' ? localStorage.getItem(CAMERA_PERMISSION_GRANTED_KEY) : null;
-        // Basic permission check for camera - mic permission will be requested by MediaRecorder/SpeechRecognition
         if (storedPermission === 'true') setHasCameraPermission(true); 
         else if (storedPermission === 'false') setHasCameraPermission(false);
         else setHasCameraPermission(null);
         
         try {
-          // Request both video and audio. Audio is for MediaRecorder and SpeechRecognition.
           streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
-          setMediaStream(streamInstance); // Store the combined stream
-          setHasCameraPermission(true); // If video is part of stream, camera is permitted
+          setMediaStream(streamInstance); 
+          setHasCameraPermission(true); 
           if (typeof window !== 'undefined') localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'true');
           
           if (isCustomCameraOpen && videoRef.current) {
@@ -122,8 +120,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           }
         } catch (error) {
           console.error('Error accessing media devices:', error);
-          setHasCameraPermission(false); // For camera UI
-          // Toast for mic/camera denial can be handled by specific features (recorder/camera)
+          setHasCameraPermission(false); 
           if (typeof window !== 'undefined') localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'false');
         }
       }
@@ -136,38 +133,29 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         streamInstance.getTracks().forEach(track => track.stop());
       }
       if (videoRef.current) videoRef.current.srcObject = null;
-      // Do not nullify mediaStream here if it's used by MediaRecorder/SpeechRecognition outside camera view
-      // setMediaStream(null); // This was causing issues, stream should persist if needed by recorder
     };
   }, [isCustomCameraOpen, currentStep, isOpen]);
 
 
-  // Initialize SpeechRecognition
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       setSpeechRecognitionAvailable(true);
       const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       speechRecognitionRef.current = new SpeechRecognitionAPI();
       const recognition = speechRecognitionRef.current;
-      recognition.continuous = true; // Keep listening for longer phrases or pauses
-      recognition.interimResults = true; // Get interim results for faster feedback
+      recognition.continuous = true; 
+      recognition.interimResults = true; 
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let finalTranscript = '';
-        let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
           }
         }
-        // Update voice description with final transcript segments
         if (finalTranscript.trim()) {
              setAssetVoiceDescription(prev => (prev + ' ' + finalTranscript).trim());
         }
-        // Optionally, display interim results if needed:
-        // setInterimTranscriptDisplay(interimTranscript); 
       };
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error', event.error, event.message);
@@ -176,17 +164,15 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         else if (event.error === 'audio-capture') errorMessage = t('speechErrorAudioCapture', 'Audio capture failed. Check microphone permissions.');
         else if (event.error === 'not-allowed') errorMessage = t('speechErrorNotAllowed', 'Microphone access denied. Please allow microphone access.');
         toast({ title: t('speechErrorTitle', 'Speech Recognition Error'), description: errorMessage, variant: 'destructive' });
-        setIsRecording(false); // Also stop MediaRecorder if it was started
-        mediaRecorderRef.current?.stop();
-      };
-      recognition.onend = () => {
-        // Don't automatically set isRecording to false here if MediaRecorder is still active
-        // setIsRecording(false); // This might be called prematurely
+        if (isRecording) {
+            mediaRecorderRef.current?.stop();
+            setIsRecording(false);
+        }
       };
     } else {
       setSpeechRecognitionAvailable(false);
     }
-  }, [toast, t]);
+  }, [toast, t, isRecording]);
 
   useEffect(() => {
     if (speechRecognitionRef.current) {
@@ -273,7 +259,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       }
       setPhotoPreviews(prev => [...prev, ...newProcessedDataUris].slice(0, 10));
       setCapturedPhotosInSession([]);
-      setIsCustomCameraOpen(false); // Close camera after adding photos
+      setIsCustomCameraOpen(false); 
     } catch (error) {
        toast({ title: "Error", description: "Failed to process session photos.", variant: "destructive"});
     } finally {
@@ -284,7 +270,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const handleCancelCustomCamera = useCallback(() => {
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    // Ensure media stream used by camera is stopped if not needed by recorder
     if (mediaStream && (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording')) {
         mediaStream.getTracks().forEach(track => track.stop());
         setMediaStream(null);
@@ -309,7 +294,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
       return;
     }
-     // Ensure media stream is active for recording if not already
     if (!mediaStream || mediaStream.getTracks().every(track => track.readyState === 'ended')) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -326,24 +310,74 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const handleBackToPhotos = useCallback(() => setCurrentStep('photos_capture'), []);
   const handleBackToNameInput = useCallback(() => setCurrentStep('name_input'), []);
 
+  const startRecordingWithStream = useCallback((stream: MediaStream) => {
+    if (!stream.active || stream.getAudioTracks().length === 0) {
+        toast({ title: "Stream Error", description: "Audio stream is not active or has no audio tracks. Please check microphone.", variant: "destructive" });
+        setIsRecording(false);
+        return;
+    }
+
+    audioChunksRef.current = [];
+    try {
+        mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        mediaRecorderRef.current.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunksRef.current.push(event.data);
+            }
+        };
+        mediaRecorderRef.current.onstop = () => {
+            if (audioChunksRef.current.length === 0) {
+                console.warn("No audio chunks recorded for MediaRecorder.");
+                setRecordedAudioDataUrl(null);
+                return;
+            }
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = () => {
+                setRecordedAudioDataUrl(reader.result as string);
+            };
+            audioChunksRef.current = [];
+        };
+        mediaRecorderRef.current.start();
+    } catch (e) {
+        console.error("Error starting MediaRecorder:", e);
+        toast({ title: "Recording Error", description: "Could not start audio recorder. Browser might not support 'audio/webm;codecs=opus'. Try a different browser or check microphone.", variant: "destructive" });
+        setIsRecording(false);
+        return;
+    }
+
+    if (speechRecognitionRef.current && speechRecognitionAvailable) {
+        try {
+            speechRecognitionRef.current.start();
+        } catch (e:any) {
+             console.error("Error starting speech recognition:", e);
+             toast({ title: t('speechErrorTitle', 'Could not start speech recognition'), description: e.message || t('speechStartErrorDesc', 'Please ensure microphone permissions are granted.'), variant: 'warning' });
+        }
+    }
+    setIsRecording(true);
+  }, [toast, t, speechRecognitionAvailable, setIsRecording, setRecordedAudioDataUrl, speechRecognitionRef]);
+
+
   const toggleRecording = useCallback(async () => {
     if (isSavingAsset) return;
+    if (audioPlayerRef.current && isAudioPlaying) {
+        audioPlayerRef.current.pause();
+        setIsAudioPlaying(false);
+    }
 
-    if (isRecording) { // Stop recording
+    if (isRecording) { 
         mediaRecorderRef.current?.stop();
         speechRecognitionRef.current?.stop();
         setIsRecording(false);
-        // mediaStream?.getTracks().forEach(track => track.stop()); // Stop stream after recording
-        // setMediaStream(null);
-    } else { // Start recording
-        setRecordedAudioDataUrl(null); // Clear previous audio
-        setAssetVoiceDescription(''); // Clear previous transcript
+    } else { 
+        setRecordedAudioDataUrl(null); 
+        setAssetVoiceDescription(''); 
 
-        if (!mediaStream || mediaStream.getTracks().some(track => track.kind === 'audio' && track.readyState === 'ended')) {
+        if (!mediaStream || mediaStream.getTracks().some(track => track.kind === 'audio' && track.readyState === 'ended') || !mediaStream.active) {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); // Only audio needed for this
-                setMediaStream(stream); // Set new stream or re-initialize
-                 // Add a small delay to ensure stream is fully ready, then call startRecordingWithStream
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); 
+                setMediaStream(stream); 
                 setTimeout(() => startRecordingWithStream(stream), 100);
             } catch (err) {
                 console.error("Error getting audio stream:", err);
@@ -354,61 +388,19 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             startRecordingWithStream(mediaStream);
         }
     }
-  }, [isRecording, isSavingAsset, mediaStream, t, toast]);
-
-  const startRecordingWithStream = (stream: MediaStream) => {
-    if (!stream.active || stream.getAudioTracks().length === 0) {
-        toast({ title: "Stream Error", description: "Audio stream is not active or has no audio tracks.", variant: "destructive" });
-        return;
-    }
-
-    audioChunksRef.current = [];
-    try {
-        mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' }); // Specify MIME type
-        mediaRecorderRef.current.ondataavailable = (event) => {
-            audioChunksRef.current.push(event.data);
-        };
-        mediaRecorderRef.current.onstop = () => {
-            if (audioChunksRef.current.length === 0) {
-                console.warn("No audio chunks recorded.");
-                setRecordedAudioDataUrl(null); // Explicitly set to null
-                return;
-            }
-            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-            const reader = new FileReader();
-            reader.readAsDataURL(audioBlob);
-            reader.onloadend = () => {
-                setRecordedAudioDataUrl(reader.result as string);
-            };
-            audioChunksRef.current = []; // Clear chunks for next recording
-        };
-        mediaRecorderRef.current.start();
-    } catch (e) {
-        console.error("Error starting MediaRecorder:", e);
-        toast({ title: "Recording Error", description: "Could not start audio recorder. Your browser might not support the chosen audio format (webm).", variant: "destructive" });
-        setIsRecording(false);
-        return;
-    }
-
-    if (speechRecognitionRef.current && speechRecognitionAvailable) {
-        try {
-            speechRecognitionRef.current.start();
-        } catch (e:any) {
-             console.error("Error starting speech recognition:", e);
-             // Don't fail the whole recording if only speech rec fails
-             toast({ title: t('speechErrorTitle', 'Could not start speech recognition'), description: e.message || t('speechStartErrorDesc', 'Please ensure microphone permissions are granted.'), variant: 'warning' });
-        }
-    }
-    setIsRecording(true);
-  }
+  }, [isRecording, isSavingAsset, mediaStream, t, toast, isAudioPlaying, startRecordingWithStream]);
 
 
   const handlePlayRecordedAudio = useCallback(() => {
     if (recordedAudioDataUrl && audioPlayerRef.current) {
         if (isAudioPlaying) {
             audioPlayerRef.current.pause();
-            // audioPlayerRef.current.currentTime = 0; // Optional: rewind
         } else {
+            if (isRecording) {
+                mediaRecorderRef.current?.stop();
+                speechRecognitionRef.current?.stop();
+                setIsRecording(false);
+            }
             audioPlayerRef.current.src = recordedAudioDataUrl;
             audioPlayerRef.current.play().catch(e => {
                 console.error("Error playing audio:", e);
@@ -417,7 +409,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             });
         }
     }
-  }, [recordedAudioDataUrl, isAudioPlaying, toast]);
+  }, [recordedAudioDataUrl, isAudioPlaying, isRecording, toast]);
 
   useEffect(() => {
     const player = audioPlayerRef.current;
@@ -440,7 +432,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => {
     const newObj = { ...obj };
     Object.keys(newObj).forEach(key => {
-      if (newObj[key] === undefined || newObj[key] === null) { // Also remove nulls unless intended for Firestore field deletion
+      if (newObj[key] === undefined || newObj[key] === null) { 
         delete newObj[key];
       }
     });
@@ -608,7 +600,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                 <div className="space-y-2">
                   <Label htmlFor="asset-voice-description-modal">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
                   <div className="flex items-center gap-2 flex-wrap">
-                    {speechRecognitionAvailable || mediaStream ? ( // Allow recording if mic stream available
+                    {speechRecognitionAvailable || mediaStream ? ( 
                       <Button onClick={toggleRecording} variant="outline" className="flex-1 min-w-[180px]" disabled={isSavingAsset || isAudioPlaying}>
                         <Mic className={`mr-2 h-4 w-4 ${isRecording ? 'animate-pulse text-destructive' : ''}`} />
                         {isRecording ? t('finishRecording', 'Finish Recording') : t('recordVoiceDescriptionButton', 'Record Voice')}
@@ -627,7 +619,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                        </Button>
                     )}
                   </div>
-                  {assetVoiceDescription.trim() && ( // Display transcript if available
+                  {assetVoiceDescription.trim() && ( 
                     <Textarea
                       id="asset-voice-description-display-modal"
                       value={assetVoiceDescription}
@@ -746,8 +738,8 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       </Dialog>
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpenState) => {
-          if (!isOpenState) { // If camera dialog is closing
-             handleCancelCustomCamera(); // Use the existing cancel logic
+          if (!isOpenState) { 
+             handleCancelCustomCamera(); 
           }
           setIsCustomCameraOpen(isOpenState);
         }}>
@@ -769,7 +761,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                     </Alert>
                 </div>
               )}
-              {hasCameraPermission === null && ( // Initializing camera
+              {hasCameraPermission === null && ( 
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 text-center">
                       <CircleDotDashed className="w-12 h-12 sm:w-16 sm:h-16 animate-spin mb-3 sm:mb-4 text-neutral-400" />
                       <p className="text-base sm:text-lg text-neutral-300">{t('initializingCamera', 'Initializing Camera...')}</p>
