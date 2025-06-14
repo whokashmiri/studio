@@ -134,6 +134,16 @@ export async function getUserByEmail(email: string): Promise<MockStoredUser | nu
   }
 }
 
+export async function getAllUsers(): Promise<AuthenticatedUser[]> {
+  try {
+    const snapshot = await getDocs(collection(getDb(), USERS_COLLECTION));
+    return processSnapshot<AuthenticatedUser>(snapshot);
+  } catch (error) {
+    console.error("Error getting all users:", error);
+    return [];
+  }
+}
+
 export async function addUser(userData: MockStoredUser): Promise<AuthenticatedUser | null> {
   const { password, ...userForDb } = userData;
 

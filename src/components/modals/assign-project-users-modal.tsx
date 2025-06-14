@@ -24,7 +24,7 @@ interface AssignProjectUsersModalProps {
 }
 
 export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpdated, currentCompanyId }: AssignProjectUsersModalProps) {
-  const { currentUser } = useAuth(); // To get admin's company name
+  const { currentUser } = useAuth();
   const [selectedInspectorIds, setSelectedInspectorIds] = useState<Set<string>>(new Set());
   const [selectedValuatorIds, setSelectedValuatorIds] = useState<Set<string>>(new Set());
   
@@ -32,7 +32,11 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
   const [isLoadingCompanyUsers, setIsLoadingCompanyUsers] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<MockStoredUser[]>([]);
+  const [emailSuggestions, setEmailSuggestions] = useState<AuthenticatedUser[]>([]);
+  const [allUsersForSuggestions, setAllUsersForSuggestions] = useState<AuthenticatedUser[]>([]);
+  const [isFetchingAllUsers, setIsFetchingAllUsers] = useState(false);
+
+  const [searchedUserResult, setSearchedUserResult] = useState<MockStoredUser | null>(null);
   const [isLoadingSearch, setIsLoadingSearch] = useState(false);
   const [noUserFoundMessage, setNoUserFoundMessage] = useState<string | null>(null);
 
@@ -44,24 +48,30 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
   const inspectors = useMemo(() => allCompanyUsers.filter(u => u.role === 'Inspector'), [allCompanyUsers]);
   const valuators = useMemo(() => allCompanyUsers.filter(u => u.role === 'Valuation'), [allCompanyUsers]);
 
-  const fetchCompanyUsers = useCallback(async () => {
+  const fetchInitialData = useCallback(async () => {
     if (currentCompanyId) {
       setIsLoadingCompanyUsers(true);
+      setIsFetchingAllUsers(true);
       try {
-        const companyUsers = await FirestoreService.getAllUsersByCompany(currentCompanyId);
+        const [companyUsers, allSystemUsers] = await Promise.all([
+          FirestoreService.getAllUsersByCompany(currentCompanyId),
+          FirestoreService.getAllUsers() // For suggestions
+        ]);
         setAllCompanyUsers(companyUsers);
+        setAllUsersForSuggestions(allSystemUsers);
       } catch (error) {
-        console.error("Error fetching company users:", error);
-        toast({ title: "Error", description: "Could not load company users.", variant: "destructive" });
+        console.error("Error fetching initial user data:", error);
+        toast({ title: "Error", description: "Could not load user data.", variant: "destructive" });
       } finally {
         setIsLoadingCompanyUsers(false);
+        setIsFetchingAllUsers(false);
       }
     }
   }, [currentCompanyId, toast]);
 
   useEffect(() => {
     if (isOpen) {
-      fetchCompanyUsers();
+      fetchInitialData();
       if (project) {
         setSelectedInspectorIds(new Set(project.assignedInspectorIds || []));
         setSelectedValuatorIds(new Set(project.assignedValuatorIds || []));
@@ -69,33 +79,72 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
         setSelectedInspectorIds(new Set());
         setSelectedValuatorIds(new Set());
       }
-      // Reset search when modal opens/project changes
       setSearchTerm('');
-      setSearchResults([]);
+      setSearchedUserResult(null);
+      setEmailSuggestions([]);
       setNoUserFoundMessage(null);
     }
-  }, [project, isOpen, fetchCompanyUsers]);
+  }, [project, isOpen, fetchInitialData]);
 
-  const handleSearchUsers = async () => {
+  const handleSearchTermChange = (term: string) => {
+    setSearchTerm(term);
+    setSearchedUserResult(null); // Clear previous exact search result
+    setNoUserFoundMessage(null);
+    if (term.trim() === '') {
+      setEmailSuggestions([]);
+      return;
+    }
+    const filtered = allUsersForSuggestions
+      .filter(user => user.email.toLowerCase().startsWith(term.toLowerCase()))
+      .slice(0, 5); // Limit suggestions
+    setEmailSuggestions(filtered);
+  };
+
+  const handleSuggestionClick = async (user: AuthenticatedUser) => {
+    setSearchTerm(user.email); // Fill search bar with selected email
+    setEmailSuggestions([]);    // Hide suggestions
+    setIsLoadingSearch(true);
+    setNoUserFoundMessage(null);
+    try {
+      // Fetch the full user details (MockStoredUser might have more, like password if ever needed by service)
+      const fullUser = await FirestoreService.getUserById(user.id);
+      if (fullUser) {
+        setSearchedUserResult(fullUser);
+      } else {
+        setSearchedUserResult(null);
+        setNoUserFoundMessage(t('userNotFoundForInvite', 'User with email "{email}" not found. They need an account to be assigned.', { email: user.email }));
+      }
+    } catch (error) {
+        console.error("Error fetching selected user from suggestion:", error);
+        toast({ title: "Error", description: "Failed to fetch user details.", variant: "destructive" });
+        setSearchedUserResult(null);
+    } finally {
+        setIsLoadingSearch(false);
+    }
+  };
+  
+  const handleSearchUserByTypedEmail = async () => {
     if (!searchTerm.trim()) {
-      setSearchResults([]);
+      setSearchedUserResult(null);
       setNoUserFoundMessage(null);
+      setEmailSuggestions([]);
       return;
     }
     setIsLoadingSearch(true);
     setNoUserFoundMessage(null);
+    setEmailSuggestions([]); // Clear suggestions on explicit search
     try {
       const user = await FirestoreService.getUserByEmail(searchTerm.trim());
       if (user) {
-        setSearchResults([user]);
+        setSearchedUserResult(user);
       } else {
-        setSearchResults([]);
+        setSearchedUserResult(null);
         setNoUserFoundMessage(t('userNotFoundForInvite', 'User with email "{email}" not found. They need an account to be assigned.', { email: searchTerm.trim() }));
       }
     } catch (error) {
       console.error("Error searching users:", error);
       toast({ title: "Error", description: "Failed to search for user.", variant: "destructive" });
-      setSearchResults([]);
+      setSearchedUserResult(null);
     } finally {
       setIsLoadingSearch(false);
     }
@@ -106,7 +155,8 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
       toast({ title: "Error", description: "Cannot determine current company to assign user.", variant: "destructive" });
       return;
     }
-    setIsLoadingSearch(true); // Use search loader for this action as well
+    // Use a separate loading state for this action or reuse isLoadingSearch
+    setIsLoadingSearch(true); 
     
     const success = await FirestoreService.updateUserRoleAndCompany(userToUpdate.id, newRole, currentCompanyId, currentUser.companyName);
     
@@ -115,9 +165,11 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
         title: t('userRoleUpdatedTitle', 'User Role Updated'),
         description: t('userRoleUpdatedDesc', `User ${userToUpdate.email} is now a ${newRole} in ${currentUser.companyName}.`, { email: userToUpdate.email, role: newRole, companyName: currentUser.companyName }),
       });
-      await fetchCompanyUsers(); // Refresh the list of company users
-      setSearchTerm(''); // Clear search after action
-      setSearchResults([]);
+      // Refresh data for both suggestion list and company user list
+      await fetchInitialData(); 
+      setSearchTerm(''); 
+      setSearchedUserResult(null);
+      setEmailSuggestions([]);
     } else {
       toast({ title: "Error", description: `Failed to update role for ${userToUpdate.email}.`, variant: "destructive" });
     }
@@ -203,7 +255,6 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
          )
     }
 
-
     return actionButtons.length > 0 ? <div className="flex gap-2 mt-1 flex-wrap">{actionButtons}</div> : (
         <div className="text-xs text-muted-foreground mt-1">
             {t('noActionsAvailableForUser', 'User found. No immediate role actions needed for this company.')}
@@ -211,8 +262,8 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
     );
   };
 
-
   if (!project || !currentUser) return null;
+  const isLoadingAnything = isSaving || isLoadingCompanyUsers || isLoadingSearch || isFetchingAllUsers;
 
   return (
     <Dialog open={isOpen} onOpenChange={(openState) => {
@@ -226,7 +277,7 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
           </DialogDescription>
         </DialogHeader>
         
-        <div className="pt-4 space-y-3">
+        <div className="pt-4 space-y-1 relative">
           <Label htmlFor="user-search-email">{t('searchUserByEmailLabel', 'Search User by Email')}</Label>
           <div className="flex gap-2">
             <Input
@@ -234,37 +285,48 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
               type="email"
               placeholder={t('emailPlaceholder', 'user@example.com')}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearchUsers()}
-              disabled={isLoadingSearch}
+              onChange={(e) => handleSearchTermChange(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearchUserByTypedEmail()}
+              disabled={isLoadingAnything}
             />
-            <Button onClick={handleSearchUsers} disabled={isLoadingSearch || !searchTerm.trim()}>
+            <Button onClick={handleSearchUserByTypedEmail} disabled={isLoadingAnything || !searchTerm.trim()}>
               {isLoadingSearch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             </Button>
           </div>
+          {emailSuggestions.length > 0 && (
+            <div className="absolute z-10 w-[calc(100%-theme(space.10))] bg-background border border-input rounded-md shadow-lg mt-1 max-h-40 overflow-y-auto">
+              {emailSuggestions.map(user => (
+                <div
+                  key={user.id}
+                  className="p-2 hover:bg-accent cursor-pointer text-sm"
+                  onClick={() => handleSuggestionClick(user)}
+                >
+                  {user.email}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {isLoadingSearch && !searchResults.length && (
+        {(isLoadingSearch && !searchedUserResult) && (
             <div className="py-3 text-center">
                 <Loader2 className="h-5 w-5 animate-spin text-primary inline-block" />
             </div>
         )}
 
-        {searchResults.length > 0 && (
+        {searchedUserResult && (
           <div className="mt-3 border rounded-md p-3 space-y-2 bg-muted/30">
             <h4 className="text-sm font-medium">{t('searchResultsTitle', 'Search Results')}</h4>
-            {searchResults.map(user => (
-              <div key={user.id} className="p-2 border-b last:border-b-0">
-                <p className="text-sm font-medium">{user.email}</p>
-                <p className="text-xs text-muted-foreground">
-                  {user.companyId === currentCompanyId ? 
-                    `${t('currentRoleLabel', 'Role:')} ${t(user.role.toLowerCase() + 'Role', user.role)} ${t('inYourCompanyShort', '(Your Company)')}` : 
-                    (user.companyName ? `${t('associatedWithCompanyLabel', 'With:')} ${user.companyName}` : t('noCompanyAffiliationLabel', 'No current company affiliation'))
-                  }
-                </p>
-                {renderUserActionButtons(user)}
-              </div>
-            ))}
+            <div className="p-2 border-b last:border-b-0">
+              <p className="text-sm font-medium">{searchedUserResult.email}</p>
+              <p className="text-xs text-muted-foreground">
+                {searchedUserResult.companyId === currentCompanyId ? 
+                  `${t('currentRoleLabel', 'Role:')} ${t(searchedUserResult.role.toLowerCase() + 'Role', searchedUserResult.role)} ${t('inYourCompanyShort', '(Your Company)')}` : 
+                  (searchedUserResult.companyName ? `${t('associatedWithCompanyLabel', 'With:')} ${searchedUserResult.companyName}` : t('noCompanyAffiliationLabel', 'No current company affiliation'))
+                }
+              </p>
+              {renderUserActionButtons(searchedUserResult)}
+            </div>
           </div>
         )}
         {noUserFoundMessage && (
@@ -273,13 +335,13 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
             </div>
         )}
         
-        {(isLoadingCompanyUsers && !searchResults.length) && (
+        {(isLoadingCompanyUsers && !searchedUserResult) && (
           <div className="flex justify-center items-center py-10">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         )}
 
-        {!isLoadingCompanyUsers && (
+        {!isLoadingCompanyUsers && !isFetchingAllUsers && (
           <div className="mt-4 pt-2 border-t flex-grow overflow-y-auto space-y-4 min-h-[200px]">
             <div className="space-y-2">
               <Label>{t('assignInspectorsLabel', 'Assign Inspectors from Company')}</Label>
@@ -333,10 +395,10 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
           </div>
         )}
         <DialogFooter className="flex flex-row justify-end space-x-2 pt-4">
-          <Button variant="outline" onClick={onClose} disabled={isSaving || isLoadingCompanyUsers || isLoadingSearch}>
+          <Button variant="outline" onClick={onClose} disabled={isLoadingAnything}>
             {t('cancel', 'Cancel')}
           </Button>
-          <Button onClick={handleSaveAssignments} disabled={isSaving || isLoadingCompanyUsers || isLoadingSearch}>
+          <Button onClick={handleSaveAssignments} disabled={isLoadingAnything}>
             {isSaving ? <Loader2 className="animate-spin mr-2"/> : null}
             {isSaving ? t('saving', 'Saving...') : t('saveAssignmentsButton', 'Save Assignments')}
           </Button>
