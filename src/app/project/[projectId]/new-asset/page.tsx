@@ -83,7 +83,7 @@ export default function NewAssetPage() {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         mediaRecorderRef.current.stop();
     }
-    if (speechRecognitionRef.current && isRecording) {
+    if (speechRecognitionRef.current) {
         speechRecognitionRef.current.stop();
     }
     setIsRecording(false);
@@ -106,7 +106,7 @@ export default function NewAssetPage() {
     }
 
     router.push(backLinkHref);
-  }, [router, backLinkHref, mediaStream, isRecording]); 
+  }, [router, backLinkHref, mediaStream]); 
 
   const loadProjectAndAsset = useCallback(async () => {
     setIsLoadingPage(true);
@@ -188,45 +188,48 @@ export default function NewAssetPage() {
   }, [currentStep, isLoadingPage]);
 
  useEffect(() => {
-    let streamInstance: MediaStream | null = null;
-    const getCameraAndMicStream = async () => { 
-      if (isCustomCameraOpen || (currentStep === 'descriptions' && isMainModalOpen)) { 
+    let streamInstanceForEffect: MediaStream | null = null;
+    const getCameraAndMicStreamForEffect = async () => {
+      if (isCustomCameraOpen || (currentStep === 'descriptions' && isMainModalOpen)) {
         const storedPermission = typeof window !== 'undefined' ? localStorage.getItem(CAMERA_PERMISSION_GRANTED_KEY) : null;
-        if (storedPermission === 'true') setHasCameraPermission(true); 
+        if (storedPermission === 'true') setHasCameraPermission(true);
         else if (storedPermission === 'false') setHasCameraPermission(false);
         else setHasCameraPermission(null);
         
         try {
-          streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
-          setMediaStream(streamInstance);
+          streamInstanceForEffect = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
+          setMediaStream(prevStream => {
+             if (prevStream && prevStream.id !== streamInstanceForEffect?.id) {
+                 prevStream.getTracks().forEach(track => track.stop());
+            }
+            return streamInstanceForEffect;
+          });
           setHasCameraPermission(true);
           if (typeof window !== 'undefined') localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'true');
-          
-          if (isCustomCameraOpen && videoRef.current) {
-            videoRef.current.srcObject = streamInstance;
+          if (isCustomCameraOpen && videoRef.current && streamInstanceForEffect) {
+            videoRef.current.srcObject = streamInstanceForEffect;
           }
         } catch (error) {
-          console.error('Error accessing media devices:', error);
+          console.error('PageEffect: Error accessing media devices:', error);
           setHasCameraPermission(false);
           if (typeof window !== 'undefined') localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'false');
+        }
+      } else {
+         if (mediaStream && !isRecording) {
+             mediaStream.getTracks().forEach(track => track.stop());
+             setMediaStream(null);
         }
       }
     };
     
-    getCameraAndMicStream();
+    getCameraAndMicStreamForEffect();
     
     return () => { 
-      if (streamInstance) {
-        streamInstance.getTracks().forEach(track => track.stop());
-      }
-      if (videoRef.current) videoRef.current.srcObject = null;
-      // Ensure mediaStream state is also cleared if this component unmounts while stream is active from this effect
-      if (mediaStream && (isCustomCameraOpen || (currentStep === 'descriptions' && isMainModalOpen))) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        setMediaStream(null);
+      if (streamInstanceForEffect && (!mediaStream || streamInstanceForEffect.id !== mediaStream.id) && !isRecording ) {
+        streamInstanceForEffect.getTracks().forEach(track => track.stop());
       }
     };
-  }, [isCustomCameraOpen, currentStep, isMainModalOpen, mediaStream]);
+  }, [isCustomCameraOpen, currentStep, isMainModalOpen, t, toast]);
 
 
   useEffect(() => {
@@ -257,7 +260,9 @@ export default function NewAssetPage() {
         else if (event.error === 'not-allowed') errorMessage = t('speechErrorNotAllowed', 'Microphone access denied. Please allow microphone access.');
         toast({ title: t('speechErrorTitle', 'Speech Recognition Error'), description: errorMessage, variant: 'destructive' });
         if (isRecording) { 
-            mediaRecorderRef.current?.stop();
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+                mediaRecorderRef.current.stop();
+            }
             setIsRecording(false);
         }
       };
@@ -265,13 +270,12 @@ export default function NewAssetPage() {
       setSpeechRecognitionAvailable(false);
     }
 
-    // Cleanup function for speech recognition
     return () => {
-      if (speechRecognitionRef.current && isRecording) {
+      if (speechRecognitionRef.current) {
         speechRecognitionRef.current.stop();
       }
     };
-  }, [toast, language, t, isRecording]); // isRecording added
+  }, [toast, language, t, isRecording]);
 
   useEffect(() => {
     if (speechRecognitionRef.current) {
@@ -368,14 +372,11 @@ export default function NewAssetPage() {
   const handleCancelCustomCamera = useCallback(() => {
     setCapturedPhotosInSession([]);
     setIsCustomCameraOpen(false);
-    if (mediaStream && (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording')) {
-        mediaStream.getTracks().filter(track => track.kind === 'video').forEach(track => track.stop());
-        if (mediaStream.getAudioTracks().every(track => !track.enabled || track.muted)) {
-             mediaStream.getTracks().filter(track => track.kind === 'audio').forEach(track => track.stop());
-             setMediaStream(null);
-        }
+    if (mediaStream && !isRecording && currentStep !== 'descriptions') {
+        mediaStream.getTracks().forEach(track => track.stop());
+        setMediaStream(null);
     }
-  }, [mediaStream]); 
+  }, [mediaStream, isRecording, currentStep]); 
   
   const removePhotoFromPreviews = useCallback((indexToRemove: number) => { 
     setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
@@ -395,8 +396,9 @@ export default function NewAssetPage() {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
       return;
     }
-    if (!mediaStream || mediaStream.getTracks().every(track => track.readyState === 'ended')) {
+    if (!mediaStream || !mediaStream.active || !mediaStream.getAudioTracks().some(track => track.readyState === 'live' && track.enabled)) {
         try {
+            if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); 
             setMediaStream(stream);
         } catch (err) {
@@ -411,15 +413,15 @@ export default function NewAssetPage() {
   const handleBackToPhotos = useCallback(() => setCurrentStep('photos_capture'), []);
   const handleBackToNameInput = useCallback(() => setCurrentStep('name_input'), []);
 
-  const startRecordingWithStream = useCallback((stream: MediaStream) => {
-    if (!stream || !stream.active || stream.getAudioTracks().length === 0 || stream.getAudioTracks().some(track => track.readyState === 'ended')) {
-       toast({ title: "Stream Error", description: "Audio stream provided to recorder is not active or valid. Please check microphone.", variant: "destructive" });
+  const startRecordingWithStream = useCallback((streamForRecording: MediaStream) => {
+    if (!streamForRecording || !streamForRecording.active || streamForRecording.getAudioTracks().length === 0 || !streamForRecording.getAudioTracks().some(track => track.readyState === 'live' && track.enabled)) {
+       toast({ title: t('speechErrorAudioCapture', 'Audio capture failed. Check microphone permissions.'), description: "The audio stream is not active or valid.", variant: "destructive" });
        setIsRecording(false);
        return;
    }
    audioChunksRef.current = [];
    try {
-       const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+       const recorder = new MediaRecorder(streamForRecording, { mimeType: 'audio/webm;codecs=opus' });
        mediaRecorderRef.current = recorder;
        
        recorder.ondataavailable = (event) => {
@@ -427,7 +429,6 @@ export default function NewAssetPage() {
        };
        recorder.onstop = () => {
            if (audioChunksRef.current.length === 0) {
-               console.warn("No audio chunks recorded for MediaRecorder.");
                setRecordedAudioDataUrl(null); 
                return;
            }
@@ -439,24 +440,18 @@ export default function NewAssetPage() {
            };
             audioChunksRef.current = []; 
        };
-       recorder.onerror = (event) => {
-            console.error('MediaRecorder.onerror event:', event);
-            const errorEvent = event as any;
-            let errorMessage = "MediaRecorder failed.";
-            if (errorEvent.error && errorEvent.error.name) {
-                errorMessage = `MediaRecorder failed: ${errorEvent.error.name}`;
-            } else if (errorEvent.name) {
-                 errorMessage = `MediaRecorder failed: ${errorEvent.name}`;
-            }
-            toast({ title: "Recording Error", description: errorMessage, variant: "destructive" });
+       recorder.onerror = (event: Event) => {
+            const mediaRecorderError = event as unknown as { error?: DOMException };
+            console.error('MediaRecorder.onerror event:', mediaRecorderError.error || event);
+            toast({ title: "Recording Error", description: `MediaRecorder failed: ${mediaRecorderError.error?.name || 'Unknown error'}.`, variant: "destructive" });
             setIsRecording(false);
-            if (speechRecognitionRef.current && isRecording) { // Check isRecording state
+            if (speechRecognitionRef.current) {
                  speechRecognitionRef.current.stop();
             }
         };
 
        recorder.start();
-       setIsRecording(true); // Set after successful start
+       setIsRecording(true); 
 
        if (speechRecognitionRef.current && speechRecognitionAvailable) {
           try {
@@ -466,54 +461,62 @@ export default function NewAssetPage() {
             toast({ title: t('speechErrorTitle', 'Could not start speech recognition'), description: e.message || t('speechStartErrorDesc', 'Ensure microphone permissions.'), variant: 'warning' });
           }
        }
-   } catch (e: any) {
-       console.error("Error starting MediaRecorder instance:", e);
-       toast({ title: "Recording Setup Error", description: `Could not initialize MediaRecorder: ${e.message}. Check console.`, variant: "destructive" });
+   } catch (e: any) { 
+       console.error("Error initializing or starting MediaRecorder instance:", e);
+       toast({ title: "Recording Setup Error", description: `Could not initialize/start MediaRecorder: ${e.message}. Check console.`, variant: "destructive" });
        setIsRecording(false); 
-       if (speechRecognitionRef.current && isRecording) { // Check isRecording state
+       if (speechRecognitionRef.current) {
             speechRecognitionRef.current.stop();
        }
    }
- }, [toast, t, speechRecognitionAvailable, isRecording, speechRecognitionRef]); // Added isRecording and speechRecognitionRef
+ }, [toast, t, speechRecognitionAvailable, speechRecognitionRef]); 
 
   const toggleRecording = useCallback(async () => {
     if (isSavingAsset) return;
     
     if (audioPlayerRef.current && isAudioPlaying) { 
         audioPlayerRef.current.pause();
-        setIsAudioPlaying(false);
     }
 
     if (isRecording) { 
-        mediaRecorderRef.current?.stop();
-        speechRecognitionRef.current?.stop();
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+            mediaRecorderRef.current.stop();
+        }
+        if (speechRecognitionRef.current) {
+            speechRecognitionRef.current.stop();
+        }
         setIsRecording(false);
     } else { 
         setRecordedAudioDataUrl(null); 
         setAssetVoiceDescription(''); 
 
-        let streamToUse = mediaStream;
-        if (!streamToUse || streamToUse.getTracks().some(track => track.kind === 'audio' && track.readyState === 'ended') || !streamToUse.active) {
+        let streamForRecording: MediaStream | null = mediaStream;
+      
+        if (!streamForRecording || !streamForRecording.active || !streamForRecording.getAudioTracks().some(track => track.readyState === 'live' && track.enabled)) {
             try {
-                const newStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                setMediaStream(newStream);
-                streamToUse = newStream; 
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                }
+                const newAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                setMediaStream(newAudioStream);
+                streamForRecording = newAudioStream; 
             } catch (err) {
-                console.error("Error getting audio stream:", err);
+                console.error("Error getting dedicated audio stream for recording:", err);
                 toast({ title: t('speechErrorAudioCapture', 'Audio capture failed. Check microphone permissions.'), variant: "destructive" });
-                setIsRecording(false); // Ensure recording state is false
                 return;
             }
         }
         
-        if (streamToUse && streamToUse.active) {
-            startRecordingWithStream(streamToUse);
+        if (streamForRecording && streamForRecording.active && streamForRecording.getAudioTracks().some(track => track.readyState === 'live' && track.enabled)) {
+            startRecordingWithStream(streamForRecording);
         } else {
-            toast({ title: "Stream Error", description: "Failed to obtain an active audio stream for recording.", variant: "destructive" });
-            setIsRecording(false);
+            toast({ title: "Stream Error", description: "Failed to obtain an active audio stream for recording. Check mic.", variant: "destructive" });
         }
     }
-  }, [isRecording, isSavingAsset, mediaStream, t, toast, isAudioPlaying, startRecordingWithStream, speechRecognitionRef]); // Added speechRecognitionRef
+  }, [
+    isRecording, isSavingAsset, mediaStream, t, toast, isAudioPlaying, 
+    startRecordingWithStream, speechRecognitionRef, setMediaStream
+  ]);
 
   const handlePlayRecordedAudio = useCallback(() => {
     if (recordedAudioDataUrl && audioPlayerRef.current) {
@@ -521,8 +524,12 @@ export default function NewAssetPage() {
             audioPlayerRef.current.pause();
         } else {
             if (isRecording) { 
-                mediaRecorderRef.current?.stop();
-                speechRecognitionRef.current?.stop();
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+                    mediaRecorderRef.current.stop();
+                }
+                if (speechRecognitionRef.current) { 
+                    speechRecognitionRef.current.stop();
+                }
                 setIsRecording(false);
             }
             audioPlayerRef.current.src = recordedAudioDataUrl;
@@ -533,7 +540,7 @@ export default function NewAssetPage() {
             });
         }
     }
-  }, [recordedAudioDataUrl, isAudioPlaying, isRecording, toast, speechRecognitionRef]); // Added speechRecognitionRef
+  }, [recordedAudioDataUrl, isAudioPlaying, isRecording, toast, speechRecognitionRef]);
 
   useEffect(() => {
     const player = audioPlayerRef.current;
@@ -832,8 +839,8 @@ export default function NewAssetPage() {
       {project && <p className="text-center text-muted-foreground">{t('forProject', 'for')} {project.name}</p>}
       {currentFolder && <p className="text-center text-muted-foreground">{t('inFolder', 'In folder:')} {currentFolder.name}</p>}
 
-      <Dialog open={isMainModalOpen} onOpenChange={(isOpen) => { 
-          if (!isOpen) {
+      <Dialog open={isMainModalOpen} onOpenChange={(isOpenState) => { 
+          if (!isOpenState) {
             handleCancelAllAndExit(); 
           }
         }}>
