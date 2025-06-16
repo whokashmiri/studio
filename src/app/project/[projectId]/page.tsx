@@ -110,7 +110,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     loadProjectData();
-  }, [loadProjectData]); // Note: `loadProjectData` depends on `currentUrlFolderId`, so this effect re-runs on navigation.
+  }, [loadProjectData]); 
 
   const breadcrumbItems = useMemo(() => {
     if (!project) return []; 
@@ -145,8 +145,8 @@ export default function ProjectPage() {
     if (createdFolder) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
       
-      // Optimistic UI update
-      setAllProjectFolders(prevFolders => [...prevFolders, createdFolder]);
+      // Re-fetch all data to ensure UI consistency
+      await loadProjectData(); 
       
       setNewFolderName('');
       setIsNewFolderDialogOpen(false);
@@ -157,7 +157,7 @@ export default function ProjectPage() {
     } else {
       toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
     }
-  }, [newFolderName, project, newFolderParentContext, toast, t]);
+  }, [newFolderName, project, newFolderParentContext, toast, t, loadProjectData]);
 
   const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
@@ -170,7 +170,6 @@ export default function ProjectPage() {
   }, []);
 
   const handleFolderDeleted = useCallback(async (deletedFolder: FolderType) => {
-    // For deletion, it's safer to reload all data to ensure consistency
     await loadProjectData(); 
     setRefreshKey(prev => prev + 1);
     if (selectedFolder && selectedFolder.id === deletedFolder.id) {
@@ -180,7 +179,6 @@ export default function ProjectPage() {
   }, [loadProjectData, selectedFolder, allProjectFolders, handleSelectFolder]);
 
   const handleFolderUpdated = useCallback(async (updatedFolder: FolderType) => {
-    // For updates, reload data
     await loadProjectData(); 
     setRefreshKey(prev => prev + 1);
     if (project) {
@@ -200,7 +198,7 @@ export default function ProjectPage() {
       const success = await FirestoreService.deleteAsset(assetToDelete.id);
       if (success) {
         toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-        await loadProjectData(); // Reload data after deletion
+        await loadProjectData(); 
         setRefreshKey(prev => prev + 1);
       } else {
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
@@ -210,18 +208,14 @@ export default function ProjectPage() {
 
   const handleAssetCreatedInModal = useCallback(async (createdAsset: Asset) => {
     setIsNewAssetModalOpen(false);
-    
-    // Optimistic UI update for asset
-    setCurrentAssets(prevAssets => [...prevAssets, createdAsset]);
-    
+        
     if (project) { 
-        // Optimistic UI update for project status
         setProject(prevProj => prevProj ? { ...prevProj, status: 'recent' as ProjectStatus, lastAccessed: Date.now() } : null);
-        // Actual DB update for project status
-        FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
+        await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
     }
+    await loadProjectData(); // Re-fetch all data
     setRefreshKey(prev => prev + 1);
-  }, [project]);
+  }, [project, loadProjectData]);
 
   if (isLoadingData || !project) {
     return (
