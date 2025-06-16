@@ -357,6 +357,7 @@ const translations: Record<Language, Record<string, string>> = {
     viewImage: "View Image",
     clickToViewImage: "Click to view full image",
     fullSizePreviewAlt: "Full-size asset image preview",
+    imagePreviewTitle: "Image Preview",
     close: "Close",
   },
   ar: {
@@ -702,6 +703,7 @@ const translations: Record<Language, Record<string, string>> = {
     viewImage: "عرض الصورة",
     clickToViewImage: "انقر لعرض الصورة بالحجم الكامل",
     fullSizePreviewAlt: "معاينة صورة الأصل بالحجم الكامل",
+    imagePreviewTitle: "معاينة الصورة",
     close: "إغلاق",
   },
 };
