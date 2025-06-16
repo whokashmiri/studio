@@ -24,7 +24,7 @@ interface NewAssetModalProps {
     onClose: () => void;
     project: Project;
     parentFolder: FolderType | null;
-    onAssetCreated: () => void;
+    onAssetCreated: () => Promise<void>; // Changed to return Promise<void>
 }
 
 export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetCreated }: NewAssetModalProps) {
@@ -523,12 +523,12 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         const newAsset = await FirestoreService.addAsset(removeUndefinedProps(assetDataPayload) as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
         
         if (newAsset) {
+            await onAssetCreated(); // Await parent page data refresh
             toast({ 
                 title: t('assetSavedTitle', "Asset Saved"), 
                 description: t('assetSavedDesc', `Asset "${newAsset.name}" has been saved.`, { assetName: newAsset.name }),
                 variant: "success-yellow" 
             });
-            onAssetCreated(); 
             handleModalClose(); 
         } else {
             toast({ title: "Error", description: "Failed to save asset.", variant: "destructive" });
