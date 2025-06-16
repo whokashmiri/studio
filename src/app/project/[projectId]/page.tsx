@@ -147,9 +147,9 @@ export default function ProjectPage() {
       setNewFolderName('');
       setIsNewFolderDialogOpen(false);
       setNewFolderParentContext(null);
+      await loadProjectData(); // Await data reload
       toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
       
-      loadProjectData();
     } else {
       toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
     }
@@ -193,17 +193,17 @@ export default function ProjectPage() {
       const success = await FirestoreService.deleteAsset(assetToDelete.id);
       if (success) {
         toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-        loadProjectData(); 
+        await loadProjectData(); // Await data reload
       } else {
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
       }
     }
   }, [t, toast, loadProjectData]);
 
-  const handleAssetCreatedInModal = useCallback(() => {
+  const handleAssetCreatedInModal = useCallback(async () => {
     setIsNewAssetModalOpen(false);
-    loadProjectData(); // Refresh assets list
-    if (project) { // Mark project as recent
+    await loadProjectData(); // Await data reload
+    if (project) { 
         FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
     }
   }, [loadProjectData, project]);
