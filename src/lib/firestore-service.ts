@@ -17,6 +17,7 @@ import {
   QuerySnapshot,
   DocumentData,
   getCountFromServer,
+  or, // Added 'or' for combined queries
 } from 'firebase/firestore';
 import type { Project, Folder, Asset, Company, MockStoredUser, AuthenticatedUser, UserRole } from '@/data/mock-data';
 import { mockCompanies as initialMockCompanies } from '@/data/mock-data';
@@ -481,4 +482,62 @@ export async function deleteAsset(assetId: string): Promise<boolean> {
     console.error("Error deleting asset: ", error);
     return false;
   }
+}
+
+// New function to get all data accessible by a user
+export async function getUserAccessibleData(userId: string, companyId: string): Promise<{ projects: Project[]; folders: Folder[]; assets: Asset[] }> {
+  const result: { projects: Project[]; folders: Folder[]; assets: Asset[] } = {
+    projects: [],
+    folders: [],
+    assets: [],
+  };
+
+  try {
+    // 1. Fetch projects associated with the user in the company
+    const projectsQuery = query(
+      collection(getDb(), PROJECTS_COLLECTION),
+      where("companyId", "==", companyId),
+      or(
+        where("createdByUserId", "==", userId),
+        where("assignedInspectorIds", "array-contains", userId),
+        where("assignedValuatorIds", "array-contains", userId)
+      )
+    );
+    const projectsSnapshot = await getDocs(projectsQuery);
+    result.projects = processSnapshot<Project>(projectsSnapshot);
+
+    if (result.projects.length === 0) {
+      return result; // No projects, so no folders or assets to fetch
+    }
+
+    const projectIds = result.projects.map(p => p.id);
+
+    // Batch projectIds if there are more than 30 (Firestore 'in' query limit)
+    // For simplicity, this example assumes projectIds.length <= 30.
+    // In a production app with potentially many projects, batching this would be necessary.
+    // Example: const MAX_IN_CLAUSE = 30; 
+    // for (let i = 0; i < projectIds.length; i += MAX_IN_CLAUSE) {
+    //   const batchIds = projectIds.slice(i, i + MAX_IN_CLAUSE);
+    //   ... fetch folders and assets for batchIds
+    // }
+
+    // 2. Fetch folders for these projects
+    if (projectIds.length > 0) {
+      const foldersQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("projectId", "in", projectIds));
+      const foldersSnapshot = await getDocs(foldersQuery);
+      result.folders = processSnapshot<Folder>(foldersSnapshot);
+
+      // 3. Fetch assets for these projects
+      const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", projectIds));
+      const assetsSnapshot = await getDocs(assetsQuery);
+      result.assets = processSnapshot<Asset>(assetsSnapshot);
+    }
+
+  } catch (error) {
+    console.error("Error in getUserAccessibleData: ", error);
+    // Return whatever has been fetched so far, or an empty structure on catastrophic failure
+    return { projects: [], folders: [], assets: [] };
+  }
+
+  return result;
 }
