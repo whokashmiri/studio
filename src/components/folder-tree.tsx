@@ -101,7 +101,8 @@ interface FolderGridViewProps {
   currentSelectedFolderId: string | null;
 }
 
-export const FolderTreeDisplay = React.memo(function FolderTreeDisplay({ 
+// Removed React.memo from here
+export function FolderTreeDisplay({ 
   foldersToDisplay,
   assetsToDisplay,
   projectId,
@@ -144,7 +145,7 @@ export const FolderTreeDisplay = React.memo(function FolderTreeDisplay({
          toast({ title: "Error", description: "Failed to delete folder.", variant: "destructive" });
       }
     }
-  }, [toast, t, onDeleteFolder]); // Dependencies for useCallback
+  }, [toast, t, onDeleteFolder]); 
   
   const handleDeleteAssetClick = async (asset: Asset) => {
     onDeleteAsset(asset);
@@ -177,4 +178,4 @@ export const FolderTreeDisplay = React.memo(function FolderTreeDisplay({
       ))}
     </div>
   );
-});
+}
