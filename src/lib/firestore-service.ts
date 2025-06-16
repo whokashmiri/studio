@@ -335,7 +335,12 @@ export async function addFolder(folderData: Omit<Folder, 'id'>): Promise<Folder 
   try {
     const dataToSave = removeUndefinedProps(folderData);
     const docRef = await addDoc(collection(getDb(), FOLDERS_COLLECTION), dataToSave);
-    return { id: docRef.id, ...folderData };
+    // Immediately fetch the created folder to get Firestore-generated timestamps if any
+    const newFolderDoc = await getDoc(docRef);
+    if (newFolderDoc.exists()) {
+        return processDoc<Folder>(newFolderDoc);
+    }
+    return null; // Fallback, though unlikely if addDoc succeeded
   } catch (error) {
     console.error("Error adding folder: ", error);
     return null;
@@ -494,6 +499,7 @@ export async function getUserAccessibleData(userId: string, companyId: string): 
 
   try {
     // 1. Fetch projects associated with the user in the company
+    // This query finds projects where the user is the creator OR is an assigned inspector OR is an assigned valuator.
     const projectsQuery = query(
       collection(getDb(), PROJECTS_COLLECTION),
       where("companyId", "==", companyId),
@@ -541,3 +547,4 @@ export async function getUserAccessibleData(userId: string, companyId: string): 
 
   return result;
 }
+
