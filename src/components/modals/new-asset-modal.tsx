@@ -24,7 +24,7 @@ interface NewAssetModalProps {
     onClose: () => void;
     project: Project;
     parentFolder: FolderType | null;
-    onAssetCreated: () => Promise<void>; // Changed to return Promise<void>
+    onAssetCreated: (newAsset: Asset) => Promise<void>; 
 }
 
 export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetCreated }: NewAssetModalProps) {
@@ -499,9 +499,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
 
     setIsSavingAsset(true);
     try {
-        await FirestoreService.updateProject(project.id, {
-          status: 'recent' as ProjectStatus,
-        });
+        // Project status update is handled by the parent page after optimistic update
         
         const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
           name: assetName,
@@ -523,7 +521,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         const newAsset = await FirestoreService.addAsset(removeUndefinedProps(assetDataPayload) as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
         
         if (newAsset) {
-            await onAssetCreated(); // Await parent page data refresh
+            await onAssetCreated(newAsset); // Pass the new asset and await parent page's optimistic update
             toast({ 
                 title: t('assetSavedTitle', "Asset Saved"), 
                 description: t('assetSavedDesc', `Asset "${newAsset.name}" has been saved.`, { assetName: newAsset.name }),
@@ -875,5 +873,3 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     </>
   );
 }
-
-    
