@@ -98,10 +98,10 @@ interface FolderGridViewProps {
   onDeleteFolder: (folder: Folder) => void; 
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void; 
+  onPreviewImageAsset: (imageUrl: string) => void; // New prop
   currentSelectedFolderId: string | null;
 }
 
-// Removed React.memo from here
 export function FolderTreeDisplay({ 
   foldersToDisplay,
   assetsToDisplay,
@@ -112,6 +112,7 @@ export function FolderTreeDisplay({
   onDeleteFolder,
   onEditAsset,
   onDeleteAsset,
+  onPreviewImageAsset, // Destructure new prop
   currentSelectedFolderId,
 }: FolderGridViewProps) {
   const { t } = useLanguage();
@@ -174,8 +175,10 @@ export function FolderTreeDisplay({
           asset={asset}
           onEditAsset={() => onEditAsset(asset)}
           onDeleteAsset={() => handleDeleteAssetClick(asset)}
+          onPreviewImage={onPreviewImageAsset} // Pass handler to AssetCard
         />
       ))}
     </div>
   );
 }
+

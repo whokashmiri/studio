@@ -346,8 +346,6 @@ const translations: Record<Language, Record<string, string>> = {
     associatedWithCompanyLabel: "With:",
     noCompanyAffiliationLabel: "No current company affiliation",
 
-
-    // New keys for modal flow
     stepPhotosCaptureTitleModal: "Step 1: Capture Photos",
     stepNameInputTitleModal: "Step 2: Asset Name",
     stepDescriptionsTitleModal: "Step 3: Descriptions & Save",
@@ -356,7 +354,10 @@ const translations: Record<Language, Record<string, string>> = {
     cancelAssetCreation: "Cancel Asset Creation", 
     backToDashboard: "Back to Dashboard",
 
-
+    viewImage: "View Image",
+    clickToViewImage: "Click to view full image",
+    fullSizePreviewAlt: "Full-size asset image preview",
+    close: "Close",
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -690,7 +691,6 @@ const translations: Record<Language, Record<string, string>> = {
     associatedWithCompanyLabel: "مع:",
     noCompanyAffiliationLabel: "لا يوجد انتماء حالي لشركة",
     
-    // New keys for modal flow
     stepPhotosCaptureTitleModal: "الخطوة 1: التقاط الصور",
     stepNameInputTitleModal: "الخطوة 2: اسم الأصل",
     stepDescriptionsTitleModal: "الخطوة 3: الأوصاف والحفظ",
@@ -699,6 +699,10 @@ const translations: Record<Language, Record<string, string>> = {
     cancelAssetCreation: "إلغاء إنشاء الأصل", 
     backToDashboard: "العودة إلى لوحة التحكم",
 
+    viewImage: "عرض الصورة",
+    clickToViewImage: "انقر لعرض الصورة بالحجم الكامل",
+    fullSizePreviewAlt: "معاينة صورة الأصل بالحجم الكامل",
+    close: "إغلاق",
   },
 };
 

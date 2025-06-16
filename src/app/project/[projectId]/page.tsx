@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
 import { NewAssetModal } from '@/components/modals/new-asset-modal'; 
+import { ImagePreviewModal } from '@/components/modals/image-preview-modal'; // New import
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function ProjectPage() {
@@ -42,6 +43,9 @@ export default function ProjectPage() {
 
   const [isNewAssetModalOpen, setIsNewAssetModalOpen] = useState(false); 
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const [imageToPreview, setImageToPreview] = useState<string | null>(null); // State for image preview modal
+  const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false); // State for image preview modal
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -110,7 +114,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     loadProjectData();
-  }, [loadProjectData]); 
+  }, [loadProjectData, currentUrlFolderId]); // Add currentUrlFolderId to dependencies
 
   const breadcrumbItems = useMemo(() => {
     if (!project) return []; 
@@ -144,9 +148,7 @@ export default function ProjectPage() {
 
     if (createdFolder) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
-      
-      // Re-fetch all data to ensure UI consistency
-      await loadProjectData(); 
+      await loadProjectData(); // Re-fetch all data to ensure UI consistency
       
       setNewFolderName('');
       setIsNewFolderDialogOpen(false);
@@ -216,6 +218,17 @@ export default function ProjectPage() {
     await loadProjectData(); // Re-fetch all data
     setRefreshKey(prev => prev + 1);
   }, [project, loadProjectData]);
+
+  const handleOpenImagePreviewModal = useCallback((imageUrl: string) => {
+    setImageToPreview(imageUrl);
+    setIsImagePreviewModalOpen(true);
+  }, []);
+
+  const handleCloseImagePreviewModal = useCallback(() => {
+    setIsImagePreviewModalOpen(false);
+    setImageToPreview(null);
+  }, []);
+
 
   if (isLoadingData || !project) {
     return (
@@ -316,6 +329,7 @@ export default function ProjectPage() {
             onDeleteFolder={handleFolderDeleted}
             onEditAsset={handleEditAsset} 
             onDeleteAsset={handleDeleteAsset}
+            onPreviewImageAsset={handleOpenImagePreviewModal} // Pass new handler
             currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
         />
         {isCurrentLocationEmpty && (
@@ -409,6 +423,15 @@ export default function ProjectPage() {
             onAssetCreated={handleAssetCreatedInModal}
         />
       )}
+
+      {imageToPreview && (
+        <ImagePreviewModal
+          isOpen={isImagePreviewModalOpen}
+          onClose={handleCloseImagePreviewModal}
+          imageUrl={imageToPreview}
+        />
+      )}
     </div>
   );
 }
+
