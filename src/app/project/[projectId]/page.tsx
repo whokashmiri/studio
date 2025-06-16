@@ -41,6 +41,7 @@ export default function ProjectPage() {
   const [isEditFolderModalOpen, setIsEditFolderModalOpen] = useState(false);
 
   const [isNewAssetModalOpen, setIsNewAssetModalOpen] = useState(false); 
+  const [refreshKey, setRefreshKey] = useState(0); // Added refresh key state
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -87,8 +88,8 @@ export default function ProjectPage() {
         }
         
         setProject(foundProject);
-        setAllProjectFolders(projectFolders);
-        setCurrentAssets(assetsForCurrentView);
+        setAllProjectFolders([...projectFolders]); // Ensure new array reference
+        setCurrentAssets([...assetsForCurrentView]); // Ensure new array reference
 
         if (currentUrlFolderId) {
           const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); 
@@ -147,7 +148,8 @@ export default function ProjectPage() {
       setNewFolderName('');
       setIsNewFolderDialogOpen(false);
       setNewFolderParentContext(null);
-      await loadProjectData(); // Await data reload
+      await loadProjectData();
+      setRefreshKey(prev => prev + 1); // Increment refresh key
       toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
       
     } else {
@@ -167,6 +169,7 @@ export default function ProjectPage() {
 
   const handleFolderDeleted = useCallback(async (deletedFolder: FolderType) => {
     await loadProjectData(); 
+    setRefreshKey(prev => prev + 1); // Increment refresh key
     if (selectedFolder && selectedFolder.id === deletedFolder.id) {
         const parentFolder = deletedFolder.parentId ? allProjectFolders.find(f=> f.id === deletedFolder.parentId) : null;
         handleSelectFolder(parentFolder); 
@@ -175,6 +178,7 @@ export default function ProjectPage() {
 
   const handleFolderUpdated = useCallback(async (updatedFolder: FolderType) => {
     await loadProjectData(); 
+    setRefreshKey(prev => prev + 1); // Increment refresh key
     if (project) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
       const updatedProj = await FirestoreService.getProjectById(project.id);
@@ -183,7 +187,6 @@ export default function ProjectPage() {
   }, [loadProjectData, project, setProject]);
 
   const handleEditAsset = useCallback((asset: Asset) => {
-    // Editing still uses the page for now
     const editUrl = `/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
     router.push(editUrl); 
   }, [projectId, router]);
@@ -193,7 +196,8 @@ export default function ProjectPage() {
       const success = await FirestoreService.deleteAsset(assetToDelete.id);
       if (success) {
         toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-        await loadProjectData(); // Await data reload
+        await loadProjectData(); 
+        setRefreshKey(prev => prev + 1); // Increment refresh key
       } else {
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
       }
@@ -202,7 +206,8 @@ export default function ProjectPage() {
 
   const handleAssetCreatedInModal = useCallback(async () => {
     setIsNewAssetModalOpen(false);
-    await loadProjectData(); // Await data reload
+    await loadProjectData(); 
+    setRefreshKey(prev => prev + 1); // Increment refresh key
     if (project) { 
         FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
     }
@@ -259,7 +264,7 @@ export default function ProjectPage() {
             )}
             {!isMobile && (
                 <Button
-                  onClick={() => setIsNewAssetModalOpen(true)} // Open modal
+                  onClick={() => setIsNewAssetModalOpen(true)} 
                   className="w-full sm:w-auto"
                   size="default"
                   title={t('newAsset', 'New Asset')}
@@ -297,6 +302,7 @@ export default function ProjectPage() {
         </CardHeader>
         <CardContent>
         <FolderTreeDisplay
+            key={refreshKey} // Added refresh key
             foldersToDisplay={foldersToDisplayInGrid}
             assetsToDisplay={currentAssets}
             projectId={project.id}
