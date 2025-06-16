@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
 import { NewAssetModal } from '@/components/modals/new-asset-modal'; 
-import { ImagePreviewModal } from '@/components/modals/image-preview-modal'; // New import
+import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function ProjectPage() {
@@ -44,8 +44,8 @@ export default function ProjectPage() {
   const [isNewAssetModalOpen, setIsNewAssetModalOpen] = useState(false); 
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const [imageToPreview, setImageToPreview] = useState<string | null>(null); // State for image preview modal
-  const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false); // State for image preview modal
+  const [imageToPreview, setImageToPreview] = useState<string | null>(null);
+  const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false);
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -114,7 +114,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     loadProjectData();
-  }, [loadProjectData, currentUrlFolderId]); // Add currentUrlFolderId to dependencies
+  }, [loadProjectData, currentUrlFolderId]); 
 
   const breadcrumbItems = useMemo(() => {
     if (!project) return []; 
@@ -148,7 +148,8 @@ export default function ProjectPage() {
 
     if (createdFolder) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
-      await loadProjectData(); // Re-fetch all data to ensure UI consistency
+      await new Promise(resolve => setTimeout(resolve, 300)); // Delay for Firestore consistency
+      await loadProjectData();
       
       setNewFolderName('');
       setIsNewFolderDialogOpen(false);
@@ -212,10 +213,10 @@ export default function ProjectPage() {
     setIsNewAssetModalOpen(false);
         
     if (project) { 
-        setProject(prevProj => prevProj ? { ...prevProj, status: 'recent' as ProjectStatus, lastAccessed: Date.now() } : null);
         await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
     }
-    await loadProjectData(); // Re-fetch all data
+    await new Promise(resolve => setTimeout(resolve, 300)); // Delay for Firestore consistency
+    await loadProjectData(); 
     setRefreshKey(prev => prev + 1);
   }, [project, loadProjectData]);
 
@@ -329,7 +330,7 @@ export default function ProjectPage() {
             onDeleteFolder={handleFolderDeleted}
             onEditAsset={handleEditAsset} 
             onDeleteAsset={handleDeleteAsset}
-            onPreviewImageAsset={handleOpenImagePreviewModal} // Pass new handler
+            onPreviewImageAsset={handleOpenImagePreviewModal}
             currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
         />
         {isCurrentLocationEmpty && (
