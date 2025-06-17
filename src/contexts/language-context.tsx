@@ -373,6 +373,16 @@ const translations: Record<Language, Record<string, string>> = {
     viewFolderButton: "View",
     viewAssetButton: "View/Edit",
     noFoldersOrRootAssets: "No top-level folders or root assets in this project.",
+    myDataStatsTitle: "My Data Statistics",
+    myDataStatsDesc: "An overview of all projects, folders, and assets accessible to you.",
+    totalProjectsStatLabel: "Accessible Projects",
+    totalFoldersStatLabel: "Accessible Folders",
+    totalAssetsStatLabel: "Accessible Assets",
+    viewProjectsOnDashboardPrompt: "To view and manage individual projects, please return to your main dashboard.",
+    myDataSidebarTitle: "My Data",
+    dataOverviewSidebarItem: "Data Overview",
+    dataOverviewTooltip: "View Data Overview",
+
 
     reviewAllCompanyAssetsButton: "Review All Company Assets",
     reviewAllAssetsPageTitle: "All Company Assets",
@@ -771,6 +781,16 @@ const translations: Record<Language, Record<string, string>> = {
     viewFolderButton: "عرض",
     viewAssetButton: "عرض/تعديل",
     noFoldersOrRootAssets: "لا توجد مجلدات رئيسية أو أصول جذرية في هذا المشروع.",
+    myDataStatsTitle: "إحصائيات بياناتي",
+    myDataStatsDesc: "نظرة عامة على جميع المشاريع والمجلدات والأصول التي يمكنك الوصول إليها.",
+    totalProjectsStatLabel: "إجمالي المشاريع التي يمكن الوصول إليها",
+    totalFoldersStatLabel: "إجمالي المجلدات التي يمكن الوصول إليها",
+    totalAssetsStatLabel: "إجمالي الأصول التي يمكن الوصول إليها",
+    viewProjectsOnDashboardPrompt: "لعرض وإدارة المشاريع الفردية، يرجى العودة إلى لوحة التحكم الرئيسية.",
+    myDataSidebarTitle: "بياناتي",
+    dataOverviewSidebarItem: "نظرة عامة على البيانات",
+    dataOverviewTooltip: "عرض نظرة عامة على البيانات",
+
 
     reviewAllCompanyAssetsButton: "مراجعة جميع أصول الشركة",
     reviewAllAssetsPageTitle: "جميع أصول الشركة",
