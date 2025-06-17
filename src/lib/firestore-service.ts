@@ -17,7 +17,8 @@ import {
   QuerySnapshot,
   DocumentData,
   getCountFromServer,
-  or, // Added 'or' for combined queries
+  or, 
+  and, // Added 'and' for composite queries
 } from 'firebase/firestore';
 import type { Project, Folder, Asset, Company, MockStoredUser, AuthenticatedUser, UserRole } from '@/data/mock-data';
 import { mockCompanies as initialMockCompanies } from '@/data/mock-data';
@@ -494,11 +495,13 @@ export async function getUserAccessibleData(userId: string, companyId: string): 
   try {
     const projectsQuery = query(
       collection(getDb(), PROJECTS_COLLECTION),
-      where("companyId", "==", companyId),
-      or(
-        where("createdByUserId", "==", userId),
-        where("assignedInspectorIds", "array-contains", userId),
-        where("assignedValuatorIds", "array-contains", userId)
+      and( // Use and() to combine top-level filters
+        where("companyId", "==", companyId),
+        or(
+          where("createdByUserId", "==", userId),
+          where("assignedInspectorIds", "array-contains", userId),
+          where("assignedValuatorIds", "array-contains", userId)
+        )
       )
     );
     const projectsSnapshot = await getDocs(projectsQuery);
@@ -600,3 +603,4 @@ export async function getAllAssetsForCompany(companyId: string): Promise<AssetWi
   }
   return allAssetsProcessed;
 }
+
