@@ -36,6 +36,8 @@ export default function MyDataPage() {
       setPageLoading(true);
       try {
         const data = await FirestoreService.getUserAccessibleData(currentUser.id, currentUser.companyId);
+        // Sort projects by name for the projectsList view initially
+        data.projects.sort((a, b) => a.name.localeCompare(b.name));
         setAccessibleData(data);
       } catch (error) {
         console.error("Error loading accessible data:", error);
@@ -201,24 +203,28 @@ export default function MyDataPage() {
                     <CardContent>
                         {projects.length > 0 ? (
                             <ScrollArea className="h-[calc(100vh-18rem)] pr-3">
-                                <ul className="space-y-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {projects.map(project => (
-                                        <li key={project.id} className="border p-3 rounded-md hover:bg-muted/50">
-                                            <div className="flex justify-between items-center">
-                                                <h3 className="font-medium text-base">{project.name}</h3>
+                                        <Card key={project.id} className="flex flex-col">
+                                            <CardHeader className="pb-3">
+                                                <CardTitle className="text-base font-semibold truncate" title={project.name}>
+                                                    {project.name}
+                                                </CardTitle>
+                                                 <CardDescription className="text-xs">
+                                                    {t('lastAccessedMyData', 'Last Accessed: {date}', { date: project.lastAccessed ? new Date(project.lastAccessed).toLocaleDateString() : 'N/A' })}
+                                                </CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="flex-grow flex items-end">
                                                 <Link href={`/project/${project.id}`} passHref legacyBehavior>
-                                                    <Button variant="outline" size="sm">
+                                                    <Button variant="outline" size="sm" className="w-full">
                                                         <Eye className="mr-2 h-4 w-4" />
                                                         {t('viewProjectButton', 'View Project Details')}
                                                     </Button>
                                                 </Link>
-                                            </div>
-                                             <p className="text-xs text-muted-foreground mt-1">
-                                                {t('lastAccessedMyData', 'Last Accessed: {date}', { date: project.lastAccessed ? new Date(project.lastAccessed).toLocaleDateString() : 'N/A' })}
-                                            </p>
-                                        </li>
+                                            </CardContent>
+                                        </Card>
                                     ))}
-                                </ul>
+                                </div>
                             </ScrollArea>
                         ) : (
                             <p className="text-muted-foreground text-center py-6">{t('noProjectsAccessibleMyData', 'You do not have access to any projects.')}</p>
