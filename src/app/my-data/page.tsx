@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import type { Project, Folder as FolderType, Asset } from '@/data/mock-data';
-import { Loader2, ShieldAlert, Briefcase, FolderIcon as DataFolderIcon, FileText, SettingsIcon, BarChart3, ArrowLeft } from 'lucide-react'; // Changed FolderIcon alias
+import { Loader2, ShieldAlert, Briefcase, FolderIcon as DataFolderIcon, FileText, SettingsIcon, BarChart3, ArrowLeft, Eye } from 'lucide-react'; 
 import { useLanguage } from '@/contexts/language-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,12 +20,16 @@ interface AccessibleData {
   assets: Asset[];
 }
 
+type MyDataView = 'stats' | 'projectsList';
+
 export default function MyDataPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
+  
   const [accessibleData, setAccessibleData] = useState<AccessibleData>({ projects: [], folders: [], assets: [] });
   const [pageLoading, setPageLoading] = useState(true);
+  const [activeMyDataView, setActiveMyDataView] = useState<MyDataView>('stats');
 
   const loadAccessibleData = useCallback(async () => {
     if (currentUser?.id && currentUser?.companyId) {
@@ -50,7 +54,7 @@ export default function MyDataPage() {
             loadAccessibleData();
         } else {
             setPageLoading(false);
-            router.push('/login'); // Redirect if not logged in and auth is not loading
+            router.push('/login'); 
         }
     }
   }, [authLoading, currentUser, loadAccessibleData, router]);
@@ -94,12 +98,22 @@ export default function MyDataPage() {
             <SidebarMenu className="p-2 space-y-1">
               <SidebarMenuItem>
                 <SidebarMenuButton 
-                  onClick={() => { /* Placeholder: Future could show a list of projects if stats are not the main view */ }} 
-                  isActive={true} // Assuming overview is always the main view for now
+                  onClick={() => setActiveMyDataView('stats')} 
+                  isActive={activeMyDataView === 'stats'}
                   tooltip={t('dataOverviewTooltip', 'View Data Overview')}
                 >
-                  <Briefcase />
+                  <BarChart3 />
                   <span className="group-data-[collapsible=icon]:hidden">{t('dataOverviewSidebarItem', 'Data Overview')}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  onClick={() => setActiveMyDataView('projectsList')} 
+                  isActive={activeMyDataView === 'projectsList'}
+                  tooltip={t('viewMyProjectsTooltip', 'View My Projects')}
+                >
+                  <Briefcase />
+                  <span className="group-data-[collapsible=icon]:hidden">{t('myProjectsSidebarItem', 'My Projects')}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -123,54 +137,95 @@ export default function MyDataPage() {
         </Sidebar>
 
         <SidebarInset className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-2xl font-bold font-headline text-primary">
-                        {t('myDataStatsTitle', 'My Data Statistics')}
-                    </CardTitle>
-                    <CardDescription>
-                        {t('myDataStatsDesc', 'An overview of all projects, folders, and assets accessible to you.')}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {projects.length === 0 && folders.length === 0 && assets.length === 0 && !pageLoading ? (
-                        <p className="text-muted-foreground text-center py-6">{t('noDataAccessible', 'You do not have access to any projects, folders, or assets at the moment.')}</p>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Card className="bg-card/50">
-                                <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                    <CardTitle className="text-sm font-medium">{t('totalProjectsStatLabel', 'Accessible Projects')}</CardTitle>
-                                    <Briefcase className="h-4 w-4 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{projects.length}</div>
-                                </CardContent>
-                            </Card>
-                            <Card className="bg-card/50">
-                                <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                    <CardTitle className="text-sm font-medium">{t('totalFoldersStatLabel', 'Accessible Folders')}</CardTitle>
-                                    <DataFolderIcon className="h-4 w-4 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{folders.length}</div>
-                                </CardContent>
-                            </Card>
-                            <Card className="bg-card/50">
-                                <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                    <CardTitle className="text-sm font-medium">{t('totalAssetsStatLabel', 'Accessible Assets')}</CardTitle>
-                                    <FileText className="h-4 w-4 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{assets.length}</div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
-                    {projects.length > 0 && (
-                         <p className="text-sm text-muted-foreground mt-6">{t('viewProjectsOnDashboardPrompt', 'To view and manage individual projects, please return to your main dashboard.')}</p>
-                    )}
-                </CardContent>
-            </Card>
+            {activeMyDataView === 'stats' && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-2xl font-bold font-headline text-primary">
+                            {t('myDataStatsTitle', 'My Data Statistics')}
+                        </CardTitle>
+                        <CardDescription>
+                            {t('myDataStatsDesc', 'An overview of all projects, folders, and assets accessible to you.')}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {projects.length === 0 && folders.length === 0 && assets.length === 0 && !pageLoading ? (
+                            <p className="text-muted-foreground text-center py-6">{t('noDataAccessible', 'You do not have access to any projects, folders, or assets at the moment.')}</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <Card className="bg-card/50">
+                                    <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                                        <CardTitle className="text-sm font-medium">{t('totalProjectsStatLabel', 'Accessible Projects')}</CardTitle>
+                                        <Briefcase className="h-4 w-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">{projects.length}</div>
+                                    </CardContent>
+                                </Card>
+                                <Card className="bg-card/50">
+                                    <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                                        <CardTitle className="text-sm font-medium">{t('totalFoldersStatLabel', 'Accessible Folders')}</CardTitle>
+                                        <DataFolderIcon className="h-4 w-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">{folders.length}</div>
+                                    </CardContent>
+                                </Card>
+                                <Card className="bg-card/50">
+                                    <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                                        <CardTitle className="text-sm font-medium">{t('totalAssetsStatLabel', 'Accessible Assets')}</CardTitle>
+                                        <FileText className="h-4 w-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">{assets.length}</div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+                        {projects.length > 0 && (
+                            <p className="text-sm text-muted-foreground mt-6">{t('viewProjectsOnDashboardPrompt', 'To view and manage individual projects, please return to your main dashboard.')}</p>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {activeMyDataView === 'projectsList' && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-2xl font-bold font-headline text-primary">
+                            {t('myAccessibleProjectsTitle', 'My Accessible Projects')}
+                        </CardTitle>
+                        <CardDescription>
+                            {t('myAccessibleProjectsDesc', 'A list of all projects you have access to.')}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {projects.length > 0 ? (
+                            <ScrollArea className="h-[calc(100vh-18rem)] pr-3">
+                                <ul className="space-y-3">
+                                    {projects.map(project => (
+                                        <li key={project.id} className="border p-3 rounded-md hover:bg-muted/50">
+                                            <div className="flex justify-between items-center">
+                                                <h3 className="font-medium text-base">{project.name}</h3>
+                                                <Link href={`/project/${project.id}`} passHref legacyBehavior>
+                                                    <Button variant="outline" size="sm">
+                                                        <Eye className="mr-2 h-4 w-4" />
+                                                        {t('viewProjectButton', 'View Project Details')}
+                                                    </Button>
+                                                </Link>
+                                            </div>
+                                             <p className="text-xs text-muted-foreground mt-1">
+                                                {t('lastAccessedMyData', 'Last Accessed: {date}', { date: project.lastAccessed ? new Date(project.lastAccessed).toLocaleDateString() : 'N/A' })}
+                                            </p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </ScrollArea>
+                        ) : (
+                            <p className="text-muted-foreground text-center py-6">{t('noProjectsAccessibleMyData', 'You do not have access to any projects.')}</p>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
         </SidebarInset>
       </div>
     </SidebarProvider>

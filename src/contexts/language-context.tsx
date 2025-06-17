@@ -382,6 +382,12 @@ const translations: Record<Language, Record<string, string>> = {
     myDataSidebarTitle: "My Data",
     dataOverviewSidebarItem: "Data Overview",
     dataOverviewTooltip: "View Data Overview",
+    myProjectsSidebarItem: "My Projects",
+    viewMyProjectsTooltip: "View My Projects",
+    myAccessibleProjectsTitle: "My Accessible Projects",
+    myAccessibleProjectsDesc: "A list of all projects you have access to.",
+    lastAccessedMyData: "Last Accessed: {date}",
+    noProjectsAccessibleMyData: "You do not have access to any projects.",
 
 
     reviewAllCompanyAssetsButton: "Review All Company Assets",
@@ -790,7 +796,12 @@ const translations: Record<Language, Record<string, string>> = {
     myDataSidebarTitle: "بياناتي",
     dataOverviewSidebarItem: "نظرة عامة على البيانات",
     dataOverviewTooltip: "عرض نظرة عامة على البيانات",
-
+    myProjectsSidebarItem: "مشاريعي",
+    viewMyProjectsTooltip: "عرض مشاريعي",
+    myAccessibleProjectsTitle: "مشاريعي التي يمكن الوصول إليها",
+    myAccessibleProjectsDesc: "قائمة بجميع المشاريع التي لديك حق الوصول إليها.",
+    lastAccessedMyData: "آخر وصول: {date}",
+    noProjectsAccessibleMyData: "ليس لديك وصول إلى أي مشاريع.",
 
     reviewAllCompanyAssetsButton: "مراجعة جميع أصول الشركة",
     reviewAllAssetsPageTitle: "جميع أصول الشركة",
@@ -869,3 +880,4 @@ export function useLanguage() {
 }
 
     
+
