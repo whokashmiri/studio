@@ -1,4 +1,3 @@
-
 "use client";
 import type { Folder, Asset } from '@/data/mock-data';
 import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, FileArchive } from 'lucide-react';
@@ -37,19 +36,16 @@ const FolderDisplayCard = React.memo(function FolderDisplayCard({
 }: FolderDisplayCardProps) {
   return (
     <Card 
-      key={`folder-${folder.id}`} 
-      className="group flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow cursor-pointer relative"
+      className="group flex flex-col items-center justify-center text-center p-3 hover:shadow-md transition-shadow cursor-pointer aspect-square relative"
       onClick={() => onSelectFolder(folder)}
       title={folder.name}
     >
-      <div className="flex items-center gap-3 flex-grow min-w-0">
-        <FolderIcon className="h-10 w-10 text-primary shrink-0" />
-        <CardTitle className="text-sm sm:text-base font-medium truncate">
-          {folder.name}
-        </CardTitle>
-      </div>
+      <FolderIcon className="h-12 w-12 sm:h-16 sm:w-16 text-primary mb-2" />
+      <CardTitle className="text-sm sm:text-base font-medium truncate w-full">
+        {folder.name}
+      </CardTitle>
       
-      <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 shrink-0">
+      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -159,33 +155,45 @@ export function FolderTreeDisplay({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {foldersToDisplay.length > 0 && (
-        <div className="space-y-3">
-          {foldersToDisplay.map(folder => (
-            <FolderDisplayCard
-              key={`folder-card-${folder.id}`}
-              folder={folder}
-              onSelectFolder={onSelectFolder}
-              onAddSubfolder={onAddSubfolder}
-              onEditFolder={onEditFolder}
-              onActualDeleteFolder={handleDeleteClick}
-              t={t}
-            />
-          ))}
+        <div>
+          <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
+            <FolderIcon className="mr-2 h-5 w-5 text-primary" />
+            {t('folders', 'Folders')} ({foldersToDisplay.length})
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {foldersToDisplay.map(folder => (
+              <FolderDisplayCard
+                key={`folder-card-${folder.id}`}
+                folder={folder}
+                onSelectFolder={onSelectFolder}
+                onAddSubfolder={onAddSubfolder}
+                onEditFolder={onEditFolder}
+                onActualDeleteFolder={handleDeleteClick}
+                t={t}
+              />
+            ))}
+          </div>
         </div>
       )}
       {assetsToDisplay.length > 0 && (
-        <div className="space-y-4">
-          {assetsToDisplay.map(asset => (
-            <AssetCard
-              key={`asset-${asset.id}`}
-              asset={asset}
-              onEditAsset={() => onEditAsset(asset)}
-              onDeleteAsset={() => handleDeleteAssetClick(asset)}
-              onPreviewImage={onPreviewImageAsset}
-            />
-          ))}
+        <div className={foldersToDisplay.length > 0 ? "mt-6" : ""}>
+          <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
+            <FileArchive className="mr-2 h-5 w-5 text-accent" />
+            {t('assets', 'Assets')} ({assetsToDisplay.length})
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {assetsToDisplay.map(asset => (
+              <AssetCard
+                key={`asset-${asset.id}`}
+                asset={asset}
+                onEditAsset={() => onEditAsset(asset)}
+                onDeleteAsset={() => handleDeleteAssetClick(asset)}
+                onPreviewImage={onPreviewImageAsset}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
