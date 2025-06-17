@@ -38,16 +38,18 @@ const FolderDisplayCard = React.memo(function FolderDisplayCard({
   return (
     <Card 
       key={`folder-${folder.id}`} 
-      className="group flex flex-col items-center justify-center text-center p-4 hover:shadow-md transition-shadow cursor-pointer relative aspect-square"
+      className="group flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow cursor-pointer relative"
       onClick={() => onSelectFolder(folder)}
       title={folder.name}
     >
-      <FolderIcon className="h-16 w-16 sm:h-20 sm:w-20 text-primary mb-2" />
-      <CardTitle className="text-xs sm:text-sm font-medium truncate w-full">
-        {folder.name}
-      </CardTitle>
+      <div className="flex items-center gap-3 flex-grow min-w-0">
+        <FolderIcon className="h-10 w-10 text-primary shrink-0" />
+        <CardTitle className="text-sm sm:text-base font-medium truncate">
+          {folder.name}
+        </CardTitle>
+      </div>
       
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+      <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -98,7 +100,7 @@ interface FolderGridViewProps {
   onDeleteFolder: (folder: Folder) => void; 
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void; 
-  onPreviewImageAsset: (imageUrl: string) => void; // New prop
+  onPreviewImageAsset: (imageUrl: string) => void;
   currentSelectedFolderId: string | null;
 }
 
@@ -112,7 +114,7 @@ export function FolderTreeDisplay({
   onDeleteFolder,
   onEditAsset,
   onDeleteAsset,
-  onPreviewImageAsset, // Destructure new prop
+  onPreviewImageAsset,
   currentSelectedFolderId,
 }: FolderGridViewProps) {
   const { t } = useLanguage();
@@ -157,28 +159,35 @@ export function FolderTreeDisplay({
   }
 
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {foldersToDisplay.map(folder => (
-        <FolderDisplayCard
-          key={`folder-card-${folder.id}`}
-          folder={folder}
-          onSelectFolder={onSelectFolder}
-          onAddSubfolder={onAddSubfolder}
-          onEditFolder={onEditFolder}
-          onActualDeleteFolder={handleDeleteClick}
-          t={t}
-        />
-      ))}
-      {assetsToDisplay.map(asset => (
-        <AssetCard
-          key={`asset-${asset.id}`}
-          asset={asset}
-          onEditAsset={() => onEditAsset(asset)}
-          onDeleteAsset={() => handleDeleteAssetClick(asset)}
-          onPreviewImage={onPreviewImageAsset} // Pass handler to AssetCard
-        />
-      ))}
+    <div className="space-y-4">
+      {foldersToDisplay.length > 0 && (
+        <div className="space-y-3">
+          {foldersToDisplay.map(folder => (
+            <FolderDisplayCard
+              key={`folder-card-${folder.id}`}
+              folder={folder}
+              onSelectFolder={onSelectFolder}
+              onAddSubfolder={onAddSubfolder}
+              onEditFolder={onEditFolder}
+              onActualDeleteFolder={handleDeleteClick}
+              t={t}
+            />
+          ))}
+        </div>
+      )}
+      {assetsToDisplay.length > 0 && (
+        <div className="space-y-4">
+          {assetsToDisplay.map(asset => (
+            <AssetCard
+              key={`asset-${asset.id}`}
+              asset={asset}
+              onEditAsset={() => onEditAsset(asset)}
+              onDeleteAsset={() => handleDeleteAssetClick(asset)}
+              onPreviewImage={onPreviewImageAsset}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
-
