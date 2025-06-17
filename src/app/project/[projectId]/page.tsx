@@ -210,15 +210,49 @@ export default function ProjectPage() {
   }, [t, toast, loadProjectData]);
 
   const handleAssetCreatedInModal = useCallback(async (createdAsset: Asset) => {
-    setIsNewAssetModalOpen(false);
-        
-    if (project) { 
-        await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
+    setIsNewAssetModalOpen(false); // Close modal first
+
+    // 1. Optimistic UI Updates
+    const assetBelongsToCurrentView = 
+      (createdAsset.folderId === null && selectedFolder === null) || 
+      (selectedFolder !== null && createdAsset.folderId === selectedFolder.id);
+
+    if (assetBelongsToCurrentView) {
+      setCurrentAssets(prevAssets => {
+        if (prevAssets.find(a => a.id === createdAsset.id)) {
+          return prevAssets.map(a => a.id === createdAsset.id ? createdAsset : a);
+        }
+        return [...prevAssets, createdAsset];
+      });
     }
-    await new Promise(resolve => setTimeout(resolve, 300)); // Delay for Firestore consistency
-    await loadProjectData(); 
-    setRefreshKey(prev => prev + 1);
-  }, [project, loadProjectData]);
+
+    if (project) {
+      setProject(prevProject => 
+        prevProject ? ({ 
+          ...prevProject, 
+          status: 'recent' as ProjectStatus, 
+          lastAccessed: Date.now() 
+        }) : null
+      );
+    }
+    
+    setRefreshKey(prev => prev + 1); // Force re-render with optimistic updates
+
+    // 2. Background Server Sync & Reconciliation
+    try {
+      if (project) {
+        await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
+      }
+      // A short delay might still be useful before final reconciliation to allow Firestore to catch up.
+      // If issues persist where loadProjectData doesn't get the new asset immediately, this delay can be reinstated or adjusted.
+      // await new Promise(resolve => setTimeout(resolve, 300));
+      await loadProjectData(); 
+    } catch (error) {
+      console.error("Error syncing after asset creation:", error);
+      // Consider a toast for this type of error if reconciliation fails.
+    }
+  }, [project, selectedFolder, loadProjectData, setCurrentAssets, setProject, setRefreshKey, setIsNewAssetModalOpen]);
+
 
   const handleOpenImagePreviewModal = useCallback((imageUrl: string) => {
     setImageToPreview(imageUrl);
