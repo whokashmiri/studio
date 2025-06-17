@@ -6,55 +6,162 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import type { AssetWithContext } from '@/lib/firestore-service';
-import { Loader2, ShieldAlert, FileText, Edit, Home, ArrowLeft } from 'lucide-react';
+import type { Project, Folder as FolderType, Asset } from '@/data/mock-data';
+import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { format } from 'date-fns';
+import { SidebarProvider, Sidebar, SidebarTrigger, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
+import { FolderTreeDisplay } from '@/components/folder-tree';
+import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
+import { useToast } from '@/hooks/use-toast';
+
 
 export default function ReviewAllAssetsPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { t } = useLanguage();
+  const { toast } = useToast();
 
   const [allCompanyAssets, setAllCompanyAssets] = useState<AssetWithContext[]>([]);
-  const [pageLoading, setPageLoading] = useState(true);
+  const [companyProjects, setCompanyProjects] = useState<Project[]>([]);
+  
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProjectFolders, setSelectedProjectFolders] = useState<FolderType[]>([]);
+  const [selectedProjectRootAssets, setSelectedProjectRootAssets] = useState<Asset[]>([]);
+  const [selectedProjectCurrentFolder, setSelectedProjectCurrentFolder] = useState<FolderType | null>(null);
+  const [currentAssetsInSelectedProjectFolder, setCurrentAssetsInSelectedProjectFolder] = useState<Asset[]>([]);
 
-  const loadAllAssets = useCallback(async () => {
+  const [pageLoading, setPageLoading] = useState(true);
+  const [projectContentLoading, setProjectContentLoading] = useState(false);
+
+  const [imageToPreview, setImageToPreview] = useState<string | null>(null);
+  const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false);
+  const [refreshFolderTreeKey, setRefreshFolderTreeKey] = useState(0);
+
+
+  const loadInitialAdminData = useCallback(async () => {
     if (currentUser && currentUser.role === 'Admin' && currentUser.companyId) {
       setPageLoading(true);
       try {
-        const assets = await FirestoreService.getAllAssetsForCompany(currentUser.companyId);
+        const [assets, projects] = await Promise.all([
+          FirestoreService.getAllAssetsForCompany(currentUser.companyId),
+          FirestoreService.getProjects(currentUser.companyId) // Gets projects with asset counts
+        ]);
         setAllCompanyAssets(assets);
+        setCompanyProjects(projects.sort((a, b) => a.name.localeCompare(b.name)));
       } catch (error) {
-        console.error("Error loading all company assets:", error);
-        // Optionally set an error state or show a toast
+        console.error("Error loading initial admin data:", error);
+        toast({ title: t('error', 'Error'), description: t('loadingErrorDesc', 'Failed to load initial review data.'), variant: 'destructive' });
       } finally {
         setPageLoading(false);
       }
     } else if (!authLoading) {
-      setPageLoading(false); // Not loading if no user or not admin
+      setPageLoading(false); 
     }
-  }, [currentUser, authLoading]);
+  }, [currentUser, authLoading, toast, t]);
 
   useEffect(() => {
     if (!authLoading) {
       if (!currentUser || currentUser.role !== 'Admin') {
-        router.push('/'); // Redirect if not admin or not logged in
+        router.push('/'); 
       } else {
-        loadAllAssets();
+        loadInitialAdminData();
       }
     }
-  }, [authLoading, currentUser, router, loadAllAssets]);
+  }, [authLoading, currentUser, router, loadInitialAdminData]);
+
+  const handleProjectSelect = useCallback(async (project: Project | null) => {
+    setSelectedProject(project);
+    setSelectedProjectCurrentFolder(null); // Reset current folder when project changes
+    if (project) {
+      setProjectContentLoading(true);
+      try {
+        const [folders, rootAssets] = await Promise.all([
+          FirestoreService.getFolders(project.id),
+          FirestoreService.getAssets(project.id, null) // null for root assets
+        ]);
+        setSelectedProjectFolders(folders);
+        setSelectedProjectRootAssets(rootAssets);
+        setCurrentAssetsInSelectedProjectFolder(rootAssets); // Initially show root assets
+      } catch (error) {
+        console.error(`Error loading content for project ${project.name}:`, error);
+        toast({ title: t('error', 'Error'), description: t('projectContentError', `Failed to load content for ${project.name}.`), variant: 'destructive'});
+        setSelectedProjectFolders([]);
+        setSelectedProjectRootAssets([]);
+        setCurrentAssetsInSelectedProjectFolder([]);
+      } finally {
+        setProjectContentLoading(false);
+        setRefreshFolderTreeKey(prev => prev + 1);
+      }
+    } else {
+      setSelectedProjectFolders([]);
+      setSelectedProjectRootAssets([]);
+      setCurrentAssetsInSelectedProjectFolder([]);
+    }
+  }, [toast, t]);
+
+  const handleSelectFolderInTree = useCallback(async (folder: FolderType | null) => {
+    setSelectedProjectCurrentFolder(folder);
+    if (selectedProject) {
+      setProjectContentLoading(true);
+      try {
+        const assets = await FirestoreService.getAssets(selectedProject.id, folder ? folder.id : null);
+        setCurrentAssetsInSelectedProjectFolder(assets);
+      } catch (error) {
+        console.error(`Error loading assets for folder:`, error);
+        toast({ title: t('error', 'Error'), description: t('folderAssetsError', 'Failed to load assets for folder.'), variant: 'destructive'});
+        setCurrentAssetsInSelectedProjectFolder([]);
+      } finally {
+        setProjectContentLoading(false);
+        setRefreshFolderTreeKey(prev => prev + 1);
+      }
+    }
+  }, [selectedProject, toast, t]);
+
+
+  const handleEditAsset = useCallback((asset: Asset) => {
+    const editUrl = `/project/${asset.projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
+    router.push(editUrl);
+  }, [router]);
+
+  const handleDeleteAsset = useCallback(async (assetToDelete: Asset) => {
+    if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
+      const success = await FirestoreService.deleteAsset(assetToDelete.id);
+      if (success) {
+        toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
+        // Refetch assets for the current view
+        if (selectedProject) {
+          handleSelectFolderInTree(selectedProjectCurrentFolder);
+        }
+        // Also refetch all company assets for the stats if needed, or just update count locally
+        setAllCompanyAssets(prev => prev.filter(a => a.id !== assetToDelete.id));
+
+      } else {
+        toast({ title: t('error', 'Error'), description: t('deleteError', 'Failed to delete asset.'), variant: "destructive" });
+      }
+    }
+  }, [t, toast, selectedProject, selectedProjectCurrentFolder, handleSelectFolderInTree]);
+
+  const handleOpenImagePreviewModal = useCallback((imageUrl: string) => {
+    setImageToPreview(imageUrl);
+    setIsImagePreviewModalOpen(true);
+  }, []);
+
+  const handleCloseImagePreviewModal = useCallback(() => {
+    setIsImagePreviewModalOpen(false);
+    setImageToPreview(null);
+  }, []);
+
 
   if (authLoading || pageLoading) {
     return (
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground mt-4">
-          {authLoading ? t('loadingUserSession', 'Loading user session...') : t('loadingAdminData', 'Loading all company assets...')}
+          {authLoading ? t('loadingUserSession', 'Loading user session...') : t('loadingAdminData', 'Loading review data...')}
         </p>
       </div>
     );
@@ -72,73 +179,173 @@ export default function ReviewAllAssetsPage() {
       </div>
     );
   }
+  
+  const foldersForTree = selectedProjectFolders.filter(folder => {
+    if (selectedProjectCurrentFolder) {
+      return folder.parentId === selectedProjectCurrentFolder.id;
+    }
+    return folder.parentId === null;
+  });
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <CardHeader className="px-0 pt-0 flex-grow">
-          <CardTitle className="text-2xl sm:text-3xl font-bold font-headline text-primary">
-            {t('reviewAllAssetsPageTitle', 'All Company Assets')}
-          </CardTitle>
-          <CardDescription>
-            {t('reviewAllAssetsPageDesc', 'Review and manage all assets across all projects in {companyName}.', { companyName: currentUser.companyName })}
-          </CardDescription>
-        </CardHeader>
-        <Link href="/admin/dashboard" passHref legacyBehavior>
-          <Button variant="outline">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {t('backToAdminDashboard', 'Back to Admin Dashboard')}
-          </Button>
-        </Link>
-      </div>
+    <SidebarProvider>
+      <div className="flex min-h-[calc(100vh-4rem)]">
+        <Sidebar className="border-r" collapsible="icon">
+          <SidebarHeader className="p-3 border-b">
+             <div className="flex items-center gap-2">
+                <LayoutDashboard className="h-6 w-6 text-primary" />
+                <span className="font-semibold font-headline text-lg group-data-[collapsible=icon]:hidden">
+                  {t('companyReviewSidebarTitle', 'Company Review')}
+                </span>
+            </div>
+          </SidebarHeader>
+          <SidebarContent className="p-0">
+            <SidebarMenu className="p-2 space-y-1">
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  onClick={() => handleProjectSelect(null)} 
+                  isActive={!selectedProject}
+                  tooltip={t('companyStatsTooltip', 'View Company Stats')}
+                >
+                  <BarChart3 />
+                  <span className="group-data-[collapsible=icon]:hidden">{t('companyStatsSidebarItem', 'Company Stats')}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+            <ScrollArea className="h-[calc(100%-180px)] group-data-[collapsible=icon]:h-[calc(100%-120px)]">
+              <SidebarMenu className="p-2 pt-0 space-y-1">
+                 <div className="px-2 py-1 group-data-[collapsible=icon]:hidden">
+                    <span className="text-xs font-medium text-muted-foreground uppercase">{t('projectsSidebarItem', 'Projects')}</span>
+                </div>
+                {companyProjects.map((project) => (
+                  <SidebarMenuItem key={project.id}>
+                    <SidebarMenuButton 
+                        onClick={() => handleProjectSelect(project)} 
+                        isActive={selectedProject?.id === project.id}
+                        tooltip={project.name}
+                    >
+                      <ProjectFolderIcon />
+                      <span className="group-data-[collapsible=icon]:hidden truncate" title={project.name}>{project.name}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+                {companyProjects.length === 0 && !pageLoading && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+                        {t('noProjectsInCompany', 'No projects in company.')}
+                    </div>
+                )}
+              </SidebarMenu>
+            </ScrollArea>
+          </SidebarContent>
+           <SidebarHeader className="p-3 border-t mt-auto">
+            <SidebarMenu className="space-y-1 p-0">
+                 <SidebarMenuItem>
+                    <SidebarMenuButton onClick={() => router.push('/admin/dashboard')} tooltip={t('backToAdminDashboard', 'Back to Admin Dashboard')}>
+                        <ArrowLeft />
+                        <span className="group-data-[collapsible=icon]:hidden">{t('backToAdminDashboard', 'Admin Dashboard')}</span>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                    <SidebarMenuButton onClick={() => { /* Placeholder for settings */ }} tooltip={t('settingsTooltip', 'Settings (Placeholder)')}>
+                        <SettingsIcon />
+                        <span className="group-data-[collapsible=icon]:hidden">{t('settingsSidebarItem', 'Settings')}</span>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarHeader>
+        </Sidebar>
 
-      <Card>
-        <CardContent className="pt-6">
-          {allCompanyAssets.length > 0 ? (
-            <>
-              <p className="text-sm text-muted-foreground mb-4">
-                {t('assetsFoundCount', '{count} assets found.', { count: allCompanyAssets.length })}
-              </p>
-              <ScrollArea className="max-h-[calc(100vh-20rem)]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('assetNameTableTitle', 'Asset Name')}</TableHead>
-                      <TableHead>{t('projectNameTableTitle', 'Project')}</TableHead>
-                      <TableHead>{t('folderNameTableTitle', 'Folder')}</TableHead>
-                      <TableHead>{t('created', 'Created')}</TableHead>
-                      <TableHead className="text-right">{t('actionsTableTitle', 'Actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allCompanyAssets.map((asset) => (
-                      <TableRow key={asset.id}>
-                        <TableCell className="font-medium flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          {asset.name}
-                        </TableCell>
-                        <TableCell>{asset.projectName}</TableCell>
-                        <TableCell>{asset.folderName || t('projectRoot', 'Project Root')}</TableCell>
-                        <TableCell>{format(new Date(asset.createdAt), 'PPp')}</TableCell>
-                        <TableCell className="text-right">
-                          <Link href={`/project/${asset.projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`} passHref legacyBehavior>
-                            <Button variant="ghost" size="sm">
-                              <Edit className="mr-2 h-4 w-4" />
-                              {t('viewEditAssetButton', 'View/Edit')}
-                            </Button>
-                          </Link>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </>
-          ) : (
-            <p className="text-muted-foreground text-center py-10">{t('noAssetsFoundCompany', 'No assets found for this company.')}</p>
+        <SidebarInset className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+          {!selectedProject && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl font-bold font-headline text-primary">
+                    {t('companyWideAssetStats', 'Company-Wide Asset Statistics')}
+                </CardTitle>
+                <CardDescription>
+                    {t('overviewOfAllCompanyAssets', 'An overview of all assets across your company.')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card className="bg-card/50">
+                        <CardHeader className="pb-2">
+                            <CardDescription>{t('totalAssetsStatLabel', 'Total Assets in Company')}</CardDescription>
+                            <CardTitle className="text-4xl">{allCompanyAssets.length}</CardTitle>
+                        </CardHeader>
+                    </Card>
+                    {/* Add more stats cards here if needed */}
+                </div>
+                 <p className="text-sm text-muted-foreground mt-6">{t('selectProjectToViewDetailsPrompt', 'Select a project from the sidebar to view its specific folders and assets.')}</p>
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
-    </div>
+
+          {selectedProject && (
+            <div className="space-y-6">
+              <CardHeader className="px-0 pt-0">
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-2xl sm:text-3xl font-bold font-headline text-primary">
+                        {selectedProject.name}
+                    </CardTitle>
+                    <Link href={`/project/${selectedProject.id}`} passHref legacyBehavior>
+                      <Button variant="outline" size="sm">
+                        <Eye className="mr-2 h-4 w-4" />
+                        {t('viewProjectButton', 'View Project Details')}
+                      </Button>
+                    </Link>
+                </div>
+                <CardDescription>
+                  {t('reviewProjectContentDesc', 'Review folders and assets for {projectName}. Click an asset to edit.', { projectName: selectedProject.name })}
+                </CardDescription>
+              </CardHeader>
+              
+              {projectContentLoading ? (
+                <div className="flex justify-center items-center py-10">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <p className="ml-3 text-muted-foreground">{t('loadingProjectContent', 'Loading project content...')}</p>
+                </div>
+              ) : (
+                <Card>
+                    <CardContent className="pt-6">
+                        <FolderTreeDisplay
+                            key={refreshFolderTreeKey}
+                            foldersToDisplay={foldersForTree}
+                            assetsToDisplay={currentAssetsInSelectedProjectFolder}
+                            projectId={selectedProject.id}
+                            onSelectFolder={handleSelectFolderInTree}
+                            onAddSubfolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('addSubfolderNotAvailableDescReview', 'Adding subfolders is done on the main project page.'), variant: "default"})}
+                            onEditFolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('editFolderNotAvailableDescReview', 'Editing folders is done on the main project page.'), variant: "default"})}
+                            onDeleteFolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('deleteFolderNotAvailableDescReview', 'Deleting folders is done on the main project page.'), variant: "default"})}
+                            onEditAsset={handleEditAsset}
+                            onDeleteAsset={handleDeleteAsset}
+                            onPreviewImageAsset={handleOpenImagePreviewModal}
+                            currentSelectedFolderId={selectedProjectCurrentFolder?.id || null}
+                        />
+                         {(foldersForTree.length === 0 && currentAssetsInSelectedProjectFolder.length === 0) && (
+                            <p className="text-muted-foreground text-center py-6">
+                                {selectedProjectCurrentFolder 
+                                    ? t('folderIsEmpty', 'This folder is empty.') 
+                                    : t('projectRootIsEmptyReview', 'This project has no root folders or assets.')
+                                }
+                            </p>
+                         )}
+                    </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </SidebarInset>
+      </div>
+       {imageToPreview && (
+        <ImagePreviewModal
+          isOpen={isImagePreviewModalOpen}
+          onClose={handleCloseImagePreviewModal}
+          imageUrl={imageToPreview}
+        />
+      )}
+    </SidebarProvider>
   );
 }
+
+    

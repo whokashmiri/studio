@@ -386,6 +386,31 @@ const translations: Record<Language, Record<string, string>> = {
     viewEditAssetButton: "View/Edit",
     backToAdminDashboard: "Back to Admin Dashboard",
 
+    companyReviewSidebarTitle: "Company Review",
+    projectsSidebarItem: "Projects",
+    settingsSidebarItem: "Settings",
+    companyStatsSidebarItem: "Company Stats",
+    totalAssetsStatLabel: "Total Assets in Company",
+    selectProjectPrompt: "Select a project from the sidebar to view its details.",
+    projectFoldersAndAssetsTitle: "Folders & Assets for: {projectName}",
+    loadingErrorDesc: "Failed to load initial review data.",
+    projectContentError: "Failed to load content for {projectName}.",
+    folderAssetsError: "Failed to load assets for folder.",
+    deleteError: "Failed to delete asset.",
+    companyStatsTooltip: "View Company Stats",
+    noProjectsInCompany: "No projects in company.",
+    settingsTooltip: "Settings (Placeholder)",
+    companyWideAssetStats: "Company-Wide Asset Statistics",
+    overviewOfAllCompanyAssets: "An overview of all assets across your company.",
+    selectProjectToViewDetailsPrompt: "Select a project from the sidebar to view its specific folders and assets.",
+    reviewProjectContentDesc: "Review folders and assets for {projectName}. Click an asset to edit.",
+    loadingProjectContent: "Loading project content...",
+    actionNotAvailableTitle: "Action Not Available",
+    addSubfolderNotAvailableDescReview: "Adding subfolders is done on the main project page.",
+    editFolderNotAvailableDescReview: "Editing folders is done on the main project page.",
+    deleteFolderNotAvailableDescReview: "Deleting folders is done on the main project page.",
+    projectRootIsEmptyReview: "This project has no root folders or assets.",
+
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -758,6 +783,31 @@ const translations: Record<Language, Record<string, string>> = {
     actionsTableTitle: "الإجراءات",
     viewEditAssetButton: "عرض/تعديل",
     backToAdminDashboard: "العودة إلى لوحة تحكم المسؤول",
+
+    companyReviewSidebarTitle: "مراجعة الشركة",
+    projectsSidebarItem: "المشاريع",
+    settingsSidebarItem: "الإعدادات",
+    companyStatsSidebarItem: "إحصائيات الشركة",
+    totalAssetsStatLabel: "إجمالي الأصول في الشركة",
+    selectProjectPrompt: "حدد مشروعًا من الشريط الجانبي لعرض تفاصيله.",
+    projectFoldersAndAssetsTitle: "مجلدات وأصول لـ: {projectName}",
+    loadingErrorDesc: "فشل تحميل بيانات المراجعة الأولية.",
+    projectContentError: "فشل تحميل محتوى المشروع {projectName}.",
+    folderAssetsError: "فشل تحميل الأصول للمجلد.",
+    deleteError: "فشل حذف الأصل.",
+    companyStatsTooltip: "عرض إحصائيات الشركة",
+    noProjectsInCompany: "لا توجد مشاريع في الشركة.",
+    settingsTooltip: "الإعدادات (عنصر نائب)",
+    companyWideAssetStats: "إحصائيات الأصول على مستوى الشركة",
+    overviewOfAllCompanyAssets: "نظرة عامة على جميع الأصول في شركتك.",
+    selectProjectToViewDetailsPrompt: "حدد مشروعًا من الشريط الجانبي لعرض مجلداته وأصوله المحددة.",
+    reviewProjectContentDesc: "مراجعة المجلدات والأصول لـ {projectName}. انقر فوق أصل لتعديله.",
+    loadingProjectContent: "جاري تحميل محتوى المشروع...",
+    actionNotAvailableTitle: "الإجراء غير متوفر",
+    addSubfolderNotAvailableDescReview: "تتم إضافة المجلدات الفرعية في صفحة المشروع الرئيسية.",
+    editFolderNotAvailableDescReview: "يتم تعديل المجلدات في صفحة المشروع الرئيسية.",
+    deleteFolderNotAvailableDescReview: "يتم حذف المجلدات في صفحة المشروع الرئيسية.",
+    projectRootIsEmptyReview: "هذا المشروع لا يحتوي على مجلدات أو أصول جذرية.",
   },
 };
 
@@ -797,3 +847,5 @@ export function useLanguage() {
   }
   return context;
 }
+
+    
