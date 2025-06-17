@@ -93,8 +93,8 @@ const translations: Record<Language, Record<string, string>> = {
     addDetailsForAssetTitle: "Add Details for:",
     voiceDescriptionLabel: "Voice Description",
     recordVoiceDescriptionButton: "Record Voice", 
-    playVoiceDescriptionButton: "Listen",
-    pauseAudio: "Pause",
+    playVoiceDescriptionButton: "Play Recorded Audio", // Clarified this refers to recorded audio
+    pauseAudio: "Pause Recorded Audio", // Clarified
     finishRecording: "Finish Recording",
     voiceTranscriptPlaceholder: "Voice transcript will appear here...",
     textDescriptionLabel: "Written Description",
@@ -248,8 +248,8 @@ const translations: Record<Language, Record<string, string>> = {
     noAssetsInFolder: "No assets in this folder.",
     assetsInProjectRoot: "Assets in Project Root",
     assetPhotoAlt: "Photo of {assetName}",
-    editAssetButton: "Edit Asset",
-    deleteAssetButton: "Delete Asset",
+    editAssetButton: "Edit Asset", // Used by AssetCard
+    deleteAssetButton: "Delete Asset", // Used by AssetCard
     deleteAssetConfirmationTitle: "Confirm Deletion",
     deleteAssetConfirmationDesc: "Are you sure you want to delete asset \"{assetName}\"?",
     assetDeletedTitle: "Asset Deleted",
@@ -389,7 +389,6 @@ const translations: Record<Language, Record<string, string>> = {
     lastAccessedMyData: "Last Accessed: {date}",
     noProjectsAccessibleMyData: "You do not have access to any projects.",
 
-
     reviewAllCompanyAssetsButton: "Review All Company Assets",
     reviewAllAssetsPageTitle: "All Company Assets",
     reviewAllAssetsPageDesc: "Review and manage all assets across all projects in {companyName}.",
@@ -406,7 +405,7 @@ const translations: Record<Language, Record<string, string>> = {
     projectsSidebarItem: "Projects",
     settingsSidebarItem: "Settings",
     companyStatsSidebarItem: "Company Stats",
-    totalAssetsStatLabel: "Total Assets in Company",
+    // totalAssetsStatLabel is already defined
     selectProjectPrompt: "Select a project from the sidebar to view its details.",
     projectFoldersAndAssetsTitle: "Folders & Assets for: {projectName}",
     loadingErrorDesc: "Failed to load initial review data.",
@@ -419,13 +418,20 @@ const translations: Record<Language, Record<string, string>> = {
     companyWideAssetStats: "Company-Wide Asset Statistics",
     overviewOfAllCompanyAssets: "An overview of all assets across your company.",
     selectProjectToViewDetailsPrompt: "Select a project from the sidebar to view its specific folders and assets.",
-    reviewProjectContentDesc: "Review folders and assets for {projectName}. Click an asset to edit.",
+    reviewProjectContentDesc: "Review folders and assets for {projectName}. Click an asset to view its details or edit.",
     loadingProjectContent: "Loading project content...",
     actionNotAvailableTitle: "Action Not Available",
     addSubfolderNotAvailableDescReview: "Adding subfolders is done on the main project page.",
     editFolderNotAvailableDescReview: "Editing folders is done on the main project page.",
     deleteFolderNotAvailableDescReview: "Deleting folders is done on the main project page.",
     projectRootIsEmptyReview: "This project has no root folders or assets.",
+
+    assetDetailsForReview: "Asset Details (Review Mode)",
+    backToProjectView: "Back to Project View",
+    goToEditPageButton: "Edit Asset",
+    noTextDescriptionProvided: "No written description provided.",
+    noVoiceTranscriptProvided: "No voice transcript provided.",
+    noVoiceContentAvailable: "No voice content (audio or transcript) available.",
 
   },
   ar: {
@@ -507,8 +513,8 @@ const translations: Record<Language, Record<string, string>> = {
     addDetailsForAssetTitle: "إضافة تفاصيل لـ:",
     voiceDescriptionLabel: "الوصف الصوتي",
     recordVoiceDescriptionButton: "تسجيل صوتي", 
-    playVoiceDescriptionButton: "استماع",
-    pauseAudio: "إيقاف مؤقت",
+    playVoiceDescriptionButton: "تشغيل التسجيل الصوتي", // Clarified
+    pauseAudio: "إيقاف التسجيل الصوتي مؤقتًا", // Clarified
     finishRecording: "إنهاء التسجيل",
     voiceTranscriptPlaceholder: "سيظهر النص الصوتي هنا...",
     textDescriptionLabel: "الوصف المكتوب",
@@ -551,7 +557,6 @@ const translations: Record<Language, Record<string, string>> = {
     projectNotFound: "المشروع غير موجود",
     loadingProjectContext: "جاري تحميل سياق المشروع...",
     folderNotFoundOrInvalid: "المجلد غير موجود أو غير صالح لهذا المشروع",
-
 
     previewPhotoAlt: "معاينة {number}",
     previewBatchPhotoAlt: "معاينة الدفعة {number}",
@@ -657,7 +662,6 @@ const translations: Record<Language, Record<string, string>> = {
     speechNoVoiceToPlayDesc: "ميزة نطق النص غير متوفرة أو لا يوجد وصف صوتي لتشغيله.",
     speechPlaybackNotAvailableTitle: "تشغيل الكلام غير متوفر",
     speechPlaybackNotAvailableDesc: "متصفحك لا يدعم تشغيل الكلام.",
-
 
     assetsInFolder: "الأصول في \"{folderName}\"",
     noAssetsInFolder: "لا توجد أصول في هذا المجلد.",
@@ -819,7 +823,7 @@ const translations: Record<Language, Record<string, string>> = {
     projectsSidebarItem: "المشاريع",
     settingsSidebarItem: "الإعدادات",
     companyStatsSidebarItem: "إحصائيات الشركة",
-    totalAssetsStatLabel: "إجمالي الأصول في الشركة",
+    // totalAssetsStatLabel is already defined
     selectProjectPrompt: "حدد مشروعًا من الشريط الجانبي لعرض تفاصيله.",
     projectFoldersAndAssetsTitle: "مجلدات وأصول لـ: {projectName}",
     loadingErrorDesc: "فشل تحميل بيانات المراجعة الأولية.",
@@ -832,13 +836,21 @@ const translations: Record<Language, Record<string, string>> = {
     companyWideAssetStats: "إحصائيات الأصول على مستوى الشركة",
     overviewOfAllCompanyAssets: "نظرة عامة على جميع الأصول في شركتك.",
     selectProjectToViewDetailsPrompt: "حدد مشروعًا من الشريط الجانبي لعرض مجلداته وأصوله المحددة.",
-    reviewProjectContentDesc: "مراجعة المجلدات والأصول لـ {projectName}. انقر فوق أصل لتعديله.",
+    reviewProjectContentDesc: "مراجعة المجلدات والأصول لـ {projectName}. انقر فوق أصل لعرض تفاصيله أو تعديله.",
     loadingProjectContent: "جاري تحميل محتوى المشروع...",
     actionNotAvailableTitle: "الإجراء غير متوفر",
     addSubfolderNotAvailableDescReview: "تتم إضافة المجلدات الفرعية في صفحة المشروع الرئيسية.",
     editFolderNotAvailableDescReview: "يتم تعديل المجلدات في صفحة المشروع الرئيسية.",
     deleteFolderNotAvailableDescReview: "يتم حذف المجلدات في صفحة المشروع الرئيسية.",
     projectRootIsEmptyReview: "هذا المشروع لا يحتوي على مجلدات أو أصول جذرية.",
+
+    assetDetailsForReview: "تفاصيل الأصل (وضع المراجعة)",
+    backToProjectView: "العودة إلى عرض المشروع",
+    goToEditPageButton: "تعديل الأصل",
+    noTextDescriptionProvided: "لم يتم تقديم وصف مكتوب.",
+    noVoiceTranscriptProvided: "لم يتم تقديم نص صوتي.",
+    noVoiceContentAvailable: "لا يوجد محتوى صوتي (صوت أو نص) متاح.",
+
   },
 };
 
@@ -878,6 +890,3 @@ export function useLanguage() {
   }
   return context;
 }
-
-    
-

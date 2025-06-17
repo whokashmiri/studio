@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import type { AssetWithContext } from '@/lib/firestore-service';
 import type { Project, Folder as FolderType, Asset } from '@/data/mock-data';
-import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye, Edit } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,11 @@ import { SidebarProvider, Sidebar, SidebarTrigger, SidebarHeader, SidebarContent
 import { cn } from '@/lib/utils';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
+import { AssetDetailDisplay } from '@/components/asset-detail-display'; // New import
 import { useToast } from '@/hooks/use-toast';
 
+
+type ReviewPageView = 'companyStats' | 'projectContent' | 'assetDetail';
 
 export default function ReviewAllAssetsPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
@@ -41,6 +44,9 @@ export default function ReviewAllAssetsPage() {
   const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false);
   const [refreshFolderTreeKey, setRefreshFolderTreeKey] = useState(0);
 
+  const [currentView, setCurrentView] = useState<ReviewPageView>('companyStats');
+  const [assetForDetailView, setAssetForDetailView] = useState<Asset | null>(null);
+
 
   const loadInitialAdminData = useCallback(async () => {
     if (currentUser && currentUser.role === 'Admin' && currentUser.companyId) {
@@ -48,7 +54,7 @@ export default function ReviewAllAssetsPage() {
       try {
         const [assets, projects] = await Promise.all([
           FirestoreService.getAllAssetsForCompany(currentUser.companyId),
-          FirestoreService.getProjects(currentUser.companyId) // Gets projects with asset counts
+          FirestoreService.getProjects(currentUser.companyId) 
         ]);
         setAllCompanyAssets(assets);
         setCompanyProjects(projects.sort((a, b) => a.name.localeCompare(b.name)));
@@ -75,17 +81,20 @@ export default function ReviewAllAssetsPage() {
 
   const handleProjectSelect = useCallback(async (project: Project | null) => {
     setSelectedProject(project);
-    setSelectedProjectCurrentFolder(null); // Reset current folder when project changes
+    setSelectedProjectCurrentFolder(null); 
+    setAssetForDetailView(null); // Clear any detailed asset view
+
     if (project) {
+      setCurrentView('projectContent');
       setProjectContentLoading(true);
       try {
         const [folders, rootAssets] = await Promise.all([
           FirestoreService.getFolders(project.id),
-          FirestoreService.getAssets(project.id, null) // null for root assets
+          FirestoreService.getAssets(project.id, null) 
         ]);
         setSelectedProjectFolders(folders);
         setSelectedProjectRootAssets(rootAssets);
-        setCurrentAssetsInSelectedProjectFolder(rootAssets); // Initially show root assets
+        setCurrentAssetsInSelectedProjectFolder(rootAssets); 
       } catch (error) {
         console.error(`Error loading content for project ${project.name}:`, error);
         toast({ title: t('error', 'Error'), description: t('projectContentError', `Failed to load content for ${project.name}.`), variant: 'destructive'});
@@ -97,6 +106,7 @@ export default function ReviewAllAssetsPage() {
         setRefreshFolderTreeKey(prev => prev + 1);
       }
     } else {
+      setCurrentView('companyStats');
       setSelectedProjectFolders([]);
       setSelectedProjectRootAssets([]);
       setCurrentAssetsInSelectedProjectFolder([]);
@@ -105,6 +115,9 @@ export default function ReviewAllAssetsPage() {
 
   const handleSelectFolderInTree = useCallback(async (folder: FolderType | null) => {
     setSelectedProjectCurrentFolder(folder);
+    setAssetForDetailView(null); // Clear detail view when folder changes
+    setCurrentView('projectContent'); // Ensure we are in project content view
+
     if (selectedProject) {
       setProjectContentLoading(true);
       try {
@@ -122,28 +135,37 @@ export default function ReviewAllAssetsPage() {
   }, [selectedProject, toast, t]);
 
 
-  const handleEditAsset = useCallback((asset: Asset) => {
-    const editUrl = `/project/${asset.projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
-    router.push(editUrl);
-  }, [router]);
+  const handleViewAssetDetail = useCallback((asset: Asset) => {
+    setAssetForDetailView(asset);
+    setCurrentView('assetDetail');
+  }, []);
+
+  const handleBackToProjectContentView = useCallback(() => {
+    setAssetForDetailView(null);
+    setCurrentView('projectContent');
+  }, []);
+
 
   const handleDeleteAsset = useCallback(async (assetToDelete: Asset) => {
     if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
       const success = await FirestoreService.deleteAsset(assetToDelete.id);
       if (success) {
         toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-        // Refetch assets for the current view
-        if (selectedProject) {
-          handleSelectFolderInTree(selectedProjectCurrentFolder);
-        }
-        // Also refetch all company assets for the stats if needed, or just update count locally
+        
         setAllCompanyAssets(prev => prev.filter(a => a.id !== assetToDelete.id));
-
+        
+        if (currentView === 'assetDetail' && assetForDetailView?.id === assetToDelete.id) {
+          handleBackToProjectContentView(); 
+        }
+        
+        if (selectedProject) { // Refetch assets for current folder view if a project is selected
+            handleSelectFolderInTree(selectedProjectCurrentFolder);
+        }
       } else {
         toast({ title: t('error', 'Error'), description: t('deleteError', 'Failed to delete asset.'), variant: "destructive" });
       }
     }
-  }, [t, toast, selectedProject, selectedProjectCurrentFolder, handleSelectFolderInTree]);
+  }, [t, toast, selectedProject, selectedProjectCurrentFolder, handleSelectFolderInTree, currentView, assetForDetailView, handleBackToProjectContentView]);
 
   const handleOpenImagePreviewModal = useCallback((imageUrl: string) => {
     setImageToPreview(imageUrl);
@@ -204,7 +226,7 @@ export default function ReviewAllAssetsPage() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={() => handleProjectSelect(null)} 
-                  isActive={!selectedProject}
+                  isActive={currentView === 'companyStats'}
                   tooltip={t('companyStatsTooltip', 'View Company Stats')}
                 >
                   <BarChart3 />
@@ -221,7 +243,7 @@ export default function ReviewAllAssetsPage() {
                   <SidebarMenuItem key={project.id}>
                     <SidebarMenuButton 
                         onClick={() => handleProjectSelect(project)} 
-                        isActive={selectedProject?.id === project.id}
+                        isActive={selectedProject?.id === project.id && currentView !== 'companyStats'}
                         tooltip={project.name}
                     >
                       <ProjectFolderIcon />
@@ -256,7 +278,7 @@ export default function ReviewAllAssetsPage() {
         </Sidebar>
 
         <SidebarInset className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-          {!selectedProject && (
+          {currentView === 'companyStats' && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-2xl font-bold font-headline text-primary">
@@ -274,14 +296,13 @@ export default function ReviewAllAssetsPage() {
                             <CardTitle className="text-4xl">{allCompanyAssets.length}</CardTitle>
                         </CardHeader>
                     </Card>
-                    {/* Add more stats cards here if needed */}
                 </div>
                  <p className="text-sm text-muted-foreground mt-6">{t('selectProjectToViewDetailsPrompt', 'Select a project from the sidebar to view its specific folders and assets.')}</p>
               </CardContent>
             </Card>
           )}
 
-          {selectedProject && (
+          {currentView === 'projectContent' && selectedProject && (
             <div className="space-y-6">
               <CardHeader className="px-0 pt-0">
                 <div className="flex items-center justify-between">
@@ -296,7 +317,7 @@ export default function ReviewAllAssetsPage() {
                     </Link>
                 </div>
                 <CardDescription>
-                  {t('reviewProjectContentDesc', 'Review folders and assets for {projectName}. Click an asset to edit.', { projectName: selectedProject.name })}
+                  {t('reviewProjectContentDesc', 'Review folders and assets for {projectName}. Click an asset to view its details or edit.', { projectName: selectedProject.name })}
                 </CardDescription>
               </CardHeader>
               
@@ -317,7 +338,7 @@ export default function ReviewAllAssetsPage() {
                             onAddSubfolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('addSubfolderNotAvailableDescReview', 'Adding subfolders is done on the main project page.'), variant: "default"})}
                             onEditFolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('editFolderNotAvailableDescReview', 'Editing folders is done on the main project page.'), variant: "default"})}
                             onDeleteFolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('deleteFolderNotAvailableDescReview', 'Deleting folders is done on the main project page.'), variant: "default"})}
-                            onEditAsset={handleEditAsset}
+                            onEditAsset={handleViewAssetDetail} // Changed to view detail in-page
                             onDeleteAsset={handleDeleteAsset}
                             onPreviewImageAsset={handleOpenImagePreviewModal}
                             currentSelectedFolderId={selectedProjectCurrentFolder?.id || null}
@@ -335,6 +356,10 @@ export default function ReviewAllAssetsPage() {
               )}
             </div>
           )}
+
+          {currentView === 'assetDetail' && assetForDetailView && (
+             <AssetDetailDisplay asset={assetForDetailView} onBack={handleBackToProjectContentView} />
+          )}
         </SidebarInset>
       </div>
        {imageToPreview && (
@@ -347,5 +372,3 @@ export default function ReviewAllAssetsPage() {
     </SidebarProvider>
   );
 }
-
-    
