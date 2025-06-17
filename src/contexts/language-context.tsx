@@ -374,6 +374,18 @@ const translations: Record<Language, Record<string, string>> = {
     viewAssetButton: "View/Edit",
     noFoldersOrRootAssets: "No top-level folders or root assets in this project.",
 
+    reviewAllCompanyAssetsButton: "Review All Company Assets",
+    reviewAllAssetsPageTitle: "All Company Assets",
+    reviewAllAssetsPageDesc: "Review and manage all assets across all projects in {companyName}.",
+    assetsFoundCount: "{count} assets found.",
+    noAssetsFoundCompany: "No assets found for this company.",
+    assetNameTableTitle: "Asset Name",
+    projectNameTableTitle: "Project",
+    folderNameTableTitle: "Folder",
+    actionsTableTitle: "Actions",
+    viewEditAssetButton: "View/Edit",
+    backToAdminDashboard: "Back to Admin Dashboard",
+
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -734,6 +746,18 @@ const translations: Record<Language, Record<string, string>> = {
     viewFolderButton: "عرض",
     viewAssetButton: "عرض/تعديل",
     noFoldersOrRootAssets: "لا توجد مجلدات رئيسية أو أصول جذرية في هذا المشروع.",
+
+    reviewAllCompanyAssetsButton: "مراجعة جميع أصول الشركة",
+    reviewAllAssetsPageTitle: "جميع أصول الشركة",
+    reviewAllAssetsPageDesc: "مراجعة وإدارة جميع الأصول عبر جميع المشاريع في {companyName}.",
+    assetsFoundCount: "تم العثور على {count} أصول.",
+    noAssetsFoundCompany: "لم يتم العثور على أصول لهذه الشركة.",
+    assetNameTableTitle: "اسم الأصل",
+    projectNameTableTitle: "المشروع",
+    folderNameTableTitle: "المجلد",
+    actionsTableTitle: "الإجراءات",
+    viewEditAssetButton: "عرض/تعديل",
+    backToAdminDashboard: "العودة إلى لوحة تحكم المسؤول",
   },
 };
 
@@ -773,4 +797,3 @@ export function useLanguage() {
   }
   return context;
 }
-

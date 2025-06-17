@@ -335,12 +335,12 @@ export async function addFolder(folderData: Omit<Folder, 'id'>): Promise<Folder 
   try {
     const dataToSave = removeUndefinedProps(folderData);
     const docRef = await addDoc(collection(getDb(), FOLDERS_COLLECTION), dataToSave);
-    // Immediately fetch the created folder to get Firestore-generated timestamps if any
+    await new Promise(resolve => setTimeout(resolve, 300)); 
     const newFolderDoc = await getDoc(docRef);
     if (newFolderDoc.exists()) {
         return processDoc<Folder>(newFolderDoc);
     }
-    return null; // Fallback, though unlikely if addDoc succeeded
+    return null; 
   } catch (error) {
     console.error("Error adding folder: ", error);
     return null;
@@ -398,10 +398,8 @@ export async function getAssets(projectId: string, folderId: string | null): Pro
   try {
     let q;
     if (folderId === null) {
-        // Query for assets directly under project (folderId is null)
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
     } else {
-        // Query for assets within a specific folder (folderId is a string)
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
     }
     const snapshot = await getDocs(q);
@@ -429,7 +427,6 @@ export async function getAssetById(assetId: string): Promise<Asset | null> {
 
 export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>): Promise<Asset | null> {
   try {
-    // Ensure recordedAudioDataUrl is explicitly set to null if not provided, to avoid Firestore treating undefined as "no change"
     const dataWithNullForOptionalAudio = {
       ...assetData,
       recordedAudioDataUrl: assetData.recordedAudioDataUrl || null,
@@ -459,8 +456,6 @@ export async function updateAsset(assetId: string, assetData: Partial<Omit<Asset
     
     const dataWithNullForOptionalAudio = {
       ...assetData,
-      // If recordedAudioDataUrl is part of assetData and is explicitly undefined, it will be removed by removeUndefinedProps.
-      // If it's meant to be cleared, it should be passed as null.
       recordedAudioDataUrl: assetData.recordedAudioDataUrl === undefined ? undefined : (assetData.recordedAudioDataUrl || null),
     };
 
@@ -488,7 +483,7 @@ export async function deleteAsset(assetId: string): Promise<boolean> {
   }
 }
 
-// New function to get all data accessible by a user
+// Function to get all data accessible by a user
 export async function getUserAccessibleData(userId: string, companyId: string): Promise<{ projects: Project[]; folders: Folder[]; assets: Asset[] }> {
   const result: { projects: Project[]; folders: Folder[]; assets: Asset[] } = {
     projects: [],
@@ -497,8 +492,6 @@ export async function getUserAccessibleData(userId: string, companyId: string): 
   };
 
   try {
-    // 1. Fetch projects associated with the user in the company
-    // This query finds projects where the user is the creator OR is an assigned inspector OR is an assigned valuator.
     const projectsQuery = query(
       collection(getDb(), PROJECTS_COLLECTION),
       where("companyId", "==", companyId),
@@ -512,38 +505,98 @@ export async function getUserAccessibleData(userId: string, companyId: string): 
     result.projects = processSnapshot<Project>(projectsSnapshot);
 
     if (result.projects.length === 0) {
-      return result; // No projects, so no folders or assets to fetch
+      return result; 
     }
 
     const projectIds = result.projects.map(p => p.id);
 
-    // Batch projectIds if there are more than 30 (Firestore 'in' query limit)
-    // For simplicity, this example assumes projectIds.length <= 30.
-    // In a production app with potentially many projects, batching this would be necessary.
-    // Example: const MAX_IN_CLAUSE = 30; 
-    // for (let i = 0; i < projectIds.length; i += MAX_IN_CLAUSE) {
-    //   const batchIds = projectIds.slice(i, i + MAX_IN_CLAUSE);
-    //   ... fetch folders and assets for batchIds
-    // }
-
-    // 2. Fetch folders for these projects
     if (projectIds.length > 0) {
-      const foldersQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("projectId", "in", projectIds));
-      const foldersSnapshot = await getDocs(foldersQuery);
-      result.folders = processSnapshot<Folder>(foldersSnapshot);
-
-      // 3. Fetch assets for these projects
-      const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", projectIds));
-      const assetsSnapshot = await getDocs(assetsQuery);
-      result.assets = processSnapshot<Asset>(assetsSnapshot);
+      for (let i = 0; i < projectIds.length; i += 30) { // Firestore 'in' query limit is 30
+        const batchProjectIds = projectIds.slice(i, i + 30);
+        if (batchProjectIds.length > 0) {
+          const foldersQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("projectId", "in", batchProjectIds));
+          const foldersSnapshot = await getDocs(foldersQuery);
+          result.folders.push(...processSnapshot<Folder>(foldersSnapshot));
+          
+          const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", batchProjectIds));
+          const assetsSnapshot = await getDocs(assetsQuery);
+          result.assets.push(...processSnapshot<Asset>(assetsSnapshot));
+        }
+      }
     }
 
   } catch (error) {
     console.error("Error in getUserAccessibleData: ", error);
-    // Return whatever has been fetched so far, or an empty structure on catastrophic failure
     return { projects: [], folders: [], assets: [] };
   }
 
   return result;
 }
 
+// Function to get all assets for a company, augmented with project and folder names
+export type AssetWithContext = Asset & { projectName: string; folderName?: string };
+
+export async function getAllAssetsForCompany(companyId: string): Promise<AssetWithContext[]> {
+  const allAssetsProcessed: AssetWithContext[] = [];
+  try {
+    // 1. Fetch all projects for the company
+    const projectsQuery = query(collection(getDb(), PROJECTS_COLLECTION), where("companyId", "==", companyId));
+    const projectsSnapshot = await getDocs(projectsQuery);
+    const companyProjects = processSnapshot<Project>(projectsSnapshot);
+
+    if (companyProjects.length === 0) {
+      return [];
+    }
+    const projectMap = new Map(companyProjects.map(p => [p.id, p.name]));
+    const projectIds = companyProjects.map(p => p.id);
+
+    // 2. Fetch all folders belonging to these projects (batching projectIds for 'in' query)
+    const allFolders: Folder[] = [];
+    for (let i = 0; i < projectIds.length; i += 30) { // Firestore 'in' query limit
+      const batchProjectIds = projectIds.slice(i, i + 30);
+      if (batchProjectIds.length > 0) {
+        const foldersQuery = query(collection(getDb(), FOLDERS_COLLECTION), where("projectId", "in", batchProjectIds));
+        const foldersSnapshot = await getDocs(foldersQuery);
+        allFolders.push(...processSnapshot<Folder>(foldersSnapshot));
+      }
+    }
+    const folderMap = new Map(allFolders.map(f => [f.id, f.name]));
+
+    // 3. Fetch all assets belonging to these projects (batching projectIds for 'in' query)
+    for (let i = 0; i < projectIds.length; i += 30) { // Firestore 'in' query limit
+      const batchProjectIds = projectIds.slice(i, i + 30);
+      if (batchProjectIds.length > 0) {
+        const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", batchProjectIds));
+        const assetsSnapshot = await getDocs(assetsQuery);
+        const assetsInBatch = processSnapshot<Asset>(assetsSnapshot);
+        
+        assetsInBatch.forEach(asset => {
+          allAssetsProcessed.push({
+            ...asset,
+            projectName: projectMap.get(asset.projectId) || 'Unknown Project',
+            folderName: asset.folderId ? folderMap.get(asset.folderId) : undefined,
+          });
+        });
+      }
+    }
+    // Sort assets for consistent display, e.g., by project name, then asset name
+    allAssetsProcessed.sort((a, b) => {
+      const projectCompare = a.projectName.localeCompare(b.projectName);
+      if (projectCompare !== 0) return projectCompare;
+      if (a.folderName && b.folderName) {
+        const folderCompare = a.folderName.localeCompare(b.folderName);
+        if (folderCompare !== 0) return folderCompare;
+      } else if (a.folderName) {
+        return -1; // a has folder, b does not (root)
+      } else if (b.folderName) {
+        return 1; // b has folder, a does not (root)
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+  } catch (error) {
+    console.error("Error in getAllAssetsForCompany: ", error);
+    return []; // Return empty on error
+  }
+  return allAssetsProcessed;
+}

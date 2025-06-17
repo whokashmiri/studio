@@ -2,12 +2,13 @@
 "use client";
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import type { Project, AuthenticatedUser, Asset } from '@/data/mock-data'; // Keep Asset for type consistency if any minor use remains, but primary count source changes
 import * as FirestoreService from '@/lib/firestore-service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Loader2, ShieldAlert, Users, Briefcase, UserCheck, UserSearch, FolderOpen, Trash2 } from 'lucide-react';
+import { Loader2, ShieldAlert, Users, Briefcase, UserCheck, UserSearch, FolderOpen, Eye } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { ProjectCard } from '@/components/project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -232,14 +233,22 @@ export default function AdminDashboardPage() {
   
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-      <CardHeader className="px-0 pt-0">
-        <CardTitle className="text-2xl sm:text-3xl font-bold font-headline text-primary">
-          {t('adminDashboardTitle', 'Admin Dashboard')}
-        </CardTitle>
-        <CardDescription>
-          {t('adminDashboardDesc', 'Overview of projects and team members for {companyName}.', { companyName: currentUser.companyName })}
-        </CardDescription>
-      </CardHeader>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <CardHeader className="px-0 pt-0 flex-grow">
+          <CardTitle className="text-2xl sm:text-3xl font-bold font-headline text-primary">
+            {t('adminDashboardTitle', 'Admin Dashboard')}
+          </CardTitle>
+          <CardDescription>
+            {t('adminDashboardDesc', 'Overview of projects and team members for {companyName}.', { companyName: currentUser.companyName })}
+          </CardDescription>
+        </CardHeader>
+        <Link href="/admin/review-assets" passHref legacyBehavior>
+          <Button variant="outline" size="lg">
+            <Eye className="mr-2 h-5 w-5" />
+            {t('reviewAllCompanyAssetsButton', 'Review All Company Assets')}
+          </Button>
+        </Link>
+      </div>
 
       <Card>
         <CardHeader>
@@ -308,7 +317,7 @@ export default function AdminDashboardPage() {
                           {assignedProjectsToInspector.length > 0 ? (
                             <ul className="list-disc list-inside pl-2 space-y-0.5">
                               {assignedProjectsToInspector.map(p => (
-                                <li key={p.id} className="text-xs text-foreground truncate">
+                                <li key={p.id} className="text-xs text-foreground truncate" title={p.name}>
                                   {p.name} 
                                   {p.status === 'new' && <Badge variant="outline" className="ml-1.5 text-xs px-1.5 py-0 h-auto leading-tight">{t('new', 'New')}</Badge>}
                                   {p.status === 'recent' && <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0 h-auto leading-tight">{t('recent', 'Recent')}</Badge>}
@@ -364,7 +373,7 @@ export default function AdminDashboardPage() {
                           {assignedProjectsToValuator.length > 0 ? (
                             <ul className="list-disc list-inside pl-2 space-y-0.5">
                               {assignedProjectsToValuator.map(p => (
-                                 <li key={p.id} className="text-xs text-foreground truncate">
+                                 <li key={p.id} className="text-xs text-foreground truncate" title={p.name}>
                                   {p.name}
                                   {p.status === 'new' && <Badge variant="outline" className="ml-1.5 text-xs px-1.5 py-0 h-auto leading-tight">{t('new', 'New')}</Badge>}
                                   {p.status === 'recent' && <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0 h-auto leading-tight">{t('recent', 'Recent')}</Badge>}
@@ -431,5 +440,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
