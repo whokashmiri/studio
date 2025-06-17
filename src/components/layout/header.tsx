@@ -1,7 +1,7 @@
 
 "use client";
 import Link from 'next/link';
-import { Building, LogOut, UserCircle, Briefcase, LogIn, LayoutDashboard, Loader2 } from 'lucide-react'; 
+import { Building, LogOut, UserCircle, Briefcase, LogIn, LayoutDashboard, Loader2, LayoutGrid } from 'lucide-react'; 
 import { LanguageToggle } from '@/components/language-toggle';
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,6 +15,7 @@ export function Header() {
   const { currentUser, isLoading, logout } = useAuth();
   const { t } = useLanguage();
   const [isNavigatingToAdmin, setIsNavigatingToAdmin] = useState(false);
+  const [isNavigatingToMyData, setIsNavigatingToMyData] = useState(false);
   const pathname = usePathname(); 
   const router = useRouter(); // Initialize useRouter
 
@@ -24,18 +25,25 @@ export function Header() {
   }
 
   useEffect(() => {
-    if (isNavigatingToAdmin) {
+    if (isNavigatingToAdmin && pathname === '/admin/dashboard') {
       setIsNavigatingToAdmin(false);
     }
-  }, [pathname, isNavigatingToAdmin]);
+    if (isNavigatingToMyData && pathname === '/my-data') {
+      setIsNavigatingToMyData(false);
+    }
+  }, [pathname, isNavigatingToAdmin, isNavigatingToMyData]);
 
   const handleAdminDashboardNavigation = () => {
     if (pathname !== '/admin/dashboard') {
       setIsNavigatingToAdmin(true);
       router.push('/admin/dashboard');
-    } else {
-      // If already on the page, just ensure the menu closes (default behavior of onSelect)
-      // No need to set loader or navigate again
+    }
+  };
+
+  const handleMyDataNavigation = () => {
+    if (pathname !== '/my-data') {
+      setIsNavigatingToMyData(true);
+      router.push('/my-data');
     }
   };
 
@@ -71,10 +79,21 @@ export function Header() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={handleMyDataNavigation}
+                  disabled={isNavigatingToMyData && pathname !== '/my-data'}
+                >
+                  {isNavigatingToMyData && pathname !== '/my-data' ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <LayoutGrid className="mr-2 h-4 w-4" />
+                  )}
+                  {isNavigatingToMyData && pathname !== '/my-data' ? t('loading', 'Loading...') : t('myDataOverviewMenuLink', 'My Data Overview')}
+                </DropdownMenuItem>
                 {currentUser.role === 'Admin' && (
                   <DropdownMenuItem
                     onSelect={handleAdminDashboardNavigation}
-                    disabled={isNavigatingToAdmin && pathname !== '/admin/dashboard'} // Disable only if actively navigating from different page
+                    disabled={isNavigatingToAdmin && pathname !== '/admin/dashboard'}
                   >
                     {isNavigatingToAdmin && pathname !== '/admin/dashboard' ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -84,6 +103,7 @@ export function Header() {
                     {isNavigatingToAdmin && pathname !== '/admin/dashboard' ? t('loading', 'Loading...') : t('adminDashboardMenuLink', 'Admin Dashboard')}
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   {t('logoutButton', 'Logout')}

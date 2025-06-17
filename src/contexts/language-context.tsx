@@ -245,6 +245,7 @@ const translations: Record<Language, Record<string, string>> = {
     speechPlaybackNotAvailableDesc: "Your browser does not support speech playback.", 
 
     assetsInFolder: "Assets in \"{folderName}\"",
+    noAssetsInFolder: "No assets in this folder.",
     assetsInProjectRoot: "Assets in Project Root",
     assetPhotoAlt: "Photo of {assetName}",
     editAssetButton: "Edit Asset",
@@ -304,6 +305,7 @@ const translations: Record<Language, Record<string, string>> = {
     noValuatorsFound: "No valuators found in this company.",
     loadingAdminData: "Loading dashboard data...",
     accessDeniedTitle: "Access Denied",
+    pleaseLoginToView: "Please log in to view this page.",
     accessDeniedAdminDesc: "You do not have permission to view this page.",
     genericError: "An error occurred.",
     signupFailedTitle: "Signup Failed",
@@ -359,6 +361,19 @@ const translations: Record<Language, Record<string, string>> = {
     fullSizePreviewAlt: "Full-size asset image preview",
     imagePreviewTitle: "Image Preview",
     close: "Close",
+
+    myDataOverviewMenuLink: "My Data Overview",
+    myDataOverviewTitle: "My Data Overview",
+    myDataOverviewDesc: "View all projects, folders, and assets accessible to you.",
+    projectsSectionTitle: "Projects",
+    foldersSectionTitle: "Top-Level Folders",
+    assetsSectionTitle: "Root Assets",
+    noDataAccessible: "You do not have access to any projects, folders, or assets at the moment.",
+    viewProjectButton: "View Project Details",
+    viewFolderButton: "View",
+    viewAssetButton: "View/Edit",
+    noFoldersOrRootAssets: "No top-level folders or root assets in this project.",
+
   },
   ar: {
     appName: "مفتش الأصول برو",
@@ -572,7 +587,7 @@ const translations: Record<Language, Record<string, string>> = {
     allowCameraAccessPrompt: "يرجى السماح بالوصول إلى الكاميرا عند الطلب.",
     capturePhoto: "التقاط صورة",
     sessionPhotoPreviewAlt: "معاينة صورة الجلسة {number}",
-    doneWithSession: "تم",
+    doneWithSession: "تم", 
     doneWithSessionAddPhotos: "إضافة ({count})",
     currentPhotoBatch: "دفعة الصور الحالية",
     customCameraViewTitle: "عرض الكاميرا المخصص",
@@ -592,6 +607,7 @@ const translations: Record<Language, Record<string, string>> = {
 
 
     assetsInFolder: "الأصول في \"{folderName}\"",
+    noAssetsInFolder: "لا توجد أصول في هذا المجلد.",
     assetsInProjectRoot: "الأصول في جذر المشروع",
     assetPhotoAlt: "صورة {assetName}",
     editAssetButton: "تعديل الأصل",
@@ -650,6 +666,7 @@ const translations: Record<Language, Record<string, string>> = {
     noValuatorsFound: "لم يتم العثور على مقيمين في هذه الشركة.",
     loadingAdminData: "جاري تحميل بيانات لوحة التحكم...",
     accessDeniedTitle: "تم رفض الوصول",
+    pleaseLoginToView: "الرجاء تسجيل الدخول لعرض هذه الصفحة.",
     accessDeniedAdminDesc: "ليس لديك إذن لعرض هذه الصفحة.",
     genericError: "حدث خطأ.",
     signupFailedTitle: "فشل التسجيل",
@@ -705,6 +722,18 @@ const translations: Record<Language, Record<string, string>> = {
     fullSizePreviewAlt: "معاينة صورة الأصل بالحجم الكامل",
     imagePreviewTitle: "معاينة الصورة",
     close: "إغلاق",
+
+    myDataOverviewMenuLink: "نظرة عامة على بياناتي",
+    myDataOverviewTitle: "نظرة عامة على بياناتي",
+    myDataOverviewDesc: "عرض جميع المشاريع والمجلدات والأصول التي يمكنك الوصول إليها.",
+    projectsSectionTitle: "المشاريع",
+    foldersSectionTitle: "المجلدات الرئيسية",
+    assetsSectionTitle: "الأصول الجذرية",
+    noDataAccessible: "ليس لديك وصول إلى أي مشاريع أو مجلدات أو أصول في الوقت الحالي.",
+    viewProjectButton: "عرض تفاصيل المشروع",
+    viewFolderButton: "عرض",
+    viewAssetButton: "عرض/تعديل",
+    noFoldersOrRootAssets: "لا توجد مجلدات رئيسية أو أصول جذرية في هذا المشروع.",
   },
 };
 
