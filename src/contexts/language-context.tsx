@@ -417,7 +417,7 @@ const translations: Record<Language, Record<string, string>> = {
     settingsTooltip: "Settings (Placeholder)",
     companyWideAssetStats: "Company-Wide Asset Statistics",
     overviewOfAllCompanyAssets: "An overview of all assets across your company.",
-    selectProjectToViewDetailsPrompt: "Select a project from the sidebar to view its specific folders and assets.",
+    selectProjectToViewDetailsPrompt: "Select a project from the sidebar or click \"View Content\" below to view its specific folders and assets.",
     reviewProjectContentDesc: "Review folders and assets for {projectName}. Click an asset to view its details or edit.",
     loadingProjectContent: "Loading project content...",
     actionNotAvailableTitle: "Action Not Available",
@@ -432,6 +432,8 @@ const translations: Record<Language, Record<string, string>> = {
     noTextDescriptionProvided: "No written description provided.",
     noVoiceTranscriptProvided: "No voice transcript provided.",
     noVoiceContentAvailable: "No voice content (audio or transcript) available.",
+    companyProjectsListTitle: "Company Projects",
+    viewContentButton: "View Content",
 
   },
   ar: {
@@ -835,7 +837,7 @@ const translations: Record<Language, Record<string, string>> = {
     settingsTooltip: "الإعدادات (عنصر نائب)",
     companyWideAssetStats: "إحصائيات الأصول على مستوى الشركة",
     overviewOfAllCompanyAssets: "نظرة عامة على جميع الأصول في شركتك.",
-    selectProjectToViewDetailsPrompt: "حدد مشروعًا من الشريط الجانبي لعرض مجلداته وأصوله المحددة.",
+    selectProjectToViewDetailsPrompt: "حدد مشروعًا من الشريط الجانبي أو انقر فوق \"عرض المحتوى\" أدناه لعرض مجلداته وأصوله المحددة.",
     reviewProjectContentDesc: "مراجعة المجلدات والأصول لـ {projectName}. انقر فوق أصل لعرض تفاصيله أو تعديله.",
     loadingProjectContent: "جاري تحميل محتوى المشروع...",
     actionNotAvailableTitle: "الإجراء غير متوفر",
@@ -850,7 +852,8 @@ const translations: Record<Language, Record<string, string>> = {
     noTextDescriptionProvided: "لم يتم تقديم وصف مكتوب.",
     noVoiceTranscriptProvided: "لم يتم تقديم نص صوتي.",
     noVoiceContentAvailable: "لا يوجد محتوى صوتي (صوت أو نص) متاح.",
-
+    companyProjectsListTitle: "مشاريع الشركة",
+    viewContentButton: "عرض المحتوى",
   },
 };
 
@@ -890,3 +893,4 @@ export function useLanguage() {
   }
   return context;
 }
+

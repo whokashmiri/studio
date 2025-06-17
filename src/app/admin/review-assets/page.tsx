@@ -7,16 +7,16 @@ import { useAuth } from '@/contexts/auth-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import type { AssetWithContext } from '@/lib/firestore-service';
 import type { Project, Folder as FolderType, Asset } from '@/data/mock-data';
-import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye, Edit } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye, Edit, Briefcase } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarProvider, Sidebar, SidebarTrigger, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
-import { AssetDetailDisplay } from '@/components/asset-detail-display'; // New import
+import { AssetDetailDisplay } from '@/components/asset-detail-display';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -82,7 +82,7 @@ export default function ReviewAllAssetsPage() {
   const handleProjectSelect = useCallback(async (project: Project | null) => {
     setSelectedProject(project);
     setSelectedProjectCurrentFolder(null); 
-    setAssetForDetailView(null); // Clear any detailed asset view
+    setAssetForDetailView(null); 
 
     if (project) {
       setCurrentView('projectContent');
@@ -115,8 +115,8 @@ export default function ReviewAllAssetsPage() {
 
   const handleSelectFolderInTree = useCallback(async (folder: FolderType | null) => {
     setSelectedProjectCurrentFolder(folder);
-    setAssetForDetailView(null); // Clear detail view when folder changes
-    setCurrentView('projectContent'); // Ensure we are in project content view
+    setAssetForDetailView(null); 
+    setCurrentView('projectContent'); 
 
     if (selectedProject) {
       setProjectContentLoading(true);
@@ -158,7 +158,7 @@ export default function ReviewAllAssetsPage() {
           handleBackToProjectContentView(); 
         }
         
-        if (selectedProject) { // Refetch assets for current folder view if a project is selected
+        if (selectedProject) { 
             handleSelectFolderInTree(selectedProjectCurrentFolder);
         }
       } else {
@@ -279,27 +279,69 @@ export default function ReviewAllAssetsPage() {
 
         <SidebarInset className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           {currentView === 'companyStats' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl font-bold font-headline text-primary">
-                    {t('companyWideAssetStats', 'Company-Wide Asset Statistics')}
-                </CardTitle>
-                <CardDescription>
-                    {t('overviewOfAllCompanyAssets', 'An overview of all assets across your company.')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card className="bg-card/50">
-                        <CardHeader className="pb-2">
-                            <CardDescription>{t('totalAssetsStatLabel', 'Total Assets in Company')}</CardDescription>
-                            <CardTitle className="text-4xl">{allCompanyAssets.length}</CardTitle>
-                        </CardHeader>
-                    </Card>
-                </div>
-                 <p className="text-sm text-muted-foreground mt-6">{t('selectProjectToViewDetailsPrompt', 'Select a project from the sidebar to view its specific folders and assets.')}</p>
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-2xl font-bold font-headline text-primary">
+                      {t('companyWideAssetStats', 'Company-Wide Asset Statistics')}
+                  </CardTitle>
+                  <CardDescription>
+                      {t('overviewOfAllCompanyAssets', 'An overview of all assets across your company.')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card className="bg-card/50">
+                          <CardHeader className="pb-2">
+                              <CardDescription>{t('totalAssetsStatLabel', 'Total Assets in Company')}</CardDescription>
+                              <CardTitle className="text-4xl">{allCompanyAssets.length}</CardTitle>
+                          </CardHeader>
+                      </Card>
+                      {/* You can add more stats cards here if needed */}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                    <CardTitle className="text-xl font-semibold flex items-center">
+                        <Briefcase className="mr-2 h-5 w-5 text-primary" />
+                        {t('companyProjectsListTitle', 'Company Projects')}
+                    </CardTitle>
+                    <CardDescription>
+                        {t('selectProjectToViewDetailsPrompt', 'Select a project from the sidebar or click "View Content" below to view its specific folders and assets.')}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {companyProjects.length > 0 ? (
+                        <ScrollArea className="h-[calc(100vh-30rem)] md:h-[350px] pr-3">
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {companyProjects.map(project => (
+                                    <Card key={project.id} className="flex flex-col">
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-base font-semibold truncate" title={project.name}>
+                                                {project.name}
+                                            </CardTitle>
+                                             <CardDescription className="text-xs">
+                                                {project.description || t('noDescriptionAvailable', 'No description available.')}
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="flex-grow flex items-end pt-2">
+                                            <Button variant="outline" size="sm" className="w-full" onClick={() => handleProjectSelect(project)}>
+                                                <Eye className="mr-2 h-4 w-4" />
+                                                {t('viewContentButton', 'View Content')}
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    ) : (
+                        <p className="text-muted-foreground text-center py-6">{t('noProjectsInCompany', 'No projects in company.')}</p>
+                    )}
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {currentView === 'projectContent' && selectedProject && (
@@ -338,7 +380,7 @@ export default function ReviewAllAssetsPage() {
                             onAddSubfolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('addSubfolderNotAvailableDescReview', 'Adding subfolders is done on the main project page.'), variant: "default"})}
                             onEditFolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('editFolderNotAvailableDescReview', 'Editing folders is done on the main project page.'), variant: "default"})}
                             onDeleteFolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('deleteFolderNotAvailableDescReview', 'Deleting folders is done on the main project page.'), variant: "default"})}
-                            onEditAsset={handleViewAssetDetail} // Changed to view detail in-page
+                            onEditAsset={handleViewAssetDetail} 
                             onDeleteAsset={handleDeleteAsset}
                             onPreviewImageAsset={handleOpenImagePreviewModal}
                             currentSelectedFolderId={selectedProjectCurrentFolder?.id || null}
@@ -372,3 +414,4 @@ export default function ReviewAllAssetsPage() {
     </SidebarProvider>
   );
 }
+
