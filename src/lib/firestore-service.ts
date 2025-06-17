@@ -394,15 +394,14 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
 
 
 // Assets
-export async function getAssets(projectId: string, folderId?: string | null): Promise<Asset[]> {
+export async function getAssets(projectId: string, folderId: string | null): Promise<Asset[]> {
   try {
     let q;
-    if (folderId === undefined) { // Query for assets directly under project (folderId is null)
+    if (folderId === null) {
+        // Query for assets directly under project (folderId is null)
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
-    } else if (folderId === null) { // Explicitly querying for assets with folderId: null
-        q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
-    }
-     else { // Query for assets within a specific folder
+    } else {
+        // Query for assets within a specific folder (folderId is a string)
         q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
     }
     const snapshot = await getDocs(q);
