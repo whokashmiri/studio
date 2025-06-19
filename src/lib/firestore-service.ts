@@ -586,7 +586,7 @@ export async function getAllAssetsForCompany(companyId: string): Promise<AssetWi
     allAssetsProcessed.sort((a, b) => {
       const projectCompare = a.projectName.localeCompare(b.projectName);
       if (projectCompare !== 0) return projectCompare;
-      if (a.folderName && b.folderName) {
+      if (a.folderNamgete && b.folderName) {
         const folderCompare = a.folderName.localeCompare(b.folderName);
         if (folderCompare !== 0) return folderCompare;
       } else if (a.folderName) {

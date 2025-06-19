@@ -148,19 +148,21 @@ export default function ProjectPage() {
 
     if (createdFolder) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
-      await new Promise(resolve => setTimeout(resolve, 300)); // Delay for Firestore consistency
-      await loadProjectData();
       
+      setAllProjectFolders(prevFolders => [...prevFolders, createdFolder]);
+
       setNewFolderName('');
       setIsNewFolderDialogOpen(false);
       setNewFolderParentContext(null);
       setRefreshKey(prev => prev + 1); 
       
       toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
+      // Optionally, reconcile with a full data load in the background if needed
+      // loadProjectData(); 
     } else {
       toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
     }
-  }, [newFolderName, project, newFolderParentContext, toast, t, loadProjectData]);
+  }, [newFolderName, project, newFolderParentContext, toast, t, setAllProjectFolders]);
 
   const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
@@ -201,25 +203,27 @@ export default function ProjectPage() {
       const success = await FirestoreService.deleteAsset(assetToDelete.id);
       if (success) {
         toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-        await loadProjectData(); 
+        // Optimistic removal from currentAssets
+        setCurrentAssets(prevAssets => prevAssets.filter(a => a.id !== assetToDelete.id));
         setRefreshKey(prev => prev + 1);
+        // Optionally, reconcile with loadProjectData() if full consistency is critical immediately
+        // await loadProjectData(); 
       } else {
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
       }
     }
-  }, [t, toast, loadProjectData]);
+  }, [t, toast, setCurrentAssets /* Removed loadProjectData for optimistic UI */]);
 
   const handleAssetCreatedInModal = useCallback(async (createdAsset: Asset) => {
-    setIsNewAssetModalOpen(false); // Close modal first
-
-    // 1. Optimistic UI Updates
+    // Optimistic UI Updates
     const assetBelongsToCurrentView = 
       (createdAsset.folderId === null && selectedFolder === null) || 
       (selectedFolder !== null && createdAsset.folderId === selectedFolder.id);
 
     if (assetBelongsToCurrentView) {
       setCurrentAssets(prevAssets => {
-        if (prevAssets.find(a => a.id === createdAsset.id)) {
+        const existingAsset = prevAssets.find(a => a.id === createdAsset.id);
+        if (existingAsset) {
           return prevAssets.map(a => a.id === createdAsset.id ? createdAsset : a);
         }
         return [...prevAssets, createdAsset];
@@ -236,22 +240,19 @@ export default function ProjectPage() {
       );
     }
     
-    setRefreshKey(prev => prev + 1); // Force re-render with optimistic updates
+    setRefreshKey(prev => prev + 1); 
 
-    // 2. Background Server Sync & Reconciliation
     try {
       if (project) {
         await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
       }
-      // A short delay might still be useful before final reconciliation to allow Firestore to catch up.
-      // If issues persist where loadProjectData doesn't get the new asset immediately, this delay can be reinstated or adjusted.
-      // await new Promise(resolve => setTimeout(resolve, 300));
-      await loadProjectData(); 
+      // loadProjectData(); // Full reconciliation can be deferred or done less frequently
     } catch (error) {
-      console.error("Error syncing after asset creation:", error);
-      // Consider a toast for this type of error if reconciliation fails.
+      console.error("Error syncing project status after asset creation:", error);
+    } finally {
+      setIsNewAssetModalOpen(false); 
     }
-  }, [project, selectedFolder, loadProjectData, setCurrentAssets, setProject, setRefreshKey, setIsNewAssetModalOpen]);
+  }, [project, selectedFolder, setCurrentAssets, setProject, setRefreshKey, setIsNewAssetModalOpen]);
 
 
   const handleOpenImagePreviewModal = useCallback((imageUrl: string) => {
