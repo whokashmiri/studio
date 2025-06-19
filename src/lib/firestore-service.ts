@@ -395,22 +395,6 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
 
 
 // Assets
-export async function getAssets(projectId: string, folderId: string | null): Promise<Asset[]> {
-  try {
-    let q;
-    if (folderId === null) {
-        q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
-    } else {
-        q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
-    }
-    const snapshot = await getDocs(q);
-    return processSnapshot<Asset>(snapshot);
-  } catch (error) {
-    console.error("Error getting assets: ", error);
-    return [];
-  }
-}
-
 export async function getAssetById(assetId: string): Promise<Asset | null> {
     try {
         const docRef = doc(getDb(), ASSETS_COLLECTION, assetId);
@@ -424,7 +408,6 @@ export async function getAssetById(assetId: string): Promise<Asset | null> {
         return null;
     }
 }
-
 
 export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>): Promise<Asset | null> {
   try {
@@ -586,7 +569,7 @@ export async function getAllAssetsForCompany(companyId: string): Promise<AssetWi
     allAssetsProcessed.sort((a, b) => {
       const projectCompare = a.projectName.localeCompare(b.projectName);
       if (projectCompare !== 0) return projectCompare;
-      if (a.folderNamgete && b.folderName) {
+      if (a.folderName && b.folderName) { // Corrected: a.folderName instead of a.folderNamgete
         const folderCompare = a.folderName.localeCompare(b.folderName);
         if (folderCompare !== 0) return folderCompare;
       } else if (a.folderName) {
@@ -604,3 +587,18 @@ export async function getAllAssetsForCompany(companyId: string): Promise<AssetWi
   return allAssetsProcessed;
 }
 
+export async function getAssets(projectId: string, folderId: string | null): Promise<Asset[]> {
+  try {
+    let q;
+    if (folderId === null) {
+        q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
+    } else {
+        q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
+    }
+    const snapshot = await getDocs(q);
+    return processSnapshot<Asset>(snapshot);
+  } catch (error) {
+    console.error("Error getting assets: ", error);
+    return [];
+  }
+}
