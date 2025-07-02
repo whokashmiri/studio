@@ -390,8 +390,25 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
   }
 }
 
-
 // Assets
+export async function getAssets(projectId: string, folderId: string | null): Promise<Asset[]> {
+    try {
+      let q;
+      if (folderId === null) {
+          // If folderId is null, fetch assets at the root of the project
+          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
+      } else {
+          // If folderId is provided, fetch assets within that specific folder
+          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
+      }
+      const snapshot = await getDocs(q);
+      return processSnapshot<Asset>(snapshot);
+    } catch (error) {
+      console.error("Error getting assets: ", error);
+      return [];
+    }
+}
+
 export async function getAssetById(assetId: string): Promise<Asset | null> {
     try {
         const docRef = doc(getDb(), ASSETS_COLLECTION, assetId);
