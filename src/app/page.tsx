@@ -52,8 +52,21 @@ export default function HomePage() {
               const allDbCompanies = await FirestoreService.getCompanies();
               const filteredCompanies = allDbCompanies.filter(c => relevantCompanyIds.has(c.id));
               setUserAssociatedCompanies(filteredCompanies);
+              
+              // Auto-select company if there's only one association
+              if (filteredCompanies.length === 1) {
+                  setSelectedCompany(filteredCompanies[0]);
+              }
+
             } else {
-              setUserAssociatedCompanies([]);
+              // Fallback: If no companies found through projects, but user has a primary company, use that.
+              if (currentUser.companyId && currentUser.companyName) {
+                  const ownCompany = { id: currentUser.companyId, name: currentUser.companyName };
+                  setUserAssociatedCompanies([ownCompany]);
+                  setSelectedCompany(ownCompany);
+              } else {
+                  setUserAssociatedCompanies([]);
+              }
             }
           } catch (error) {
             console.error("Error fetching user associated companies/projects:", error);
@@ -102,44 +115,47 @@ export default function HomePage() {
       );
   }
 
-  // If currentUser is loaded, but no company has been selected yet, show selector or no companies message
-  if (!selectedCompany) {
-    if (isLoadingUserCompanies) { // Still determining companies
-        return (
-          <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-lg text-muted-foreground mt-4">{t('loading', 'Determining your companies...')}</p>
-          </div>
-        );
-    }
-    if (userAssociatedCompanies.length === 0) {
+  // If a company is selected (either by user click or auto-selected in useEffect), show the dashboard
+  if (selectedCompany) {
+    return (
+      <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+        <ProjectDashboard
+          company={selectedCompany}
+          onLogout={handleLogoutAndReset}
+        />
+      </div>
+    );
+  }
+  
+  // If loading is finished but no company is selected yet, figure out what to show.
+  if (isLoadingUserCompanies) {
       return (
-        <div className="container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <CardTitle className="text-2xl font-headline text-center">{t('noCompaniesAssociatedTitle', 'No Companies Found')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground text-center">
-                        {t('noCompaniesAssociatedDesc', 'There are no companies currently associated with your account. Please contact an administrator if you believe this is an error.')}
-                    </p>
-                </CardContent>
-            </Card>
+        <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground mt-4">{t('loading', 'Determining your companies...')}</p>
         </div>
       );
-    }
-    // If only one company, consider auto-selecting or still show selector based on UX preference.
-    // For now, always show selector if companies are available.
+  }
+  
+  // If more than one company and none is selected yet, show selector.
+  // The case of a single company was handled by auto-selection in useEffect.
+  if (userAssociatedCompanies.length > 1) {
     return <CompanySelector companies={userAssociatedCompanies} onSelectCompany={handleSelectCompany} />;
   }
 
-  // If currentUser is loaded AND a company has been selected
+  // This is the final fallback: user has no associated companies at all.
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-      <ProjectDashboard
-        company={selectedCompany}
-        onLogout={handleLogoutAndReset}
-      />
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
+        <Card className="w-full max-w-md">
+            <CardHeader>
+                <CardTitle className="text-2xl font-headline text-center">{t('noCompaniesAssociatedTitle', 'No Companies Found')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-muted-foreground text-center">
+                    {t('noCompaniesAssociatedDesc', 'There are no companies currently associated with your account. Please contact an administrator if you believe this is an error.')}
+                </p>
+            </CardContent>
+        </Card>
     </div>
   );
 }
