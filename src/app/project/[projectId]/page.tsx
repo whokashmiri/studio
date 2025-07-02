@@ -162,7 +162,7 @@ export default function ProjectPage() {
     } else {
       toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
     }
-  }, [newFolderName, project, newFolderParentContext, toast, t, setAllProjectFolders]);
+  }, [newFolderName, project, newFolderParentContext, toast, t, setAllProjectFolders, setNewFolderName, setIsNewFolderDialogOpen, setNewFolderParentContext, setRefreshKey]);
 
   const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
@@ -191,7 +191,7 @@ export default function ProjectPage() {
       const updatedProj = await FirestoreService.getProjectById(project.id);
       setProject(updatedProj);
     }
-  }, [loadProjectData, project, setProject]);
+  }, [loadProjectData, project]);
 
   const handleEditAsset = useCallback((asset: Asset) => {
     const editUrl = `/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
@@ -212,7 +212,7 @@ export default function ProjectPage() {
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
       }
     }
-  }, [t, toast, setCurrentAssets /* Removed loadProjectData for optimistic UI */]);
+  }, [t, toast, setCurrentAssets]);
 
   const handleAssetCreatedInModal = useCallback(async (createdAsset: Asset) => {
     // Optimistic UI Updates
@@ -252,7 +252,7 @@ export default function ProjectPage() {
     } finally {
       setIsNewAssetModalOpen(false); 
     }
-  }, [project, selectedFolder, setCurrentAssets, setProject, setRefreshKey, setIsNewAssetModalOpen]);
+  }, [project, selectedFolder, setProject, setCurrentAssets, setIsNewAssetModalOpen, setRefreshKey]);
 
 
   const handleOpenImagePreviewModal = useCallback((imageUrl: string) => {
@@ -470,4 +470,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
