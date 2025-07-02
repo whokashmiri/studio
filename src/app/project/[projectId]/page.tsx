@@ -279,7 +279,7 @@ export default function ProjectPage() {
                 {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
               </Button>
             )}
-            {!isMobile && (
+            {!isMobile && selectedFolder && (
                 <Button
                   onClick={() => setIsNewAssetModalOpen(true)} 
                   className="w-full sm:w-auto"
@@ -334,7 +334,7 @@ export default function ProjectPage() {
         {isCurrentLocationEmpty && (
             <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">
-                  {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project is empty. Add a folder or asset to get started.')}
+                  {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project is empty. Add a folder to get started.')}
                 </p>
                 {isMobile && (
                      <p className="text-sm text-muted-foreground">{t('useFabToCreateContentMobile', 'Use the buttons below to add a folder or asset.')}</p>
@@ -360,15 +360,17 @@ export default function ProjectPage() {
             <FolderPlus className="mr-2 h-5 w-5" />
             {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
           </Button>
-          <Button
-            onClick={() => setIsNewAssetModalOpen(true)} 
-            className="flex-1"
-            size="default"
-            title={t('newAsset', 'New Asset')}
-          >
-            <FilePlus className="mr-2 h-5 w-5" />
-            {t('newAsset', 'New Asset')}
-          </Button>
+          {selectedFolder && (
+            <Button
+              onClick={() => setIsNewAssetModalOpen(true)} 
+              className="flex-1"
+              size="default"
+              title={t('newAsset', 'New Asset')}
+            >
+              <FilePlus className="mr-2 h-5 w-5" />
+              {t('newAsset', 'New Asset')}
+            </Button>
+          )}
         </div>
       )}
 
