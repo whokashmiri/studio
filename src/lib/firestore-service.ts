@@ -409,6 +409,17 @@ export async function getAssets(projectId: string, folderId: string | null): Pro
     }
 }
 
+export async function getAllAssetsForProject(projectId: string): Promise<Asset[]> {
+  try {
+    const q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId));
+    const snapshot = await getDocs(q);
+    return processSnapshot<Asset>(snapshot);
+  } catch (error) {
+    console.error("Error getting all assets for project: ", error);
+    return [];
+  }
+}
+
 export async function getAssetById(assetId: string): Promise<Asset | null> {
     try {
         const docRef = doc(getDb(), ASSETS_COLLECTION, assetId);

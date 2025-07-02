@@ -28,8 +28,8 @@ export default function ProjectPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
+  const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]); // Changed
   const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
-  const [currentAssets, setCurrentAssets] = useState<Asset[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
@@ -77,10 +77,10 @@ export default function ProjectPage() {
     if (projectId) {
       setIsLoadingData(true);
       try {
-        const [foundProject, projectFolders, assetsForCurrentView] = await Promise.all([
+        const [foundProject, projectFolders, projectAssets] = await Promise.all([
           FirestoreService.getProjectById(projectId),
           FirestoreService.getFolders(projectId),
-          FirestoreService.getAssets(projectId, currentUrlFolderId || null)
+          FirestoreService.getAllAssetsForProject(projectId) // Fetch all assets
         ]);
 
         if (!foundProject) {
@@ -92,7 +92,7 @@ export default function ProjectPage() {
         
         setProject(foundProject);
         setAllProjectFolders([...projectFolders]); 
-        setCurrentAssets([...assetsForCurrentView]);
+        setAllProjectAssets([...projectAssets]); // Set all assets
 
         if (currentUrlFolderId) {
           const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); 
@@ -128,6 +128,15 @@ export default function ProjectPage() {
       return folder.parentId === null; 
     });
   }, [allProjectFolders, selectedFolder]);
+
+  const assetsToDisplay = useMemo(() => {
+    return allProjectAssets.filter(asset => {
+      if (selectedFolder) {
+        return asset.folderId === selectedFolder.id;
+      }
+      return asset.folderId === null; // Assets at the root
+    });
+  }, [allProjectAssets, selectedFolder]);
 
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
@@ -232,7 +241,7 @@ export default function ProjectPage() {
     );
   }
 
-  const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && currentAssets.length === 0;
+  const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && assetsToDisplay.length === 0;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24 md:pb-8">
@@ -311,7 +320,7 @@ export default function ProjectPage() {
         <CardContent>
         <FolderTreeDisplay
             foldersToDisplay={foldersToDisplayInGrid}
-            assetsToDisplay={currentAssets}
+            assetsToDisplay={assetsToDisplay}
             projectId={project.id}
             onSelectFolder={handleSelectFolder}
             onAddSubfolder={openNewFolderDialog}
