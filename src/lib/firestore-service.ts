@@ -61,9 +61,6 @@ const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => 
     if (newObj[key] === undefined) {
       delete newObj[key];
     }
-    if (newObj[key] === null) { // Also remove nulls if not explicitly desired for Firestore 'delete field'
-      delete newObj[key];
-    }
   });
   return newObj;
 };
