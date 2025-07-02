@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import type { AssetWithContext } from '@/lib/firestore-service';
 import type { Project, Folder as FolderType, Asset } from '@/data/mock-data';
-import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye, Edit, Briefcase } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye, Edit, Briefcase, ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ type ReviewPageView = 'companyStats' | 'projectContent' | 'assetDetail';
 export default function ReviewAllAssetsPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
 
   const [allCompanyAssets, setAllCompanyAssets] = useState<AssetWithContext[]>([]);
@@ -90,11 +90,12 @@ export default function ReviewAllAssetsPage() {
       try {
         const [folders, rootAssets] = await Promise.all([
           FirestoreService.getFolders(project.id),
-          FirestoreService.getAssets(project.id, null) 
+          FirestoreService.getAllAssetsForProject(project.id) 
         ]);
+        const rootAssetsForProject = rootAssets.filter(asset => asset.folderId === null);
         setSelectedProjectFolders(folders);
-        setSelectedProjectRootAssets(rootAssets);
-        setCurrentAssetsInSelectedProjectFolder(rootAssets); 
+        setSelectedProjectRootAssets(rootAssetsForProject);
+        setCurrentAssetsInSelectedProjectFolder(rootAssetsForProject); 
       } catch (error) {
         console.error(`Error loading content for project ${project.name}:`, error);
         toast({ title: t('error', 'Error'), description: t('projectContentError', `Failed to load content for ${project.name}.`), variant: 'destructive'});
@@ -121,8 +122,9 @@ export default function ReviewAllAssetsPage() {
     if (selectedProject) {
       setProjectContentLoading(true);
       try {
-        const assets = await FirestoreService.getAssets(selectedProject.id, folder ? folder.id : null);
-        setCurrentAssetsInSelectedProjectFolder(assets);
+        const allAssets = await FirestoreService.getAllAssetsForProject(selectedProject.id);
+        const assetsInFolder = allAssets.filter(asset => asset.folderId === (folder ? folder.id : null));
+        setCurrentAssetsInSelectedProjectFolder(assetsInFolder);
       } catch (error) {
         console.error(`Error loading assets for folder:`, error);
         toast({ title: t('error', 'Error'), description: t('folderAssetsError', 'Failed to load assets for folder.'), variant: 'destructive'});
@@ -212,7 +214,7 @@ export default function ReviewAllAssetsPage() {
   return (
     <SidebarProvider>
       <div className="flex min-h-[calc(100vh-4rem)]">
-        <Sidebar className="border-r" collapsible="icon">
+        <Sidebar className={language === 'ar' ? "border-l" : "border-r"} collapsible="icon" side={language === 'ar' ? 'right' : 'left'}>
           <SidebarHeader className="p-3 border-b">
              <div className="flex items-center gap-2">
                 <LayoutDashboard className="h-6 w-6 text-primary" />
@@ -263,7 +265,7 @@ export default function ReviewAllAssetsPage() {
             <SidebarMenu className="space-y-1 p-0">
                  <SidebarMenuItem>
                     <SidebarMenuButton onClick={() => router.push('/admin/dashboard')} tooltip={t('backToAdminDashboard', 'Back to Admin Dashboard')}>
-                        <ArrowLeft />
+                        {language === 'ar' ? <ArrowRight /> : <ArrowLeft />}
                         <span className="group-data-[collapsible=icon]:hidden">{t('backToAdminDashboard', 'Admin Dashboard')}</span>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -414,4 +416,3 @@ export default function ReviewAllAssetsPage() {
     </SidebarProvider>
   );
 }
-

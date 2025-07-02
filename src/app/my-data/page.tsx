@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import type { Project, Folder as FolderType, Asset } from '@/data/mock-data';
-import { Loader2, ShieldAlert, Briefcase, FolderIcon as DataFolderIcon, FileText, SettingsIcon, BarChart3, ArrowLeft, Eye } from 'lucide-react'; 
+import { Loader2, ShieldAlert, Briefcase, FolderIcon as DataFolderIcon, FileText, SettingsIcon, BarChart3, ArrowLeft, Eye, ArrowRight } from 'lucide-react'; 
 import { useLanguage } from '@/contexts/language-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ type MyDataView = 'stats' | 'projectsList';
 
 export default function MyDataPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   
   const [accessibleData, setAccessibleData] = useState<AccessibleData>({ projects: [], folders: [], assets: [] });
@@ -87,7 +87,7 @@ export default function MyDataPage() {
   return (
     <SidebarProvider>
       <div className="flex min-h-[calc(100vh-4rem)]">
-        <Sidebar className="border-r" collapsible="icon">
+        <Sidebar className={language === 'ar' ? "border-l" : "border-r"} collapsible="icon" side={language === 'ar' ? 'right' : 'left'}>
            <SidebarHeader className="p-3 border-b">
              <div className="flex items-center gap-2">
                 <BarChart3 className="h-6 w-6 text-primary" />
@@ -124,7 +124,7 @@ export default function MyDataPage() {
             <SidebarMenu className="space-y-1 p-0">
                  <SidebarMenuItem>
                     <SidebarMenuButton onClick={() => router.push('/')} tooltip={t('backToDashboard', 'Back to Dashboard')}>
-                        <ArrowLeft />
+                        {language === 'ar' ? <ArrowRight /> : <ArrowLeft />}
                         <span className="group-data-[collapsible=icon]:hidden">{t('backToDashboard', 'Dashboard')}</span>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -237,4 +237,3 @@ export default function MyDataPage() {
     </SidebarProvider>
   );
 }
-
