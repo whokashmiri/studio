@@ -36,6 +36,7 @@ export default function ProjectPage() {
 
   const [newFolderName, setNewFolderName] = useState('');
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderParentContext, setNewFolderParentContext] = useState<FolderType | null>(null);
 
   const [editingFolder, setEditingFolder] = useState<FolderType | null>(null);
@@ -146,26 +147,31 @@ export default function ProjectPage() {
   const handleCreateFolder = useCallback(async () => {
     if (!newFolderName.trim() || !project) return;
 
-    const newFolderData: Omit<FolderType, 'id'> = {
-      name: newFolderName,
-      projectId: project.id,
-      parentId: newFolderParentContext ? newFolderParentContext.id : null,
-    };
+    setIsCreatingFolder(true);
+    try {
+      const newFolderData: Omit<FolderType, 'id'> = {
+        name: newFolderName,
+        projectId: project.id,
+        parentId: newFolderParentContext ? newFolderParentContext.id : null,
+      };
 
-    const createdFolder = await FirestoreService.addFolder(newFolderData);
+      const createdFolder = await FirestoreService.addFolder(newFolderData);
 
-    if (createdFolder) {
-      await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
-      
-      toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
-      
-      setNewFolderName('');
-      setIsNewFolderDialogOpen(false);
-      setNewFolderParentContext(null);
-      
-      await loadProjectData(); // RELOAD all data from Firestore
-    } else {
-      toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
+      if (createdFolder) {
+        await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
+        
+        toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
+        
+        setNewFolderName('');
+        setIsNewFolderDialogOpen(false);
+        setNewFolderParentContext(null);
+        
+        await loadProjectData(); // RELOAD all data from Firestore
+      } else {
+        toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
+      }
+    } finally {
+      setIsCreatingFolder(false);
     }
   }, [newFolderName, project, newFolderParentContext, toast, t, loadProjectData]);
 
@@ -334,9 +340,12 @@ export default function ProjectPage() {
         {isCurrentLocationEmpty && (
             <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">
-                  {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project is empty. Add a folder to get started.')}
+                  {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('noFoldersInProjectStart', 'This project has no folders yet. Use the button below to add a new folder to get started.')}
                 </p>
-                {isMobile && (
+                {isMobile && !selectedFolder && (
+                     <p className="text-sm text-muted-foreground">{t('useFabToAddFolderMobile', 'Use the "Add New Folder" button below to get started.')}</p>
+                )}
+                 {isMobile && selectedFolder && (
                      <p className="text-sm text-muted-foreground">{t('useFabToCreateContentMobile', 'Use the buttons below to add a folder or asset.')}</p>
                 )}
                 {!isMobile && (
@@ -375,6 +384,7 @@ export default function ProjectPage() {
       )}
 
       <Dialog open={isNewFolderDialogOpen} onOpenChange={(isOpen) => {
+        if (isCreatingFolder) return;
         if (!isOpen) {
           setNewFolderName('');
           setNewFolderParentContext(null);
@@ -394,11 +404,15 @@ export default function ProjectPage() {
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               placeholder={t('folderNamePlaceholder', "e.g., Inspection Area 1")}
+              disabled={isCreatingFolder}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); setNewFolderParentContext(null); }}>{t('cancel', 'Cancel')}</Button>
-            <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>{t('confirm', 'Confirm')}</Button>
+            <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); setNewFolderParentContext(null); }} disabled={isCreatingFolder}>{t('cancel', 'Cancel')}</Button>
+            <Button onClick={handleCreateFolder} disabled={!newFolderName.trim() || isCreatingFolder}>
+              {isCreatingFolder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isCreatingFolder ? t('saving', 'Saving...') : t('confirm', 'Confirm')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -435,3 +449,4 @@ export default function ProjectPage() {
     </div>
   );
 }
+
