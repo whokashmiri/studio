@@ -46,8 +46,33 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
   const { toast } = useToast();
   const { t } = useLanguage();
 
-  const inspectors = useMemo(() => allCompanyUsers.filter(u => u.role === 'Inspector'), [allCompanyUsers]);
-  const valuators = useMemo(() => allCompanyUsers.filter(u => u.role === 'Valuation'), [allCompanyUsers]);
+  const inspectors = useMemo(() => {
+    // Show inspectors in the company OR inspectors who are already assigned to this project
+    const assignedInspectors = Array.from(selectedInspectorIds);
+    const companyInspectors = allCompanyUsers.filter(u => u.role === 'Inspector');
+    const combined = [...companyInspectors];
+    assignedInspectors.forEach(id => {
+      if (!combined.some(u => u.id === id)) {
+        const externalUser = allUsersForSuggestions.find(u => u.id === id);
+        if (externalUser) combined.push(externalUser);
+      }
+    });
+    return combined;
+  }, [allCompanyUsers, selectedInspectorIds, allUsersForSuggestions]);
+  
+  const valuators = useMemo(() => {
+    // Show valuators in the company OR valuators who are already assigned to this project
+    const assignedValuators = Array.from(selectedValuatorIds);
+    const companyValuators = allCompanyUsers.filter(u => u.role === 'Valuation');
+    const combined = [...companyValuators];
+    assignedValuators.forEach(id => {
+      if (!combined.some(u => u.id === id)) {
+        const externalUser = allUsersForSuggestions.find(u => u.id === id);
+        if (externalUser) combined.push(externalUser);
+      }
+    });
+    return combined;
+  }, [allCompanyUsers, selectedValuatorIds, allUsersForSuggestions]);
 
   const fetchInitialData = useCallback(async () => {
     if (currentCompanyId) {
@@ -56,7 +81,7 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
       try {
         const [companyUsers, allSystemUsers] = await Promise.all([
           FirestoreService.getAllUsersByCompany(currentCompanyId),
-          FirestoreService.getAllUsers() // For suggestions
+          FirestoreService.getAllUsers() // For suggestions and external user info
         ]);
         setAllCompanyUsers(companyUsers);
         setAllUsersForSuggestions(allSystemUsers);
@@ -107,7 +132,6 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
     setIsLoadingSearch(true);
     setNoUserFoundMessage(null);
     try {
-      // Fetch the full user details (MockStoredUser might have more, like password if ever needed by service)
       const fullUser = await FirestoreService.getUserById(user.id);
       if (fullUser) {
         setSearchedUserResult(fullUser);
@@ -156,7 +180,6 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
       toast({ title: "Error", description: "Cannot determine current company to assign user.", variant: "destructive" });
       return;
     }
-    // Use a separate loading state for this action or reuse isLoadingSearch
     setIsLoadingSearch(true); 
     
     const success = await FirestoreService.updateUserRoleAndCompany(userToUpdate.id, newRole, currentCompanyId, currentUser.companyName);
@@ -166,7 +189,6 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
         title: t('userRoleUpdatedTitle', 'User Role Updated'),
         description: t('userRoleUpdatedDesc', `User ${userToUpdate.email} is now a ${newRole} in ${currentUser.companyName}.`, { email: userToUpdate.email, role: newRole, companyName: currentUser.companyName }),
       });
-      // Refresh data for both suggestion list and company user list
       await fetchInitialData(); 
       setSearchTerm(''); 
       setSearchedUserResult(null);
@@ -226,41 +248,73 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
     if (!currentCompanyId) return null;
 
     const isUserInCurrentCompany = user.companyId === currentCompanyId;
-    const isInspectorInCurrentCompany = isUserInCurrentCompany && user.role === 'Inspector';
-    const isValuatorInCurrentCompany = isUserInCurrentCompany && user.role === 'Valuation';
 
-    const actionButtons = [];
+    // --- LOGIC FOR EXTERNAL USERS ---
+    if (!isUserInCurrentCompany) {
+      const externalActionButtons = [];
+      const canBeInspector = user.role === 'Inspector' || user.role === 'Admin';
+      const canBeValuator = user.role === 'Valuation' || user.role === 'Admin';
 
-    if (!isInspectorInCurrentCompany) {
-      actionButtons.push(
+      if (canBeInspector) {
+        externalActionButtons.push(
+          <Button key="assign-inspector" size="sm" variant="outline" onClick={() => {
+            handleCheckboxChange(user.id, 'Inspector', true);
+            toast({ title: t('stagedForAssignmentTitle', 'Staged for Assignment'), description: t('stagedForAssignmentDesc', '{email} is staged to be assigned as an Inspector.', { email: user.email }) });
+            setSearchedUserResult(null);
+            setSearchTerm('');
+          }}>
+            <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+            {t('assignAsInspectorButton', 'Assign as Inspector')}
+          </Button>
+        );
+      }
+      if (canBeValuator) {
+        externalActionButtons.push(
+          <Button key="assign-valuator" size="sm" variant="outline" onClick={() => {
+            handleCheckboxChange(user.id, 'Valuation', true);
+            toast({ title: t('stagedForAssignmentTitle', 'Staged for Assignment'), description: t('stagedForAssignmentDesc', '{email} is staged to be assigned as a Valuator.', { email: user.email }) });
+            setSearchedUserResult(null);
+            setSearchTerm('');
+          }}>
+            <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+            {t('assignAsValuatorButton', 'Assign as Valuator')}
+          </Button>
+        );
+      }
+      
+      if (externalActionButtons.length === 0) {
+        return <div className="text-xs text-muted-foreground mt-1">{t('userCannotBeAssigned', 'This user\'s role does not permit assignment.')}</div>;
+      }
+      return <div className="flex gap-2 mt-1 flex-wrap">{externalActionButtons}</div>;
+    }
+
+    // --- LOGIC FOR INTERNAL USERS ---
+    const internalActionButtons = [];
+    if (user.role !== 'Inspector') {
+      internalActionButtons.push(
         <Button key="make-inspector" size="sm" variant="outline" onClick={() => handleInviteOrUpdateUserRole(user, 'Inspector')} disabled={isLoadingSearch}>
           <UserPlus className="mr-1.5 h-3.5 w-3.5" />
-          {isUserInCurrentCompany ? t('makeInspectorButton', 'Make Inspector') : t('addAsInspectorButton', 'Add as Inspector')}
+          {t('makeInspectorButton', 'Make Inspector')}
         </Button>
       );
     }
-    if (!isValuatorInCurrentCompany) {
-      actionButtons.push(
+    if (user.role !== 'Valuation') {
+      internalActionButtons.push(
         <Button key="make-valuator" size="sm" variant="outline" onClick={() => handleInviteOrUpdateUserRole(user, 'Valuation')} disabled={isLoadingSearch}>
           <UserPlus className="mr-1.5 h-3.5 w-3.5" />
-          {isUserInCurrentCompany ? t('makeValuatorButton', 'Make Valuator') : t('addAsValuatorButton', 'Add as Valuator')}
+          {t('makeValuatorButton', 'Make Valuator')}
         </Button>
       );
     }
-    if (isInspectorInCurrentCompany || isValuatorInCurrentCompany) {
-         actionButtons.push(
+    if (user.role === 'Inspector' || user.role === 'Valuation') {
+         internalActionButtons.push(
             <div key="already-role" className="text-xs text-muted-foreground flex items-center">
                 <UserCheck className="mr-1.5 h-3.5 w-3.5 text-green-600"/>
                 {t('userAlreadyRoleInCompany', 'Already a {role} in this company.', { role: user.role })}
             </div>
          )
     }
-
-    return actionButtons.length > 0 ? <div className="flex gap-2 mt-1 flex-wrap">{actionButtons}</div> : (
-        <div className="text-xs text-muted-foreground mt-1">
-            {t('noActionsAvailableForUser', 'User found. No immediate role actions needed for this company.')}
-        </div>
-    );
+    return internalActionButtons.length > 0 ? <div className="flex gap-2 mt-1 flex-wrap">{internalActionButtons}</div> : null;
   };
 
   if (!project || !currentUser) return null;
@@ -350,7 +404,7 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
         {!isLoadingCompanyUsers && !isFetchingAllUsers && (
           <div className="mt-4 pt-2 border-t flex-grow overflow-y-auto space-y-4 min-h-[200px]">
             <div className="space-y-2">
-              <Label>{t('assignInspectorsLabel', 'Assign Inspectors from Company')}</Label>
+              <Label>{t('assignInspectorsLabel', 'Assign Inspectors')}</Label>
               {inspectors.length > 0 ? (
                 <ScrollArea className="h-[120px] border rounded-md p-2">
                   <div className="space-y-2">
@@ -364,6 +418,7 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
                         />
                         <Label htmlFor={`inspector-${inspector.id}`} className="font-normal text-sm">
                           {inspector.email}
+                          {inspector.companyId !== currentCompanyId && <span className="text-xs text-muted-foreground ml-1">({t('externalUserTag', 'External')})</span>}
                         </Label>
                       </div>
                     ))}
@@ -375,7 +430,7 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
             </div>
 
             <div className="space-y-2">
-              <Label>{t('assignValuatorsLabel', 'Assign Valuators from Company')}</Label>
+              <Label>{t('assignValuatorsLabel', 'Assign Valuators')}</Label>
               {valuators.length > 0 ? (
                 <ScrollArea className="h-[120px] border rounded-md p-2">
                   <div className="space-y-2">
@@ -389,6 +444,7 @@ export function AssignProjectUsersModal({ isOpen, onClose, project, onProjectUpd
                         />
                         <Label htmlFor={`valuator-${valuator.id}`} className="font-normal text-sm">
                           {valuator.email}
+                          {valuator.companyId !== currentCompanyId && <span className="text-xs text-muted-foreground ml-1">({t('externalUserTag', 'External')})</span>}
                         </Label>
                       </div>
                     ))}
