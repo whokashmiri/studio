@@ -27,54 +27,32 @@ export default function HomePage() {
       if (!currentUser) {
         router.push('/login');
       } else {
-        // User is logged in, fetch their associated companies
         const fetchUserCompanies = async () => {
           setIsLoadingUserCompanies(true);
-          setPageIsLoading(true); // Ensure page loading is true while fetching companies
+          setPageIsLoading(true);
           
-          const relevantCompanyIds = new Set<string>();
-          if (currentUser.companyId) {
-            relevantCompanyIds.add(currentUser.companyId);
-          }
-
           try {
-            // Fetch all projects to check assignments. Consider optimizing if too many projects.
-            // Note: getProjects() without args fetches all projects and their asset counts.
-            const allProjects: ProjectWithAssetCount[] = await FirestoreService.getProjects(); 
-            
-            allProjects.forEach(project => {
-              if (project.assignedInspectorIds?.includes(currentUser.id) || project.assignedValuatorIds?.includes(currentUser.id)) {
-                relevantCompanyIds.add(project.companyId);
-              }
-            });
+            // Get all unique company IDs the user is associated with
+            const associatedCompanyIds = await FirestoreService.getAssociatedCompanyIdsForUser(currentUser.id, currentUser.companyId);
 
-            if (relevantCompanyIds.size > 0) {
-              const allDbCompanies = await FirestoreService.getCompanies();
-              const filteredCompanies = allDbCompanies.filter(c => relevantCompanyIds.has(c.id));
-              setUserAssociatedCompanies(filteredCompanies);
+            if (associatedCompanyIds.length > 0) {
+              // Fetch only the company documents we need
+              const companies = await FirestoreService.getCompaniesByIds(associatedCompanyIds);
+              setUserAssociatedCompanies(companies);
               
-              // Auto-select company if there's only one association
-              if (filteredCompanies.length === 1) {
-                  setSelectedCompany(filteredCompanies[0]);
+              if (companies.length === 1) {
+                  setSelectedCompany(companies[0]);
               }
-
             } else {
-              // Fallback: If no companies found through projects, but user has a primary company, use that.
-              if (currentUser.companyId && currentUser.companyName) {
-                  const ownCompany = { id: currentUser.companyId, name: currentUser.companyName };
-                  setUserAssociatedCompanies([ownCompany]);
-                  setSelectedCompany(ownCompany);
-              } else {
-                  setUserAssociatedCompanies([]);
-              }
+              // This case should be rare: user exists but has no company and no projects.
+              setUserAssociatedCompanies([]);
             }
           } catch (error) {
-            console.error("Error fetching user associated companies/projects:", error);
-            setUserAssociatedCompanies([]); // Default to empty on error
-            // Optionally, show a toast message here
+            console.error("Error fetching user associated companies:", error);
+            setUserAssociatedCompanies([]);
           } finally {
             setIsLoadingUserCompanies(false);
-            setPageIsLoading(false); // Page is ready after this determination step
+            setPageIsLoading(false);
           }
         };
         fetchUserCompanies();
@@ -100,7 +78,7 @@ export default function HomePage() {
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground mt-4">
-          {authIsLoading ? t('loadingUserSession', 'Loading user session...') : t('loading', 'Loading...')}
+          {authIsLoading ? t('loadingUserSession', 'Loading user session...') : t('loading', 'Determining your companies...')}
         </p>
       </div>
     );

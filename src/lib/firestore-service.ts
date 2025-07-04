@@ -18,7 +18,8 @@ import {
   DocumentData,
   getCountFromServer,
   or, 
-  and, // Added 'and' for composite queries
+  and, 
+  documentId
 } from 'firebase/firestore';
 import type { Project, Folder, Asset, Company, MockStoredUser, AuthenticatedUser, UserRole } from '@/data/mock-data';
 import { mockCompanies as initialMockCompanies } from '@/data/mock-data';
@@ -103,6 +104,28 @@ export async function addCompany(companyData: Omit<Company, 'id'>): Promise<Comp
   }
 }
 
+export async function getCompaniesByIds(companyIds: string[]): Promise<Company[]> {
+  if (companyIds.length === 0) {
+    return [];
+  }
+  
+  const allCompanies: Company[] = [];
+  try {
+    // Firestore 'in' query has a limit of 30 values per query. We need to batch.
+    for (let i = 0; i < companyIds.length; i += 30) {
+      const batchIds = companyIds.slice(i, i + 30);
+      if (batchIds.length > 0) {
+        const q = query(collection(getDb(), COMPANIES_COLLECTION), where(documentId(), "in", batchIds));
+        const snapshot = await getDocs(q);
+        allCompanies.push(...processSnapshot<Company>(snapshot));
+      }
+    }
+    return allCompanies;
+  } catch (error) {
+    console.error("Error getting companies by IDs: ", error);
+    return [];
+  }
+}
 
 // Users
 export async function getUserById(userId: string): Promise<MockStoredUser | null> {
@@ -542,6 +565,38 @@ export async function getUserAccessibleData(userId: string, companyId: string): 
   }
 
   return result;
+}
+
+export async function getAssociatedCompanyIdsForUser(userId: string, primaryCompanyId?: string): Promise<string[]> {
+    const companyIds = new Set<string>();
+
+    if (primaryCompanyId) {
+        companyIds.add(primaryCompanyId);
+    }
+
+    try {
+        const projectsQuery = query(
+            collection(getDb(), PROJECTS_COLLECTION),
+            or(
+                where("assignedInspectorIds", "array-contains", userId),
+                where("assignedValuatorIds", "array-contains", userId),
+                where("createdByUserId", "==", userId) // Also include projects they created
+            )
+        );
+        const projectsSnapshot = await getDocs(projectsQuery);
+        projectsSnapshot.forEach(doc => {
+            const project = doc.data() as Project;
+            if (project.companyId) {
+                companyIds.add(project.companyId);
+            }
+        });
+
+        return Array.from(companyIds);
+    } catch (error) {
+        console.error("Error fetching associated projects for user:", error);
+        // Return at least the primary company if it exists
+        return primaryCompanyId ? [primaryCompanyId] : [];
+    }
 }
 
 // Function to get all assets for a company, augmented with project and folder names
