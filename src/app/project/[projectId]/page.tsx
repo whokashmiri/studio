@@ -89,18 +89,7 @@ export default function ProjectPage() {
     loadAllProjectData();
   }, [loadAllProjectData]);
 
-  useEffect(() => {
-    if (isLoading) return; 
-    
-    if (currentUrlFolderId && allProjectFolders.length > 0) {
-      const folderExists = allProjectFolders.some(f => f.id === currentUrlFolderId);
-      if (!folderExists) {
-        toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
-        router.push(`/project/${projectId}`);
-      }
-    }
-  }, [currentUrlFolderId, allProjectFolders, isLoading, projectId, router, toast, t]);
-
+  // DERIVED STATE: Use memoization to derive state from props/URL, avoiding useEffect/useState for this.
   const foldersMap = useMemo(() => {
     const map = new Map<string, FolderType>();
     allProjectFolders.forEach(folder => map.set(folder.id, folder));
@@ -110,6 +99,16 @@ export default function ProjectPage() {
   const selectedFolder = useMemo(() => {
     return currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null;
   }, [currentUrlFolderId, foldersMap]);
+  
+  // Validate folder from URL exists, redirect if not
+  useEffect(() => {
+    if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0) {
+      if (!foldersMap.has(currentUrlFolderId)) {
+        toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
+        router.push(`/project/${projectId}`);
+      }
+    }
+  }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, toast, t, allProjectFolders.length]);
 
   const getFolderPath = useCallback((folderId: string | null, currentProject: Project | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
     const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
@@ -140,6 +139,7 @@ export default function ProjectPage() {
     return allProjectAssets.filter(asset => asset.folderId === (currentUrlFolderId || null));
   }, [allProjectAssets, currentUrlFolderId]);
 
+  // Simplified navigation handler. The component will re-render from URL change.
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
     router.push(targetPath, { scroll: false }); 
@@ -167,7 +167,7 @@ export default function ProjectPage() {
         setIsNewFolderDialogOpen(false);
         setNewFolderParentContext(null);
         
-        await loadAllProjectData();
+        await loadAllProjectData(); // Refresh data after creation
       } else {
         toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
       }
