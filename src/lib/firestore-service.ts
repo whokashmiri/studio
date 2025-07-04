@@ -196,11 +196,26 @@ export async function updateUserRoleAndCompany(
 ): Promise<boolean> {
   try {
     const userRef = doc(getDb(), USERS_COLLECTION, userId);
-    const updateData: Partial<AuthenticatedUser> = {
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      return false; // User not found
+    }
+
+    const currentUserData = userDoc.data();
+
+    // If user already belongs to a company, do not change their affiliation or role.
+    // This prevents "poaching" a user or changing their role unintentionally from another company's admin panel.
+    if (currentUserData.companyId) {
+      return true; // Indicate success, but no operation was performed.
+    }
+
+    // Only update if the user is unaffiliated.
+    const updateData: Partial<MockStoredUser> = {
       role: newRole,
       companyId: companyId,
-      companyName: companyName.toUpperCase(), // Ensure company name is stored in uppercase
+      companyName: companyName.toUpperCase(),
     };
+
     await updateDoc(userRef, removeUndefinedProps(updateData));
     return true;
   } catch (error) {
