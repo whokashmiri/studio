@@ -89,16 +89,8 @@ export default function ProjectPage() {
     loadAllProjectData();
   }, [loadAllProjectData]);
 
-  // DERIVED STATE: Use memoization to derive state from props/URL, avoiding useEffect/useState for this.
-  const foldersMap = useMemo(() => {
-    const map = new Map<string, FolderType>();
-    allProjectFolders.forEach(folder => map.set(folder.id, folder));
-    return map;
-  }, [allProjectFolders]);
-  
-  const selectedFolder = useMemo(() => {
-    return currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null;
-  }, [currentUrlFolderId, foldersMap]);
+  const foldersMap = useMemo(() => new Map(allProjectFolders.map(f => [f.id, f])), [allProjectFolders]);
+  const selectedFolder = useMemo(() => currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null, [currentUrlFolderId, foldersMap]);
   
   // Validate folder from URL exists, redirect if not
   useEffect(() => {
@@ -110,28 +102,28 @@ export default function ProjectPage() {
     }
   }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, toast, t, allProjectFolders.length]);
 
-  const getFolderPath = useCallback((folderId: string | null, currentProject: Project | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
+  const getFolderPath = useCallback((folderId: string | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
     const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
-    if (!currentProject) return path;
+    if (!project) return path;
 
     let current: FolderType | undefined | null = folderId ? foldersMap.get(folderId) : null;
-    if (current && current.projectId !== currentProject.id) current = null; 
+    if (current && current.projectId !== project.id) current = null; 
 
     while (current) {
       path.unshift({ id: current.id, name: current.name, type: 'folder' });
       const parentCand = current.parentId ? foldersMap.get(current.parentId) : null;
-      current = (parentCand && parentCand.projectId === currentProject.id) ? parentCand : null;
+      current = (parentCand && parentCand.projectId === project.id) ? parentCand : null;
     }
-    path.unshift({ id: null, name: currentProject.name, type: 'project' });
+    path.unshift({ id: null, name: project.name, type: 'project' });
     return path;
-  }, [foldersMap]);
+  }, [foldersMap, project]);
 
   const breadcrumbItems = useMemo(() => {
     if (!project) return []; 
-    return getFolderPath(selectedFolder?.id || null, project);
-  }, [project, selectedFolder, getFolderPath]);
+    return getFolderPath(currentUrlFolderId);
+  }, [project, currentUrlFolderId, getFolderPath]);
   
-  const foldersToDisplayInGrid = useMemo(() => {
+  const foldersToDisplay = useMemo(() => {
     return allProjectFolders.filter(folder => folder.parentId === (currentUrlFolderId || null));
   }, [allProjectFolders, currentUrlFolderId]);
 
@@ -241,7 +233,7 @@ export default function ProjectPage() {
     );
   }
 
-  const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && assetsToDisplay.length === 0;
+  const isCurrentLocationEmpty = foldersToDisplay.length === 0 && assetsToDisplay.length === 0;
 
   return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24 md:pb-8">
@@ -315,7 +307,7 @@ export default function ProjectPage() {
           </CardHeader>
           <CardContent className={cn("transition-colors rounded-b-lg")}>
           <FolderTreeDisplay
-              foldersToDisplay={foldersToDisplayInGrid}
+              foldersToDisplay={foldersToDisplay}
               assetsToDisplay={assetsToDisplay}
               projectId={project.id}
               onSelectFolder={handleSelectFolder}
@@ -325,7 +317,7 @@ export default function ProjectPage() {
               onEditAsset={handleEditAsset} 
               onDeleteAsset={handleDeleteAsset}
               onPreviewImageAsset={handleOpenImagePreviewModal}
-              currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
+              currentSelectedFolderId={selectedFolder?.id || null}
               displayMode="grid"
           />
           {isCurrentLocationEmpty && (
