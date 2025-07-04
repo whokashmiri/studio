@@ -15,9 +15,8 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
-import React, { useCallback, useMemo } from 'react'; 
+import React, { useCallback } from 'react'; 
 import { AssetCard } from '@/components/asset-card';
-import { useSortable, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 
 interface FolderDisplayCardProps {
   folder: Folder;
@@ -97,8 +96,6 @@ interface FolderGridCardProps {
   onEditFolder?: (folder: Folder) => void;
   onActualDeleteFolder?: (e: React.MouseEvent, folder: Folder) => void;
   t: (key: string, defaultText: string, params?: Record<string, string | number>) => string;
-  isOverlay?: boolean;
-  isOver?: boolean;
 }
 
 export const FolderGridCard = React.memo(function FolderGridCard({
@@ -108,12 +105,9 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   onEditFolder,
   onActualDeleteFolder,
   t,
-  isOverlay = false,
-  isOver = false
 }: FolderGridCardProps) {
   
   const handleCardClick = (e: React.MouseEvent) => {
-    if (isOverlay) return;
     e.stopPropagation();
     onSelectFolder?.(folder);
   };
@@ -121,14 +115,12 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   return (
     <Card
       className={cn(
-        "group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 aspect-square border-0 shadow-none",
-        isOverlay ? "shadow-xl bg-background" : "cursor-pointer",
-        isOver && !isOverlay && "outline outline-2 outline-primary outline-dashed"
+        "group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 aspect-square border-0 shadow-none cursor-pointer"
       )}
       onClick={handleCardClick}
       title={folder.name}
     >
-      {!isOverlay && onAddSubfolder && onEditFolder && onActualDeleteFolder && (
+      {onAddSubfolder && onEditFolder && onActualDeleteFolder && (
         <div className="absolute top-1 right-1 z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -178,38 +170,6 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   )
 });
 
-function SortableFolderItem({ folder, isDraggable, overId, children }: { folder: Folder, isDraggable: boolean, overId: string | null, children: React.ReactNode }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ 
-    id: folder.id,
-    data: {
-      type: 'folder',
-      folder: folder,
-    },
-    disabled: !isDraggable,
-  });
-
-  const style: React.CSSProperties = {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-    transition,
-    opacity: isDragging ? 0.3 : 1,
-    zIndex: isDragging ? 10 : 'auto',
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
-    </div>
-  );
-}
-
-
 interface FolderTreeDisplayProps {
   foldersToDisplay: Folder[];
   assetsToDisplay: Asset[];
@@ -223,9 +183,6 @@ interface FolderTreeDisplayProps {
   onPreviewImageAsset: (imageUrl: string) => void;
   currentSelectedFolderId: string | null;
   displayMode?: 'grid' | 'list';
-  isDraggable?: boolean;
-  activeDragId?: string | null;
-  overId?: string | null;
 }
 
 export function FolderTreeDisplay({ 
@@ -241,9 +198,6 @@ export function FolderTreeDisplay({
   onPreviewImageAsset,
   currentSelectedFolderId,
   displayMode = 'list',
-  isDraggable = false,
-  activeDragId,
-  overId,
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -282,9 +236,6 @@ export function FolderTreeDisplay({
     onDeleteAsset(asset);
   };
 
-  const folderIds = useMemo(() => foldersToDisplay.map(f => f.id), [foldersToDisplay]);
-
-
   if (foldersToDisplay.length === 0 && assetsToDisplay.length === 0) {
     return null; 
   }
@@ -292,19 +243,15 @@ export function FolderTreeDisplay({
   const folderGrid = (
     <div className="grid grid-cols-4 lg:grid-cols-8 gap-4">
       {foldersToDisplay.map(folder => (
-        <SortableFolderItem key={folder.id} folder={folder} isDraggable={isDraggable} overId={overId}>
-          <div style={{ visibility: activeDragId === folder.id ? 'hidden' : 'visible' }}>
-            <FolderGridCard
-              folder={folder}
-              onSelectFolder={onSelectFolder}
-              onAddSubfolder={onAddSubfolder}
-              onEditFolder={onEditFolder}
-              onActualDeleteFolder={handleDeleteClick}
-              t={t}
-              isOver={overId === folder.id}
-            />
-          </div>
-        </SortableFolderItem>
+        <FolderGridCard
+          key={folder.id}
+          folder={folder}
+          onSelectFolder={onSelectFolder}
+          onAddSubfolder={onAddSubfolder}
+          onEditFolder={onEditFolder}
+          onActualDeleteFolder={handleDeleteClick}
+          t={t}
+        />
       ))}
     </div>
   );
@@ -326,37 +273,35 @@ export function FolderTreeDisplay({
   );
 
   return (
-    <SortableContext items={folderIds} strategy={rectSortingStrategy} disabled={!isDraggable}>
-      <div className="space-y-6">
-        {foldersToDisplay.length > 0 && (
-          <div>
-            <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
-              <FolderIcon className="mr-2 h-5 w-5 text-primary" />
-              {t('folders', 'Folders')} ({foldersToDisplay.length})
-            </h3>
-            {displayMode === 'grid' ? folderGrid : folderList}
+    <div className="space-y-6">
+      {foldersToDisplay.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
+            <FolderIcon className="mr-2 h-5 w-5 text-primary" />
+            {t('folders', 'Folders')} ({foldersToDisplay.length})
+          </h3>
+          {displayMode === 'grid' ? folderGrid : folderList}
+        </div>
+      )}
+      {assetsToDisplay.length > 0 && (
+        <div className={foldersToDisplay.length > 0 ? "mt-6" : ""}>
+          <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
+            <FileArchive className="mr-2 h-5 w-5 text-accent" />
+            {t('assets', 'Assets')} ({assetsToDisplay.length})
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {assetsToDisplay.map(asset => (
+              <AssetCard
+                key={`asset-${asset.id}`}
+                asset={asset}
+                onEditAsset={() => onEditAsset(asset)}
+                onDeleteAsset={() => handleDeleteAssetClick(asset)}
+                onPreviewImage={onPreviewImageAsset}
+              />
+            ))}
           </div>
-        )}
-        {assetsToDisplay.length > 0 && (
-          <div className={foldersToDisplay.length > 0 ? "mt-6" : ""}>
-            <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
-              <FileArchive className="mr-2 h-5 w-5 text-accent" />
-              {t('assets', 'Assets')} ({assetsToDisplay.length})
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {assetsToDisplay.map(asset => (
-                <AssetCard
-                  key={`asset-${asset.id}`}
-                  asset={asset}
-                  onEditAsset={() => onEditAsset(asset)}
-                  onDeleteAsset={() => handleDeleteAssetClick(asset)}
-                  onPreviewImage={onPreviewImageAsset}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </SortableContext>
+        </div>
+      )}
+    </div>
   );
 }

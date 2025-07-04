@@ -19,11 +19,7 @@ import { EditFolderModal } from '@/components/modals/edit-folder-modal';
 import { NewAssetModal } from '@/components/modals/new-asset-modal'; 
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { DndContext, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DragOverEvent } from '@dnd-kit/core';
-import { useDroppable } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { cn } from '@/lib/utils';
-import { FolderGridCard } from '@/components/folder-tree';
 
 export default function ProjectPage() {
   const params = useParams();
@@ -52,10 +48,6 @@ export default function ProjectPage() {
 
   const [imageToPreview, setImageToPreview] = useState<string | null>(null);
   const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false);
-  
-  const [activeDraggedFolder, setActiveDraggedFolder] = useState<FolderType | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
-
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -63,18 +55,7 @@ export default function ProjectPage() {
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'Admin';
 
-
-  const foldersMap = useMemo(() => {
-    const map = new Map<string, FolderType>();
-    allProjectFolders.forEach(folder => map.set(folder.id, folder));
-    return map;
-  }, [allProjectFolders]);
-  
-  const selectedFolder = useMemo(() => {
-    return currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null;
-  }, [currentUrlFolderId, foldersMap]);
-
-  const loadProjectData = useCallback(async () => {
+  const loadAllProjectData = useCallback(async () => {
     if (projectId) {
       setIsLoading(true);
       try {
@@ -94,11 +75,6 @@ export default function ProjectPage() {
         setAllProjectFolders(projectFolders);
         setAllProjectAssets(projectAssets);
 
-        if (currentUrlFolderId && !projectFolders.some(f => f.id === currentUrlFolderId)) {
-            toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
-            router.push(`/project/${projectId}`);
-        }
-
       } catch (error) {
         console.error("Error loading project data:", error);
         toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
@@ -107,12 +83,33 @@ export default function ProjectPage() {
         setIsLoading(false);
       }
     }
-  }, [projectId, currentUrlFolderId, router, toast, t]);
+  }, [projectId, router, toast, t]);
+  
+  useEffect(() => {
+    loadAllProjectData();
+  }, [loadAllProjectData]);
 
   useEffect(() => {
-    loadProjectData();
-  }, [loadProjectData]); 
+    if (isLoading) return; 
+    
+    if (currentUrlFolderId && allProjectFolders.length > 0) {
+      const folderExists = allProjectFolders.some(f => f.id === currentUrlFolderId);
+      if (!folderExists) {
+        toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
+        router.push(`/project/${projectId}`);
+      }
+    }
+  }, [currentUrlFolderId, allProjectFolders, isLoading, projectId, router, toast, t]);
+
+  const foldersMap = useMemo(() => {
+    const map = new Map<string, FolderType>();
+    allProjectFolders.forEach(folder => map.set(folder.id, folder));
+    return map;
+  }, [allProjectFolders]);
   
+  const selectedFolder = useMemo(() => {
+    return currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null;
+  }, [currentUrlFolderId, foldersMap]);
 
   const getFolderPath = useCallback((folderId: string | null, currentProject: Project | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
     const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
@@ -170,14 +167,14 @@ export default function ProjectPage() {
         setIsNewFolderDialogOpen(false);
         setNewFolderParentContext(null);
         
-        await loadProjectData();
+        await loadAllProjectData();
       } else {
         toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
       }
     } finally {
       setIsCreatingFolder(false);
     }
-  }, [newFolderName, project, newFolderParentContext, toast, t, loadProjectData]);
+  }, [newFolderName, project, newFolderParentContext, toast, t, loadAllProjectData]);
 
   const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
@@ -190,17 +187,17 @@ export default function ProjectPage() {
   }, []);
 
   const handleFolderDeleted = useCallback(async () => {
-    await loadProjectData(); 
-  }, [loadProjectData]);
+    await loadAllProjectData(); 
+  }, [loadAllProjectData]);
 
   const handleFolderUpdated = useCallback(async () => {
-    await loadProjectData(); 
+    await loadAllProjectData(); 
     if (project) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
       const updatedProj = await FirestoreService.getProjectById(project.id);
       setProject(updatedProj);
     }
-  }, [loadProjectData, project]);
+  }, [loadAllProjectData, project]);
 
   const handleEditAsset = useCallback((asset: Asset) => {
     const editUrl = `/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
@@ -212,17 +209,16 @@ export default function ProjectPage() {
       const success = await FirestoreService.deleteAsset(assetToDelete.id);
       if (success) {
         toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-        await loadProjectData();
+        await loadAllProjectData();
       } else {
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
       }
     }
-  }, [t, toast, loadProjectData]);
+  }, [t, toast, loadAllProjectData]);
 
   const handleAssetCreatedInModal = useCallback(async () => {
-    await loadProjectData();
-  }, [loadProjectData]);
-
+    await loadAllProjectData();
+  }, [loadAllProjectData]);
 
   const handleOpenImagePreviewModal = useCallback((imageUrl: string) => {
     setImageToPreview(imageUrl);
@@ -233,65 +229,6 @@ export default function ProjectPage() {
     setIsImagePreviewModalOpen(false);
     setImageToPreview(null);
   }, []);
-
-  // DND Handlers
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    if (active.data.current?.type === 'folder') {
-      setActiveDraggedFolder(active.data.current.folder as FolderType);
-    }
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    const { over } = event;
-    setOverId(over ? (over.id as string) : null);
-  };
-  
-  const handleDragCancel = () => {
-    setActiveDraggedFolder(null);
-    setOverId(null);
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    setActiveDraggedFolder(null);
-    setOverId(null);
-    const { active, over } = event;
-  
-    if (!over || active.id === over.id || active.data.current?.type !== 'folder') {
-      return;
-    }
-  
-    const folderToMoveId = active.id as string;
-    const newParentId = over.id === 'project-root-droppable' ? null : (over.id as string);
-  
-    const targetIsFolder = allProjectFolders.some(f => f.id === newParentId);
-    if (newParentId !== null && !targetIsFolder) return;
-  
-    const folderToMove = allProjectFolders.find(f => f.id === folderToMoveId);
-    if (!folderToMove || folderToMove.parentId === newParentId) {
-      return; 
-    }
-  
-    const success = await FirestoreService.updateFolder(folderToMoveId, { parentId: newParentId });
-    if (success) {
-      toast({ title: t('folderMovedTitle', 'Folder Moved'), description: t('folderMovedDesc', `Folder "${folderToMove.name}" was moved successfully.`) });
-      await loadProjectData();
-    } else {
-      toast({ title: "Error", description: "Failed to move folder.", variant: "destructive" });
-    }
-  };
-
-  const { setNodeRef: rootDroppableRef, isOver: isOverRoot } = useDroppable({
-    id: 'project-root-droppable',
-  });
-
 
   if (isLoading || !project) {
     return (
@@ -307,7 +244,6 @@ export default function ProjectPage() {
   const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && assetsToDisplay.length === 0;
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24 md:pb-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
           <div>
@@ -377,7 +313,7 @@ export default function ProjectPage() {
               ))}
               </CardTitle>
           </CardHeader>
-          <CardContent ref={isAdmin ? rootDroppableRef : undefined} className={cn("transition-colors", isOverRoot && 'bg-primary/10 rounded-b-lg')}>
+          <CardContent className={cn("transition-colors rounded-b-lg")}>
           <FolderTreeDisplay
               foldersToDisplay={foldersToDisplayInGrid}
               assetsToDisplay={assetsToDisplay}
@@ -391,9 +327,6 @@ export default function ProjectPage() {
               onPreviewImageAsset={handleOpenImagePreviewModal}
               currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
               displayMode="grid"
-              isDraggable={isAdmin}
-              activeDragId={activeDraggedFolder?.id}
-              overId={overId}
           />
           {isCurrentLocationEmpty && (
               <div className="text-center py-8">
@@ -503,9 +436,5 @@ export default function ProjectPage() {
           />
         )}
       </div>
-      <DragOverlay>
-        {activeDraggedFolder ? <FolderGridCard folder={activeDraggedFolder} t={t} isOverlay /> : null}
-      </DragOverlay>
-    </DndContext>
   );
 }
