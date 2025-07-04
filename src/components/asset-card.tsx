@@ -92,7 +92,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
       </CardHeader>
       <CardContent className="p-3 pt-0 flex-grow flex flex-col justify-between">
         <div 
-          className={cn("aspect-video w-full relative mb-2 rounded-md overflow-hidden bg-muted", primaryPhoto && "cursor-pointer")}
+          className={cn("aspect-square w-full relative mb-2 rounded-md overflow-hidden bg-muted", primaryPhoto && "cursor-pointer")}
           onClick={primaryPhoto ? handleImageClick : undefined}
           title={primaryPhoto ? t('clickToViewImage', 'Click to view full image') : undefined}
         >

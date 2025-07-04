@@ -236,25 +236,53 @@ export function FolderTreeDisplay({
     onDeleteAsset(asset);
   };
 
+  if (displayMode === 'grid') {
+    const combinedItems = [
+      ...foldersToDisplay.map(f => ({ type: 'folder' as const, data: f })),
+      ...assetsToDisplay.map(a => ({ type: 'asset' as const, data: a })),
+    ];
+
+    if (combinedItems.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="grid grid-cols-4 lg:grid-cols-8 gap-4">
+        {combinedItems.map(item => {
+          if (item.type === 'folder') {
+            return (
+              <FolderGridCard
+                key={`item-${item.data.id}`}
+                folder={item.data}
+                onSelectFolder={onSelectFolder}
+                onAddSubfolder={onAddSubfolder}
+                onEditFolder={onEditFolder}
+                onActualDeleteFolder={handleDeleteClick}
+                t={t}
+              />
+            );
+          }
+          if (item.type === 'asset') {
+            return (
+              <AssetCard
+                key={`item-${item.data.id}`}
+                asset={item.data}
+                onEditAsset={() => onEditAsset(item.data)}
+                onDeleteAsset={() => handleDeleteAssetClick(item.data)}
+                onPreviewImage={onPreviewImageAsset}
+              />
+            );
+          }
+          return null;
+        })}
+      </div>
+    );
+  }
+
+  // --- LIST MODE LOGIC ---
   if (foldersToDisplay.length === 0 && assetsToDisplay.length === 0) {
     return null; 
   }
-
-  const folderGrid = (
-    <div className="grid grid-cols-4 lg:grid-cols-8 gap-4">
-      {foldersToDisplay.map(folder => (
-        <FolderGridCard
-          key={folder.id}
-          folder={folder}
-          onSelectFolder={onSelectFolder}
-          onAddSubfolder={onAddSubfolder}
-          onEditFolder={onEditFolder}
-          onActualDeleteFolder={handleDeleteClick}
-          t={t}
-        />
-      ))}
-    </div>
-  );
 
   const folderList = (
     <div className="flex flex-col border rounded-md">
@@ -280,7 +308,7 @@ export function FolderTreeDisplay({
             <FolderIcon className="mr-2 h-5 w-5 text-primary" />
             {t('folders', 'Folders')} ({foldersToDisplay.length})
           </h3>
-          {displayMode === 'grid' ? folderGrid : folderList}
+          {folderList}
         </div>
       )}
       {assetsToDisplay.length > 0 && (
