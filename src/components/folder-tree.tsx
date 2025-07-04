@@ -240,7 +240,7 @@ export function FolderTreeDisplay({
             {t('folders', 'Folders')} ({foldersToDisplay.length})
           </h3>
           {displayMode === 'grid' ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-4 lg:grid-cols-8 gap-4">
               {foldersToDisplay.map(folder => (
                 <FolderGridCard
                   key={`folder-grid-${folder.id}`}
