@@ -108,7 +108,7 @@ const FolderGridCard = React.memo(function FolderGridCard({
 }: FolderGridCardProps) {
   return (
     <Card
-      className="group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 cursor-pointer aspect-square"
+      className="group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 cursor-pointer aspect-square border-0 shadow-none"
       onClick={() => onSelectFolder(folder)}
       title={folder.name}
     >
