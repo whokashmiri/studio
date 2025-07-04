@@ -35,7 +35,7 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
   const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
+  
   const [isLoading, setIsLoading] = useState(true);
   
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
@@ -69,23 +69,10 @@ export default function ProjectPage() {
     allProjectFolders.forEach(folder => map.set(folder.id, folder));
     return map;
   }, [allProjectFolders]);
-
-  const getFolderPath = useCallback((folderId: string | null, currentProject: Project | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
-    const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
-    if (!currentProject) return path;
-
-    let current: FolderType | undefined | null = folderId ? foldersMap.get(folderId) : null;
-    if (current && current.projectId !== currentProject.id) current = null; 
-
-    while (current) {
-      path.unshift({ id: current.id, name: current.name, type: 'folder' });
-      const parentCand = current.parentId ? foldersMap.get(current.parentId) : null;
-      current = (parentCand && parentCand.projectId === currentProject.id) ? parentCand : null;
-    }
-    path.unshift({ id: null, name: currentProject.name, type: 'project' });
-    return path;
-  }, [foldersMap]);
-
+  
+  const selectedFolder = useMemo(() => {
+    return currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null;
+  }, [currentUrlFolderId, foldersMap]);
 
   const loadProjectData = useCallback(async () => {
     if (projectId) {
@@ -107,12 +94,10 @@ export default function ProjectPage() {
         setAllProjectFolders(projectFolders);
         setAllProjectAssets(projectAssets);
 
-        const folderFromUrl = currentUrlFolderId ? projectFolders.find(f => f.id === currentUrlFolderId) : null;
-        if (currentUrlFolderId && !folderFromUrl) {
+        if (currentUrlFolderId && !projectFolders.some(f => f.id === currentUrlFolderId)) {
             toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
             router.push(`/project/${projectId}`);
         }
-        setSelectedFolder(folderFromUrl || null);
 
       } catch (error) {
         console.error("Error loading project data:", error);
@@ -129,28 +114,34 @@ export default function ProjectPage() {
   }, [loadProjectData]); 
   
 
+  const getFolderPath = useCallback((folderId: string | null, currentProject: Project | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
+    const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
+    if (!currentProject) return path;
+
+    let current: FolderType | undefined | null = folderId ? foldersMap.get(folderId) : null;
+    if (current && current.projectId !== currentProject.id) current = null; 
+
+    while (current) {
+      path.unshift({ id: current.id, name: current.name, type: 'folder' });
+      const parentCand = current.parentId ? foldersMap.get(current.parentId) : null;
+      current = (parentCand && parentCand.projectId === currentProject.id) ? parentCand : null;
+    }
+    path.unshift({ id: null, name: currentProject.name, type: 'project' });
+    return path;
+  }, [foldersMap]);
+
   const breadcrumbItems = useMemo(() => {
     if (!project) return []; 
     return getFolderPath(selectedFolder?.id || null, project);
   }, [project, selectedFolder, getFolderPath]);
   
   const foldersToDisplayInGrid = useMemo(() => {
-    return allProjectFolders.filter(folder => {
-      if (selectedFolder) {
-        return folder.parentId === selectedFolder.id;
-      }
-      return folder.parentId === null; 
-    });
-  }, [allProjectFolders, selectedFolder]);
+    return allProjectFolders.filter(folder => folder.parentId === (currentUrlFolderId || null));
+  }, [allProjectFolders, currentUrlFolderId]);
 
   const assetsToDisplay = useMemo(() => {
-    return allProjectAssets.filter(asset => {
-      if (selectedFolder) {
-        return asset.folderId === selectedFolder.id;
-      }
-      return asset.folderId === null;
-    });
-  }, [allProjectAssets, selectedFolder]);
+    return allProjectAssets.filter(asset => asset.folderId === (currentUrlFolderId || null));
+  }, [allProjectAssets, currentUrlFolderId]);
 
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
@@ -198,15 +189,11 @@ export default function ProjectPage() {
     setIsEditFolderModalOpen(true);
   }, []);
 
-  const handleFolderDeleted = useCallback(async (deletedFolder: FolderType) => {
+  const handleFolderDeleted = useCallback(async () => {
     await loadProjectData(); 
-    if (selectedFolder && selectedFolder.id === deletedFolder.id) {
-        const parentFolder = deletedFolder.parentId ? allProjectFolders.find(f=> f.id === deletedFolder.parentId) : null;
-        handleSelectFolder(parentFolder); 
-    }
-  }, [loadProjectData, selectedFolder, allProjectFolders, handleSelectFolder]);
+  }, [loadProjectData]);
 
-  const handleFolderUpdated = useCallback(async (updatedFolder: FolderType) => {
+  const handleFolderUpdated = useCallback(async () => {
     await loadProjectData(); 
     if (project) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
@@ -232,7 +219,7 @@ export default function ProjectPage() {
     }
   }, [t, toast, loadProjectData]);
 
-  const handleAssetCreatedInModal = useCallback(async (createdAsset: Asset) => {
+  const handleAssetCreatedInModal = useCallback(async () => {
     await loadProjectData();
   }, [loadProjectData]);
 
@@ -344,29 +331,25 @@ export default function ProjectPage() {
             <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
-            {!isMobile && (
-              <Button 
-                variant="default" 
-                size="default" 
-                onClick={() => openNewFolderDialog(selectedFolder)} 
-                title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
-                className="w-full sm:w-auto"
-              >
-                <FolderPlus className="mr-2 h-4 w-4" />
-                {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
-              </Button>
-            )}
-            {selectedFolder && !isMobile && (
-                <Button
-                  onClick={() => setIsNewAssetModalOpen(true)} 
-                  className="w-full sm:w-auto"
-                  size="default"
-                  title={t('newAsset', 'New Asset')}
-                >
-                  <FilePlus className="mr-2 h-5 w-5" />
-                  {t('newAsset', 'New Asset')}
-                </Button>
-            )}
+            <Button 
+              variant="default" 
+              size="default" 
+              onClick={() => openNewFolderDialog(selectedFolder)} 
+              title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+              className="w-full sm:w-auto"
+            >
+              <FolderPlus className="mr-2 h-4 w-4" />
+              {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+            </Button>
+            <Button
+              onClick={() => setIsNewAssetModalOpen(true)} 
+              className="w-full sm:w-auto"
+              size="default"
+              title={t('newAsset', 'New Asset')}
+            >
+              <FilePlus className="mr-2 h-5 w-5" />
+              {t('newAsset', 'New Asset')}
+            </Button>
           </div>
         </div>
 
@@ -444,17 +427,15 @@ export default function ProjectPage() {
               <FolderPlus className="mr-2 h-5 w-5" />
               {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
             </Button>
-            {selectedFolder && (
-              <Button
-                onClick={() => setIsNewAssetModalOpen(true)} 
-                className="flex-1"
-                size="default"
-                title={t('newAsset', 'New Asset')}
-              >
-                <FilePlus className="mr-2 h-5 w-5" />
-                {t('newAsset', 'New Asset')}
-              </Button>
-            )}
+            <Button
+              onClick={() => setIsNewAssetModalOpen(true)} 
+              className="flex-1"
+              size="default"
+              title={t('newAsset', 'New Asset')}
+            >
+              <FilePlus className="mr-2 h-5 w-5" />
+              {t('newAsset', 'New Asset')}
+            </Button>
           </div>
         )}
 
@@ -504,7 +485,7 @@ export default function ProjectPage() {
           />
         )}
         
-        {project && selectedFolder && (
+        {project && (
           <NewAssetModal
               isOpen={isNewAssetModalOpen}
               onClose={() => setIsNewAssetModalOpen(false)}

@@ -217,7 +217,7 @@ interface FolderTreeDisplayProps {
   onSelectFolder: (folder: Folder) => void; 
   onAddSubfolder: (parentFolder: Folder) => void;
   onEditFolder: (folder: Folder) => void;
-  onDeleteFolder: (folder: Folder) => void; 
+  onDeleteFolder: () => void; 
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void; 
   onPreviewImageAsset: (imageUrl: string) => void;
@@ -267,7 +267,7 @@ export function FolderTreeDisplay({
     if (window.confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${currentFolder.name}"? This action cannot be undone.`, { folderName: currentFolder.name }))) {
       const success = await FirestoreService.deleteFolderCascade(currentFolder.id);
       if (success) {
-        onDeleteFolder(currentFolder); 
+        onDeleteFolder(); 
         toast({
           title: t('folderDeletedTitle', 'Folder Deleted'),
           description: t('folderDeletedDesc', `Folder "${currentFolder.name}" has been deleted.`, { folderName: currentFolder.name }),
