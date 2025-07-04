@@ -294,7 +294,7 @@ export default function ProjectPage() {
               onDeleteAsset={handleDeleteAsset}
               onPreviewImageAsset={handleOpenImagePreviewModal}
               currentSelectedFolderId={selectedFolder?.id || null}
-              displayMode="grid"
+              displayMode="list"
           />
           {isCurrentLocationEmpty && (
               <div className="text-center py-8">
@@ -324,17 +324,15 @@ export default function ProjectPage() {
                   <FolderPlus className="mr-2 h-5 w-5" />
                   {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
               </Button>
-              {selectedFolder && (
-                  <Button
-                      onClick={() => setIsNewAssetModalOpen(true)} 
-                      className="shadow-lg"
-                      size="lg"
-                      title={t('newAsset', 'New Asset')}
-                  >
-                      <FilePlus className="mr-2 h-5 w-5" />
-                      {t('newAsset', 'New Asset')}
-                  </Button>
-              )}
+              <Button
+                  onClick={() => setIsNewAssetModalOpen(true)} 
+                  className="shadow-lg"
+                  size="lg"
+                  title={t('newAsset', 'New Asset')}
+              >
+                  <FilePlus className="mr-2 h-5 w-5" />
+                  {t('newAsset', 'New Asset')}
+              </Button>
           </div>
         </div>
 
