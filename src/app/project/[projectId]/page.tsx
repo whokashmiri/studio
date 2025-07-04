@@ -100,20 +100,12 @@ export default function ProjectPage() {
         if (!foundProject) {
           toast({ title: t('projectNotFound', "Project not found"), variant: "destructive" });
           router.push('/');
-          setIsLoadingData(false);
           return;
         }
         
         setProject(foundProject);
-        setAllProjectFolders([...projectFolders]); 
-        setAllProjectAssets([...projectAssets]);
-
-        if (currentUrlFolderId) {
-          const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); 
-          setSelectedFolder(folderFromUrl || null);
-        } else {
-          setSelectedFolder(null);
-        }
+        setAllProjectFolders(projectFolders);
+        setAllProjectAssets(projectAssets);
 
       } catch (error) {
         console.error("Error loading project data:", error);
@@ -123,11 +115,26 @@ export default function ProjectPage() {
         setIsLoadingData(false);
       }
     }
-  }, [projectId, router, toast, t, currentUrlFolderId]);
+  }, [projectId, router, toast, t]);
 
+  // Effect to load all data once when the component mounts or projectId changes
   useEffect(() => {
     loadProjectData();
   }, [loadProjectData]); 
+  
+  // Effect to sync the selected folder with the URL, without re-fetching
+  useEffect(() => {
+      if (isLoadingData) return; // Don't run until initial data is loaded
+      
+      const folderIdFromUrl = searchParams.get('folderId');
+      if (folderIdFromUrl) {
+          const folderFromUrl = allProjectFolders.find(f => f.id === folderIdFromUrl);
+          setSelectedFolder(folderFromUrl || null);
+      } else {
+          setSelectedFolder(null);
+      }
+  }, [searchParams, allProjectFolders, isLoadingData]);
+
 
   const breadcrumbItems = useMemo(() => {
     if (!project) return []; 
@@ -526,4 +533,3 @@ export default function ProjectPage() {
     </DndContext>
   );
 }
-
