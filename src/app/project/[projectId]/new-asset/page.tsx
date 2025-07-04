@@ -16,6 +16,7 @@ import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
+import { processImageForSaving } from '@/lib/image-handler-service';
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1';
@@ -46,6 +47,7 @@ export default function NewAssetPage() {
   const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -187,28 +189,43 @@ export default function NewAssetPage() {
   }, [language]);
 
 
-  const handlePhotoUploadFromGallery = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUploadFromGallery = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
+      setIsProcessingPhotos(true);
       const newFiles = Array.from(event.target.files);
-      const newPhotoUrls: string[] = [];
-      let filesProcessed = 0;
-      newFiles.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (loadEvent) => {
-          if (loadEvent.target?.result) {
-             newPhotoUrls.push(loadEvent.target.result as string);
+      if (newFiles.length === 0) {
+        setIsProcessingPhotos(false);
+        return;
+      }
+      const processedDataUris: string[] = [];
+      try {
+        for (const file of newFiles) {
+          const reader = new FileReader();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = (loadEvent) => {
+              if (loadEvent.target?.result) resolve(loadEvent.target.result as string);
+              else reject(new Error('Failed to read file.'));
+            };
+            reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
+            reader.readAsDataURL(file);
+          });
+          const processedUrl = await processImageForSaving(dataUrl);
+          if (processedUrl) {
+            processedDataUris.push(processedUrl);
+          } else {
+            toast({ title: "Image Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive" });
           }
-          filesProcessed++;
-          if (filesProcessed === newFiles.length) {
-            setPhotoPreviews(prev => [...prev, ...newPhotoUrls].slice(0, 10)); 
-            if (!isPhotoModalOpen) setIsPhotoModalOpen(true);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+        }
+        setPhotoPreviews(prev => [...prev, ...processedDataUris].slice(0, 10));
+        if (!isPhotoModalOpen) setIsPhotoModalOpen(true);
+      } catch (error: any) {
+        toast({ title: "Error", description: error.message || "An error occurred processing gallery photos.", variant: "destructive" });
+      } finally {
+        setIsProcessingPhotos(false);
+      }
     }
-    event.target.value = ''; 
-  };
+    if (event.target) event.target.value = '';
+  }, [toast, isPhotoModalOpen]);
 
   const handleCapturePhotoFromStream = () => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream) {
@@ -231,14 +248,31 @@ export default function NewAssetPage() {
     setCapturedPhotosInSession(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  const handleAddSessionPhotosToBatch = () => {
-    setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession].slice(0, 10)); 
-    setCapturedPhotosInSession([]);
-    setIsCustomCameraOpen(false);
-    if (!isPhotoModalOpen && photoPreviews.length + capturedPhotosInSession.length > 0) {
-      setIsPhotoModalOpen(true);
+  const handleAddSessionPhotosToBatch = useCallback(async () => {
+    if (capturedPhotosInSession.length === 0) return;
+    setIsProcessingPhotos(true);
+    const newProcessedDataUris: string[] = [];
+    try {
+      for (const photoDataUrl of capturedPhotosInSession) {
+        const processedUrl = await processImageForSaving(photoDataUrl);
+        if (processedUrl) {
+          newProcessedDataUris.push(processedUrl);
+        } else {
+          toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive" });
+        }
+      }
+      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris].slice(0, 10));
+      setCapturedPhotosInSession([]);
+      setIsCustomCameraOpen(false);
+      if (!isPhotoModalOpen && photoPreviews.length + newProcessedDataUris.length > 0) {
+        setIsPhotoModalOpen(true);
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to process session photos.", variant: "destructive" });
+    } finally {
+      setIsProcessingPhotos(false);
     }
-  };
+  }, [capturedPhotosInSession, toast, isPhotoModalOpen, photoPreviews.length]);
 
   const handleCancelCustomCamera = () => {
     setCapturedPhotosInSession([]);
@@ -377,11 +411,12 @@ export default function NewAssetPage() {
               <div>
                 <Label>{t('addPhotosSectionTitle', 'Add Photos')}</Label>
                 <div className="flex flex-col sm:flex-row gap-2 mt-1">
-                    <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1">
+                    <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1" disabled={isProcessingPhotos}>
                         <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
                     </Button>
-                    <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1">
-                        <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
+                    <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1" disabled={isProcessingPhotos}>
+                        {isProcessingPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
+                        {isProcessingPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
                     </Button>
                     <input
                         type="file"
@@ -391,13 +426,14 @@ export default function NewAssetPage() {
                         ref={galleryInputRef}
                         className="hidden"
                         onChange={handlePhotoUploadFromGallery}
+                        disabled={isProcessingPhotos}
                     />
                 </div>
                 {photoPreviews.length > 0 && (
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between items-center">
                       <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                      <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)}>
+                      <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)} disabled={isProcessingPhotos}>
                          <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
                       </Button>
                     </div>
@@ -419,11 +455,12 @@ export default function NewAssetPage() {
                   value={assetName}
                   onChange={(e) => setAssetName(e.target.value)}
                   placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
+                  disabled={isProcessingPhotos}
                 />
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              <Button onClick={handleNextToDescriptions} disabled={photoPreviews.length === 0 || !assetName.trim()}>
+              <Button onClick={handleNextToDescriptions} disabled={photoPreviews.length === 0 || !assetName.trim() || isProcessingPhotos}>
                 {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
@@ -548,11 +585,13 @@ export default function NewAssetPage() {
               <Button 
                 variant="outline" 
                 onClick={() => { setIsCustomCameraOpen(true); setIsPhotoModalOpen(false); }} 
-                className="w-full sm:w-auto">
+                className="w-full sm:w-auto"
+                disabled={isProcessingPhotos}>
                 <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
               </Button>
-              <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto">
-                <ImageUp className="mr-2 h-4 w-4" /> {t('uploadFromGallery', 'Upload from Gallery')}
+              <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto" disabled={isProcessingPhotos}>
+                {isProcessingPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
+                {isProcessingPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
                <input 
                   type="file"
@@ -562,6 +601,7 @@ export default function NewAssetPage() {
                   ref={galleryInputRef} 
                   className="hidden"
                   onChange={handlePhotoUploadFromGallery}
+                  disabled={isProcessingPhotos}
                 />
             </div>
 
@@ -579,6 +619,7 @@ export default function NewAssetPage() {
                             className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                             onClick={() => removePhotoFromPreviews(index)}
                             title={t('removePhotoTitle', "Remove photo")}
+                            disabled={isProcessingPhotos}
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -633,6 +674,11 @@ export default function NewAssetPage() {
             </div>
 
             <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
+              {isProcessingPhotos && (
+                <div className="absolute inset-x-0 top-0 flex justify-center pt-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-white" />
+                </div>
+              )}
               {capturedPhotosInSession.length > 0 && (
                 <ScrollArea className="w-full mb-3 sm:mb-4 max-h-[70px] sm:max-h-[80px] whitespace-nowrap">
                   <div className="flex space-x-2 pb-1">
@@ -645,6 +691,7 @@ export default function NewAssetPage() {
                           className="absolute -top-1 -right-1 h-5 w-5 bg-black/60 hover:bg-red-600/80 border-none p-0"
                           onClick={() => removePhotoFromSession(index)}
                           aria-label={t('removePhotoTitle', "Remove photo")}
+                          disabled={isProcessingPhotos}
                         >
                           <X className="h-3 w-3" />
                         </Button>
@@ -655,12 +702,12 @@ export default function NewAssetPage() {
               )}
 
               <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/10 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base">
+                <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/10 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base" disabled={isProcessingPhotos}>
                   {t('cancel', 'Cancel')}
                 </Button>
                 <Button 
                   onClick={handleCapturePhotoFromStream} 
-                  disabled={!hasCameraPermission || mediaStream === null}
+                  disabled={!hasCameraPermission || mediaStream === null || isProcessingPhotos}
                   className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white text-black hover:bg-neutral-200 focus:ring-4 focus:ring-white/50 flex items-center justify-center p-0 border-2 border-neutral-700 shadow-xl disabled:bg-neutral-600 disabled:opacity-70"
                   aria-label={t('capturePhoto', 'Capture Photo')}
                 >
@@ -669,10 +716,11 @@ export default function NewAssetPage() {
                 <Button 
                   variant={capturedPhotosInSession.length > 0 ? "default" : "ghost"}
                   onClick={handleAddSessionPhotosToBatch} 
-                  disabled={capturedPhotosInSession.length === 0}
+                  disabled={capturedPhotosInSession.length === 0 || isProcessingPhotos}
                   className={`py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base transition-colors duration-150 ${capturedPhotosInSession.length > 0 ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'text-white hover:bg-white/10'}`}
                 >
-                   {t('doneWithSessionAddPhotos', 'Add ({count})', { count: capturedPhotosInSession.length })}
+                   {isProcessingPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null }
+                   {isProcessingPhotos ? t('saving', 'Processing...') : t('doneWithSessionAddPhotos', 'Add ({count})', { count: capturedPhotosInSession.length })}
                 </Button>
               </div>
             </div>
@@ -681,6 +729,3 @@ export default function NewAssetPage() {
     </div>
   );
 }
-
-
-    
