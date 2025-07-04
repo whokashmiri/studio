@@ -167,7 +167,7 @@ export function FolderTreeDisplay({
     }
 
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {combinedItems.map(item => {
           if (item.type === 'folder') {
             return (
@@ -202,7 +202,13 @@ export function FolderTreeDisplay({
 
   // --- LIST MODE LOGIC ---
   if (foldersToDisplay.length === 0 && assetsToDisplay.length === 0) {
-    return null; 
+    return (
+       <div className="text-center py-8">
+            <p className="text-muted-foreground mb-4">
+              {currentSelectedFolderId ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
+            </p>
+        </div>
+    ); 
   }
 
   const folderList = (
