@@ -208,7 +208,7 @@ export default function ProjectPage() {
     }
   }, [loadAllProjectData, t, toast]);
 
-  const handleAssetCreatedInModal = useCallback(async (newAsset: Asset) => {
+  const handleAssetCreatedInModal = useCallback(async () => {
     await loadAllProjectData();
   }, [loadAllProjectData]);
 
@@ -269,15 +269,17 @@ export default function ProjectPage() {
               <FolderPlus className="mr-2 h-4 w-4" />
               {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
             </Button>
-            <Button
-              onClick={() => setIsNewAssetModalOpen(true)} 
-              className="w-full sm:w-auto"
-              size="default"
-              title={t('newAsset', 'New Asset')}
-            >
-              <FilePlus className="mr-2 h-5 w-5" />
-              {t('newAsset', 'New Asset')}
-            </Button>
+            {selectedFolder && (
+                <Button
+                    onClick={() => setIsNewAssetModalOpen(true)} 
+                    className="w-full sm:w-auto"
+                    size="default"
+                    title={t('newAsset', 'New Asset')}
+                >
+                    <FilePlus className="mr-2 h-5 w-5" />
+                    {t('newAsset', 'New Asset')}
+                </Button>
+            )}
           </div>
         </div>
 
@@ -325,12 +327,6 @@ export default function ProjectPage() {
                   <p className="text-muted-foreground mb-4">
                     {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
                   </p>
-                  {isMobile && !selectedFolder && (
-                      <p className="text-sm text-muted-foreground">{t('useFabToAddFolderMobile', 'Use the "Add New Folder" button below to get started.')}</p>
-                  )}
-                  {isMobile && selectedFolder && (
-                      <p className="text-sm text-muted-foreground">{t('useFabToCreateContentMobile', 'Use the buttons below to add a folder or asset.')}</p>
-                  )}
                   {!isMobile && !selectedFolder && (
                       <Button variant="outline" onClick={() => openNewFolderDialog(selectedFolder)}>
                           <FolderPlus className="mr-2 h-4 w-4" />
@@ -341,28 +337,6 @@ export default function ProjectPage() {
           )}
           </CardContent>
         </Card>
-
-        {isMobile && (
-          <div className="fixed bottom-4 left-0 right-0 p-2 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2">
-            <Button
-              onClick={() => openNewFolderDialog(selectedFolder)}
-              className="flex-1"
-              size="default"
-            >
-              <FolderPlus className="mr-2 h-5 w-5" />
-              {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
-            </Button>
-            <Button
-              onClick={() => setIsNewAssetModalOpen(true)} 
-              className="flex-1"
-              size="default"
-              title={t('newAsset', 'New Asset')}
-            >
-              <FilePlus className="mr-2 h-5 w-5" />
-              {t('newAsset', 'New Asset')}
-            </Button>
-          </div>
-        )}
 
         <Dialog open={isNewFolderDialogOpen} onOpenChange={(isOpen) => {
           if (isCreatingFolder) return;
