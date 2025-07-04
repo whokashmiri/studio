@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, FolderPlus, FilePlus, Loader2 } from 'lucide-react';
+import { Home, FolderPlus, FilePlus, Loader2, MapPin, FileArchive, FolderIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { Input } from '@/components/ui/input';
@@ -299,6 +299,38 @@ export default function ProjectPage() {
         </div>
       </div>
 
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{t('totalFoldersStatLabel', 'Total Folders')}</CardTitle>
+                  <FolderIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                  <div className="text-2xl font-bold">{allProjectFolders.length}</div>
+              </CardContent>
+          </Card>
+          <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{t('totalAssetsStatLabel', 'Total Assets')}</CardTitle>
+                  <FileArchive className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                  <div className="text-2xl font-bold">{allProjectAssets.length}</div>
+              </CardContent>
+          </Card>
+          <Card className="md:col-span-2 lg:col-span-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{t('currentLocationLabel', 'Current Location')}</CardTitle>
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                  <div className="text-2xl font-bold truncate" title={selectedFolder ? selectedFolder.name : t('projectRoot', 'Project Root')}>
+                      {selectedFolder ? selectedFolder.name : t('projectRoot', 'Project Root')}
+                  </div>
+              </CardContent>
+          </Card>
+      </div>
+
       <Card>
         <CardHeader className="pt-3 px-4 pb-0 md:pt-4 md:px-6 md:pb-0">
             <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
@@ -349,10 +381,10 @@ export default function ProjectPage() {
                  {isMobile && selectedFolder && (
                      <p className="text-sm text-muted-foreground">{t('useFabToCreateContentMobile', 'Use the buttons below to add a folder or asset.')}</p>
                 )}
-                {!isMobile && (
+                {!isMobile && !selectedFolder && (
                     <Button variant="outline" onClick={() => openNewFolderDialog(selectedFolder)}>
                         <FolderPlus className="mr-2 h-4 w-4" />
-                        {selectedFolder ? t('addSubfolderToCurrent', 'Add subfolder here') : t('createNewFolderInRootButton', 'Create First Folder in Project Root')}
+                        {t('createNewFolderInRootButton', 'Create First Folder in Project Root')}
                     </Button>
                 )}
             </div>
