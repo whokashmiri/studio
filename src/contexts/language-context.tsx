@@ -264,6 +264,8 @@ const translations: Record<Language, Record<string, string>> = {
     projectDeletedDesc: "Project \"{projectName}\" has been deleted.",
     userNotAuthenticatedError: "User not authenticated. Cannot create project.",
     error: "Error",
+    folderMovedTitle: "Folder Moved",
+    folderMovedDesc: "Folder \"{folderName}\" was moved successfully.",
 
 
     loginTitle: "Login",
@@ -639,6 +641,8 @@ const translations: Record<Language, Record<string, string>> = {
     folderNotEmptyDesc: "لا يمكن حذف المجلد. يرجى حذف جميع المجلدات الفرعية والأصول أولاً.",
     folderDeletedTitle: "تم حذف المجلد",
     folderDeletedDesc: "تم حذف المجلد \"{folderName}\".",
+    folderMovedTitle: "تم نقل المجلد",
+    folderMovedDesc: "تم نقل المجلد \"{folderName}\" بنجاح.",
     folderIsEmpty: "هذا المجلد فارغ. أضف مجلدًا فرعيًا أو أصلًا.",
     projectRootIsEmpty: "هذا المشروع لا يحتوي على مجلدات أو أصول جذرية. أضف مجلدًا للبدء.",
     addSubfolderToCurrent: "إضافة مجلد فرعي هنا",

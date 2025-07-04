@@ -18,6 +18,11 @@ import { EditFolderModal } from '@/components/modals/edit-folder-modal';
 import { NewAssetModal } from '@/components/modals/new-asset-modal'; 
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { DndContext, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DragOverEvent } from '@dnd-kit/core';
+import { useDroppable } from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { cn } from '@/lib/utils';
+import { FolderGridCard } from '@/components/folder-tree'; // We'll export this from folder-tree
 
 export default function ProjectPage() {
   const params = useParams();
@@ -28,7 +33,7 @@ export default function ProjectPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
-  const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]); // Changed
+  const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   
@@ -46,10 +51,17 @@ export default function ProjectPage() {
 
   const [imageToPreview, setImageToPreview] = useState<string | null>(null);
   const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false);
+  
+  const [activeDraggedFolder, setActiveDraggedFolder] = useState<FolderType | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
 
   const { toast } = useToast();
   const { t } = useLanguage();
   const isMobile = useIsMobile();
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === 'Admin';
+
 
   const foldersMap = useMemo(() => {
     const map = new Map<string, FolderType>();
@@ -81,7 +93,7 @@ export default function ProjectPage() {
         const [foundProject, projectFolders, projectAssets] = await Promise.all([
           FirestoreService.getProjectById(projectId),
           FirestoreService.getFolders(projectId),
-          FirestoreService.getAllAssetsForProject(projectId) // Fetch all assets
+          FirestoreService.getAllAssetsForProject(projectId)
         ]);
 
         if (!foundProject) {
@@ -93,7 +105,7 @@ export default function ProjectPage() {
         
         setProject(foundProject);
         setAllProjectFolders([...projectFolders]); 
-        setAllProjectAssets([...projectAssets]); // Set all assets
+        setAllProjectAssets([...projectAssets]);
 
         if (currentUrlFolderId) {
           const folderFromUrl = projectFolders.find(f => f.id === currentUrlFolderId); 
@@ -135,7 +147,7 @@ export default function ProjectPage() {
       if (selectedFolder) {
         return asset.folderId === selectedFolder.id;
       }
-      return asset.folderId === null; // Assets at the root
+      return asset.folderId === null;
     });
   }, [allProjectAssets, selectedFolder]);
 
@@ -166,7 +178,7 @@ export default function ProjectPage() {
         setIsNewFolderDialogOpen(false);
         setNewFolderParentContext(null);
         
-        await loadProjectData(); // RELOAD all data from Firestore
+        await loadProjectData();
       } else {
         toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
       }
@@ -212,7 +224,7 @@ export default function ProjectPage() {
       const success = await FirestoreService.deleteAsset(assetToDelete.id);
       if (success) {
         toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-        await loadProjectData(); // RELOAD all data from Firestore
+        await loadProjectData();
       } else {
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
       }
@@ -220,7 +232,6 @@ export default function ProjectPage() {
   }, [t, toast, loadProjectData]);
 
   const handleAssetCreatedInModal = useCallback(async (createdAsset: Asset) => {
-    // The modal shows a toast and closes itself. We just need to refresh the page data.
     await loadProjectData();
   }, [loadProjectData]);
 
@@ -234,6 +245,64 @@ export default function ProjectPage() {
     setIsImagePreviewModalOpen(false);
     setImageToPreview(null);
   }, []);
+
+  // DND Handlers
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    if (active.data.current?.type === 'folder') {
+      setActiveDraggedFolder(active.data.current.folder as FolderType);
+    }
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    setOverId(over ? (over.id as string) : null);
+  };
+  
+  const handleDragCancel = () => {
+    setActiveDraggedFolder(null);
+    setOverId(null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDraggedFolder(null);
+    setOverId(null);
+    const { active, over } = event;
+  
+    if (!over || active.id === over.id || active.data.current?.type !== 'folder') {
+      return;
+    }
+  
+    const folderToMoveId = active.id as string;
+    const newParentId = over.id === 'project-root-droppable' ? null : (over.id as string);
+  
+    const targetIsFolder = allProjectFolders.some(f => f.id === newParentId);
+    if (newParentId !== null && !targetIsFolder) return;
+  
+    const folderToMove = allProjectFolders.find(f => f.id === folderToMoveId);
+    if (!folderToMove || folderToMove.parentId === newParentId) {
+      return; 
+    }
+  
+    const success = await FirestoreService.updateFolder(folderToMoveId, { parentId: newParentId });
+    if (success) {
+      toast({ title: t('folderMovedTitle', 'Folder Moved'), description: t('folderMovedDesc', `Folder "${folderToMove.name}" was moved successfully.`) });
+      await loadProjectData();
+    } else {
+      toast({ title: "Error", description: "Failed to move folder.", variant: "destructive" });
+    }
+  };
+
+  const { setNodeRef: rootDroppableRef, isOver: isOverRoot } = useDroppable({
+    id: 'project-root-droppable',
+  });
 
 
   if (isLoadingData || !project) {
@@ -250,203 +319,211 @@ export default function ProjectPage() {
   const isCurrentLocationEmpty = foldersToDisplayInGrid.length === 0 && assetsToDisplay.length === 0;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24 md:pb-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-        <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-primary hover:underline p-0 h-auto text-sm flex items-center"
-            onClick={() => {
-              setIsNavigatingToHome(true);
-              router.push('/');
-            }}
-            disabled={isNavigatingToHome}
-          >
-            {isNavigatingToHome ? (
-              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-            ) : (
-              <Home className="mr-1 h-4 w-4" />
-            )}
-            {t('allProjects', 'All Projects')}
-          </Button>
-          <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
-            {!isMobile && (
-              <Button 
-                variant="default" 
-                size="default" 
-                onClick={() => openNewFolderDialog(selectedFolder)} 
-                title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
-                className="w-full sm:w-auto"
-              >
-                <FolderPlus className="mr-2 h-4 w-4" />
-                {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
-              </Button>
-            )}
-            {!isMobile && selectedFolder && (
-                <Button
-                  onClick={() => setIsNewAssetModalOpen(true)} 
-                  className="w-full sm:w-auto"
-                  size="default"
-                  title={t('newAsset', 'New Asset')}
-                >
-                  <FilePlus className="mr-2 h-5 w-5" />
-                  {t('newAsset', 'New Asset')}
-                </Button>
-            )}
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader className="pt-3 px-4 pb-0 md:pt-4 md:px-6 md:pb-0">
-            <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
-            {breadcrumbItems.map((item, index) => (
-                <React.Fragment key={item.id || `project_root_${project.id}`}>
-                <span
-                    className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                    onClick={() => {
-                    if (item.type === 'project') {
-                        handleSelectFolder(null);
-                    } else if (item.id) {
-                        const folderToSelect = foldersMap.get(item.id); 
-                        if (folderToSelect) handleSelectFolder(folderToSelect);
-                    }
-                    }}
-                    title={t('clickToNavigateTo', 'Click to navigate to {name}', { name: item.name })}
-                >
-                    {item.name}
-                </span>
-                {index < breadcrumbItems.length - 1 && <span className="mx-1.5 text-muted-foreground">{t('breadcrumbSeparator', '>')}</span>}
-                </React.Fragment>
-            ))}
-            </CardTitle>
-        </CardHeader>
-        <CardContent>
-        <FolderTreeDisplay
-            foldersToDisplay={foldersToDisplayInGrid}
-            assetsToDisplay={assetsToDisplay}
-            projectId={project.id}
-            onSelectFolder={handleSelectFolder}
-            onAddSubfolder={openNewFolderDialog}
-            onEditFolder={handleOpenEditFolderModal}
-            onDeleteFolder={handleFolderDeleted}
-            onEditAsset={handleEditAsset} 
-            onDeleteAsset={handleDeleteAsset}
-            onPreviewImageAsset={handleOpenImagePreviewModal}
-            currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
-            displayMode="grid"
-        />
-        {isCurrentLocationEmpty && (
-            <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">
-                  {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('noFoldersInProjectStart', 'This project has no folders yet. Use the button below to add a new folder to get started.')}
-                </p>
-                {isMobile && !selectedFolder && (
-                     <p className="text-sm text-muted-foreground">{t('useFabToAddFolderMobile', 'Use the "Add New Folder" button below to get started.')}</p>
-                )}
-                 {isMobile && selectedFolder && (
-                     <p className="text-sm text-muted-foreground">{t('useFabToCreateContentMobile', 'Use the buttons below to add a folder or asset.')}</p>
-                )}
-                {!isMobile && !selectedFolder && (
-                    <Button variant="outline" onClick={() => openNewFolderDialog(selectedFolder)}>
-                        <FolderPlus className="mr-2 h-4 w-4" />
-                        {t('createNewFolderInRootButton', 'Create First Folder in Project Root')}
-                    </Button>
-                )}
-            </div>
-        )}
-        </CardContent>
-      </Card>
-
-      {isMobile && (
-        <div className="fixed bottom-4 left-0 right-0 p-2 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2">
-          <Button
-            onClick={() => openNewFolderDialog(selectedFolder)}
-            className="flex-1"
-            size="default"
-          >
-            <FolderPlus className="mr-2 h-5 w-5" />
-            {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
-          </Button>
-          {selectedFolder && (
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+      <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24 md:pb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+          <div>
             <Button
-              onClick={() => setIsNewAssetModalOpen(true)} 
+              variant="ghost"
+              size="sm"
+              className="text-primary hover:underline p-0 h-auto text-sm flex items-center"
+              onClick={() => {
+                setIsNavigatingToHome(true);
+                router.push('/');
+              }}
+              disabled={isNavigatingToHome}
+            >
+              {isNavigatingToHome ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Home className="mr-1 h-4 w-4" />
+              )}
+              {t('allProjects', 'All Projects')}
+            </Button>
+            <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
+              {!isMobile && (
+                <Button 
+                  variant="default" 
+                  size="default" 
+                  onClick={() => openNewFolderDialog(selectedFolder)} 
+                  title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                  className="w-full sm:w-auto"
+                >
+                  <FolderPlus className="mr-2 h-4 w-4" />
+                  {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                </Button>
+              )}
+              {!isMobile && selectedFolder && (
+                  <Button
+                    onClick={() => setIsNewAssetModalOpen(true)} 
+                    className="w-full sm:w-auto"
+                    size="default"
+                    title={t('newAsset', 'New Asset')}
+                  >
+                    <FilePlus className="mr-2 h-5 w-5" />
+                    {t('newAsset', 'New Asset')}
+                  </Button>
+              )}
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader className="pt-3 px-4 pb-0 md:pt-4 md:px-6 md:pb-0">
+              <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
+              {breadcrumbItems.map((item, index) => (
+                  <React.Fragment key={item.id || `project_root_${project.id}`}>
+                  <span
+                      className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                      onClick={() => {
+                      if (item.type === 'project') {
+                          handleSelectFolder(null);
+                      } else if (item.id) {
+                          const folderToSelect = foldersMap.get(item.id); 
+                          if (folderToSelect) handleSelectFolder(folderToSelect);
+                      }
+                      }}
+                      title={t('clickToNavigateTo', 'Click to navigate to {name}', { name: item.name })}
+                  >
+                      {item.name}
+                  </span>
+                  {index < breadcrumbItems.length - 1 && <span className="mx-1.5 text-muted-foreground">{t('breadcrumbSeparator', '>')}</span>}
+                  </React.Fragment>
+              ))}
+              </CardTitle>
+          </CardHeader>
+          <CardContent ref={isAdmin ? rootDroppableRef : undefined} className={cn("transition-colors", isOverRoot && 'bg-primary/10 rounded-b-lg')}>
+          <FolderTreeDisplay
+              foldersToDisplay={foldersToDisplayInGrid}
+              assetsToDisplay={assetsToDisplay}
+              projectId={project.id}
+              onSelectFolder={handleSelectFolder}
+              onAddSubfolder={openNewFolderDialog}
+              onEditFolder={handleOpenEditFolderModal}
+              onDeleteFolder={handleFolderDeleted}
+              onEditAsset={handleEditAsset} 
+              onDeleteAsset={handleDeleteAsset}
+              onPreviewImageAsset={handleOpenImagePreviewModal}
+              currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
+              displayMode="grid"
+              isDraggable={isAdmin}
+              activeDragId={activeDraggedFolder?.id}
+              overId={overId}
+          />
+          {isCurrentLocationEmpty && (
+              <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">
+                    {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('noFoldersInProjectStart', 'This project has no folders yet. Use the button below to add a new folder to get started.')}
+                  </p>
+                  {isMobile && !selectedFolder && (
+                      <p className="text-sm text-muted-foreground">{t('useFabToAddFolderMobile', 'Use the "Add New Folder" button below to get started.')}</p>
+                  )}
+                  {isMobile && selectedFolder && (
+                      <p className="text-sm text-muted-foreground">{t('useFabToCreateContentMobile', 'Use the buttons below to add a folder or asset.')}</p>
+                  )}
+                  {!isMobile && !selectedFolder && (
+                      <Button variant="outline" onClick={() => openNewFolderDialog(selectedFolder)}>
+                          <FolderPlus className="mr-2 h-4 w-4" />
+                          {t('createNewFolderInRootButton', 'Create First Folder in Project Root')}
+                      </Button>
+                  )}
+              </div>
+          )}
+          </CardContent>
+        </Card>
+
+        {isMobile && (
+          <div className="fixed bottom-4 left-0 right-0 p-2 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2">
+            <Button
+              onClick={() => openNewFolderDialog(selectedFolder)}
               className="flex-1"
               size="default"
-              title={t('newAsset', 'New Asset')}
             >
-              <FilePlus className="mr-2 h-5 w-5" />
-              {t('newAsset', 'New Asset')}
+              <FolderPlus className="mr-2 h-5 w-5" />
+              {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
             </Button>
-          )}
-        </div>
-      )}
-
-      <Dialog open={isNewFolderDialogOpen} onOpenChange={(isOpen) => {
-        if (isCreatingFolder) return;
-        if (!isOpen) {
-          setNewFolderName('');
-          setNewFolderParentContext(null);
-        }
-        setIsNewFolderDialogOpen(isOpen);
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-                {newFolderParentContext ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: newFolderParentContext.name }) : t('addRootFolderTitle', 'Add Folder to Project Root')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="pt-4 pb-0 space-y-2 flex-grow overflow-y-auto">
-            <Label htmlFor="new-folder-name">{t('folderName', 'Folder Name')}</Label>
-            <Input
-              id="new-folder-name"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder={t('folderNamePlaceholder', "e.g., Inspection Area 1")}
-              disabled={isCreatingFolder}
-            />
+            {selectedFolder && (
+              <Button
+                onClick={() => setIsNewAssetModalOpen(true)} 
+                className="flex-1"
+                size="default"
+                title={t('newAsset', 'New Asset')}
+              >
+                <FilePlus className="mr-2 h-5 w-5" />
+                {t('newAsset', 'New Asset')}
+              </Button>
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); setNewFolderParentContext(null); }} disabled={isCreatingFolder}>{t('cancel', 'Cancel')}</Button>
-            <Button onClick={handleCreateFolder} disabled={!newFolderName.trim() || isCreatingFolder}>
-              {isCreatingFolder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isCreatingFolder ? t('saving', 'Saving...') : t('confirm', 'Confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
 
-      {editingFolder && (
-        <EditFolderModal
-          isOpen={isEditFolderModalOpen}
-          onClose={() => {
-            setIsEditFolderModalOpen(false);
-            setEditingFolder(null);
-          }}
-          folder={editingFolder}
-          onFolderUpdated={handleFolderUpdated}
-        />
-      )}
-      
-      {project && (
-        <NewAssetModal
-            isOpen={isNewAssetModalOpen}
-            onClose={() => setIsNewAssetModalOpen(false)}
-            project={project}
-            parentFolder={selectedFolder}
-            onAssetCreated={handleAssetCreatedInModal}
-        />
-      )}
+        <Dialog open={isNewFolderDialogOpen} onOpenChange={(isOpen) => {
+          if (isCreatingFolder) return;
+          if (!isOpen) {
+            setNewFolderName('');
+            setNewFolderParentContext(null);
+          }
+          setIsNewFolderDialogOpen(isOpen);
+        }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                  {newFolderParentContext ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: newFolderParentContext.name }) : t('addRootFolderTitle', 'Add Folder to Project Root')}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="pt-4 pb-0 space-y-2 flex-grow overflow-y-auto">
+              <Label htmlFor="new-folder-name">{t('folderName', 'Folder Name')}</Label>
+              <Input
+                id="new-folder-name"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder={t('folderNamePlaceholder', "e.g., Inspection Area 1")}
+                disabled={isCreatingFolder}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); setNewFolderParentContext(null); }} disabled={isCreatingFolder}>{t('cancel', 'Cancel')}</Button>
+              <Button onClick={handleCreateFolder} disabled={!newFolderName.trim() || isCreatingFolder}>
+                {isCreatingFolder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isCreatingFolder ? t('saving', 'Saving...') : t('confirm', 'Confirm')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {imageToPreview && (
-        <ImagePreviewModal
-          isOpen={isImagePreviewModalOpen}
-          onClose={handleCloseImagePreviewModal}
-          imageUrl={imageToPreview}
-        />
-      )}
-    </div>
+        {editingFolder && (
+          <EditFolderModal
+            isOpen={isEditFolderModalOpen}
+            onClose={() => {
+              setIsEditFolderModalOpen(false);
+              setEditingFolder(null);
+            }}
+            folder={editingFolder}
+            onFolderUpdated={handleFolderUpdated}
+          />
+        )}
+        
+        {project && (
+          <NewAssetModal
+              isOpen={isNewAssetModalOpen}
+              onClose={() => setIsNewAssetModalOpen(false)}
+              project={project}
+              parentFolder={selectedFolder}
+              onAssetCreated={handleAssetCreatedInModal}
+          />
+        )}
+
+        {imageToPreview && (
+          <ImagePreviewModal
+            isOpen={isImagePreviewModalOpen}
+            onClose={handleCloseImagePreviewModal}
+            imageUrl={imageToPreview}
+          />
+        )}
+      </div>
+      <DragOverlay>
+        {activeDraggedFolder ? <FolderGridCard folder={activeDraggedFolder} t={t} isOverlay /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 }

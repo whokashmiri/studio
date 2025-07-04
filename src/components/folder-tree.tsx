@@ -15,8 +15,10 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
-import React, { useCallback } from 'react'; 
+import React, { useCallback, useMemo } from 'react'; 
 import { AssetCard } from '@/components/asset-card';
+import { useSortable, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface FolderDisplayCardProps {
   folder: Folder;
@@ -91,66 +93,83 @@ const FolderDisplayCard = React.memo(function FolderDisplayCard({
 
 interface FolderGridCardProps {
   folder: Folder;
-  onSelectFolder: (folder: Folder) => void;
-  onAddSubfolder: (parentFolder: Folder) => void;
-  onEditFolder: (folder: Folder) => void;
-  onActualDeleteFolder: (e: React.MouseEvent, folder: Folder) => void;
+  onSelectFolder?: (folder: Folder) => void;
+  onAddSubfolder?: (parentFolder: Folder) => void;
+  onEditFolder?: (folder: Folder) => void;
+  onActualDeleteFolder?: (e: React.MouseEvent, folder: Folder) => void;
   t: (key: string, defaultText: string, params?: Record<string, string | number>) => string;
+  isOverlay?: boolean;
+  isOver?: boolean;
 }
 
-const FolderGridCard = React.memo(function FolderGridCard({
+export const FolderGridCard = React.memo(function FolderGridCard({
   folder,
   onSelectFolder,
   onAddSubfolder,
   onEditFolder,
   onActualDeleteFolder,
-  t
+  t,
+  isOverlay = false,
+  isOver = false
 }: FolderGridCardProps) {
+  
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (isOverlay) return;
+    e.stopPropagation();
+    onSelectFolder?.(folder);
+  };
+
   return (
     <Card
-      className="group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 cursor-pointer aspect-square border-0 shadow-none"
-      onClick={() => onSelectFolder(folder)}
+      className={cn(
+        "group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 aspect-square border-0 shadow-none",
+        isOverlay ? "shadow-xl bg-background" : "cursor-pointer",
+        isOver && !isOverlay && "outline outline-2 outline-primary outline-dashed"
+      )}
+      onClick={handleCardClick}
       title={folder.name}
     >
-      <div className="absolute top-1 right-1 z-10">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 opacity-0 group-hover:opacity-100 focus:opacity-100"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreVertical className="h-4 w-4" />
-              <span className="sr-only">{t('folderActions', 'Folder actions')}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuItem onClick={() => onSelectFolder(folder)}>
-              <Eye className="mr-2 h-4 w-4" />
-              {t('openFolder', 'Open Folder')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAddSubfolder(folder)}>
-              <FolderPlus className="mr-2 h-4 w-4" />
-              {t('addSubfolderToCurrent', 'Add subfolder here')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onEditFolder(folder)}>
-              <Edit3 className="mr-2 h-4 w-4" />
-              {t('editFolder', 'Edit folder')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => onActualDeleteFolder(e, folder)}
-              className="text-destructive focus:text-destructive focus:bg-destructive/10"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t('deleteFolder', 'Delete folder')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {!isOverlay && onAddSubfolder && onEditFolder && onActualDeleteFolder && (
+        <div className="absolute top-1 right-1 z-10">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">{t('folderActions', 'Folder actions')}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              {onSelectFolder && <DropdownMenuItem onClick={() => onSelectFolder(folder)}>
+                <Eye className="mr-2 h-4 w-4" />
+                {t('openFolder', 'Open Folder')}
+              </DropdownMenuItem>}
+              <DropdownMenuItem onClick={() => onAddSubfolder(folder)}>
+                <FolderPlus className="mr-2 h-4 w-4" />
+                {t('addSubfolderToCurrent', 'Add subfolder here')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEditFolder(folder)}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                {t('editFolder', 'Edit folder')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => onActualDeleteFolder(e, folder)}
+                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t('deleteFolder', 'Delete folder')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
 
-      <div className="flex flex-col items-center justify-center text-center flex-grow">
+      <div className="flex flex-col items-center justify-center text-center flex-grow pointer-events-none">
           <FolderIcon className="h-12 w-12 sm:h-16 sm:w-16 text-primary mb-2 transition-transform group-hover:scale-110" />
           <CardTitle className="text-sm font-medium w-full break-words">
             {folder.name}
@@ -159,6 +178,37 @@ const FolderGridCard = React.memo(function FolderGridCard({
     </Card>
   )
 });
+
+function SortableFolderItem({ folder, isDraggable, overId, children }: { folder: Folder, isDraggable: boolean, overId: string | null, children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ 
+    id: folder.id,
+    data: {
+      type: 'folder',
+      folder: folder,
+    },
+    disabled: !isDraggable,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 10 : 'auto',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
 
 
 interface FolderTreeDisplayProps {
@@ -174,6 +224,9 @@ interface FolderTreeDisplayProps {
   onPreviewImageAsset: (imageUrl: string) => void;
   currentSelectedFolderId: string | null;
   displayMode?: 'grid' | 'list';
+  isDraggable?: boolean;
+  activeDragId?: string | null;
+  overId?: string | null;
 }
 
 export function FolderTreeDisplay({ 
@@ -189,6 +242,9 @@ export function FolderTreeDisplay({
   onPreviewImageAsset,
   currentSelectedFolderId,
   displayMode = 'list',
+  isDraggable = false,
+  activeDragId,
+  overId,
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -227,68 +283,81 @@ export function FolderTreeDisplay({
     onDeleteAsset(asset);
   };
 
+  const folderIds = useMemo(() => foldersToDisplay.map(f => f.id), [foldersToDisplay]);
+
+
   if (foldersToDisplay.length === 0 && assetsToDisplay.length === 0) {
     return null; 
   }
 
-  return (
-    <div className="space-y-6">
-      {foldersToDisplay.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
-            <FolderIcon className="mr-2 h-5 w-5 text-primary" />
-            {t('folders', 'Folders')} ({foldersToDisplay.length})
-          </h3>
-          {displayMode === 'grid' ? (
-            <div className="grid grid-cols-4 lg:grid-cols-8 gap-4">
-              {foldersToDisplay.map(folder => (
-                <FolderGridCard
-                  key={`folder-grid-${folder.id}`}
-                  folder={folder}
-                  onSelectFolder={onSelectFolder}
-                  onAddSubfolder={onAddSubfolder}
-                  onEditFolder={onEditFolder}
-                  onActualDeleteFolder={handleDeleteClick}
-                  t={t}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col border rounded-md">
-              {foldersToDisplay.map(folder => (
-                <FolderDisplayCard
-                  key={`folder-card-${folder.id}`}
-                  folder={folder}
-                  onSelectFolder={onSelectFolder}
-                  onAddSubfolder={onAddSubfolder}
-                  onEditFolder={onEditFolder}
-                  onActualDeleteFolder={handleDeleteClick}
-                  t={t}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      {assetsToDisplay.length > 0 && (
-        <div className={foldersToDisplay.length > 0 ? "mt-6" : ""}>
-          <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
-            <FileArchive className="mr-2 h-5 w-5 text-accent" />
-            {t('assets', 'Assets')} ({assetsToDisplay.length})
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {assetsToDisplay.map(asset => (
-              <AssetCard
-                key={`asset-${asset.id}`}
-                asset={asset}
-                onEditAsset={() => onEditAsset(asset)}
-                onDeleteAsset={() => handleDeleteAssetClick(asset)}
-                onPreviewImage={onPreviewImageAsset}
-              />
-            ))}
+  const folderGrid = (
+    <div className="grid grid-cols-4 lg:grid-cols-8 gap-4">
+      {foldersToDisplay.map(folder => (
+        <SortableFolderItem key={folder.id} folder={folder} isDraggable={isDraggable} overId={overId}>
+          <div style={{ visibility: activeDragId === folder.id ? 'hidden' : 'visible' }}>
+            <FolderGridCard
+              folder={folder}
+              onSelectFolder={onSelectFolder}
+              onAddSubfolder={onAddSubfolder}
+              onEditFolder={onEditFolder}
+              onActualDeleteFolder={handleDeleteClick}
+              t={t}
+              isOver={overId === folder.id}
+            />
           </div>
-        </div>
-      )}
+        </SortableFolderItem>
+      ))}
     </div>
+  );
+
+  const folderList = (
+    <div className="flex flex-col border rounded-md">
+      {foldersToDisplay.map(folder => (
+        <FolderDisplayCard
+          key={`folder-card-${folder.id}`}
+          folder={folder}
+          onSelectFolder={onSelectFolder}
+          onAddSubfolder={onAddSubfolder}
+          onEditFolder={onEditFolder}
+          onActualDeleteFolder={handleDeleteClick}
+          t={t}
+        />
+      ))}
+    </div>
+  );
+
+  return (
+    <SortableContext items={folderIds} strategy={rectSortingStrategy} disabled={!isDraggable}>
+      <div className="space-y-6">
+        {foldersToDisplay.length > 0 && (
+          <div>
+            <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
+              <FolderIcon className="mr-2 h-5 w-5 text-primary" />
+              {t('folders', 'Folders')} ({foldersToDisplay.length})
+            </h3>
+            {displayMode === 'grid' ? folderGrid : folderList}
+          </div>
+        )}
+        {assetsToDisplay.length > 0 && (
+          <div className={foldersToDisplay.length > 0 ? "mt-6" : ""}>
+            <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
+              <FileArchive className="mr-2 h-5 w-5 text-accent" />
+              {t('assets', 'Assets')} ({assetsToDisplay.length})
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {assetsToDisplay.map(asset => (
+                <AssetCard
+                  key={`asset-${asset.id}`}
+                  asset={asset}
+                  onEditAsset={() => onEditAsset(asset)}
+                  onDeleteAsset={() => handleDeleteAssetClick(asset)}
+                  onPreviewImage={onPreviewImageAsset}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </SortableContext>
   );
 }
