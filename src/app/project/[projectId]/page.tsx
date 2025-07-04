@@ -51,7 +51,6 @@ export default function ProjectPage() {
 
   const { toast } = useToast();
   const { t } = useLanguage();
-  const isMobile = useIsMobile();
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'Admin';
 
@@ -92,7 +91,6 @@ export default function ProjectPage() {
   const foldersMap = useMemo(() => new Map(allProjectFolders.map(f => [f.id, f])), [allProjectFolders]);
   const selectedFolder = useMemo(() => currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null, [currentUrlFolderId, foldersMap]);
   
-  // Validate folder from URL exists, redirect if not
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0) {
       if (!foldersMap.has(currentUrlFolderId)) {
@@ -131,7 +129,6 @@ export default function ProjectPage() {
     return allProjectAssets.filter(asset => asset.folderId === (currentUrlFolderId || null));
   }, [allProjectAssets, currentUrlFolderId]);
 
-  // Simplified navigation handler. The component will re-render from URL change.
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
     router.push(targetPath, { scroll: false }); 
@@ -159,7 +156,7 @@ export default function ProjectPage() {
         setIsNewFolderDialogOpen(false);
         setNewFolderParentContext(null);
         
-        await loadAllProjectData(); // Refresh data after creation
+        await loadAllProjectData();
       } else {
         toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
       }
@@ -236,7 +233,7 @@ export default function ProjectPage() {
   const isCurrentLocationEmpty = foldersToDisplay.length === 0 && assetsToDisplay.length === 0;
 
   return (
-      <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24 md:pb-8">
+      <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
           <div>
             <Button
@@ -257,29 +254,6 @@ export default function ProjectPage() {
               {t('allProjects', 'All Projects')}
             </Button>
             <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
-            <Button 
-              variant="default" 
-              size="default" 
-              onClick={() => openNewFolderDialog(selectedFolder)} 
-              title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
-              className="w-full sm:w-auto"
-            >
-              <FolderPlus className="mr-2 h-4 w-4" />
-              {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
-            </Button>
-            {selectedFolder && (
-                <Button
-                    onClick={() => setIsNewAssetModalOpen(true)} 
-                    className="w-full sm:w-auto"
-                    size="default"
-                    title={t('newAsset', 'New Asset')}
-                >
-                    <FilePlus className="mr-2 h-5 w-5" />
-                    {t('newAsset', 'New Asset')}
-                </Button>
-            )}
           </div>
         </div>
 
@@ -327,7 +301,7 @@ export default function ProjectPage() {
                   <p className="text-muted-foreground mb-4">
                     {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
                   </p>
-                  {!isMobile && !selectedFolder && (
+                  {!selectedFolder && (
                       <Button variant="outline" onClick={() => openNewFolderDialog(selectedFolder)}>
                           <FolderPlus className="mr-2 h-4 w-4" />
                           {t('createNewFolderInRootButton', 'Create First Folder in Project Root')}
@@ -337,6 +311,32 @@ export default function ProjectPage() {
           )}
           </CardContent>
         </Card>
+
+        <div className="fixed bottom-0 inset-x-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40">
+          <div className="container mx-auto flex justify-center items-center gap-4">
+              <Button 
+                  variant="default" 
+                  size="lg" 
+                  onClick={() => openNewFolderDialog(selectedFolder)} 
+                  title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                  className="shadow-lg"
+              >
+                  <FolderPlus className="mr-2 h-5 w-5" />
+                  {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+              </Button>
+              {selectedFolder && (
+                  <Button
+                      onClick={() => setIsNewAssetModalOpen(true)} 
+                      className="shadow-lg"
+                      size="lg"
+                      title={t('newAsset', 'New Asset')}
+                  >
+                      <FilePlus className="mr-2 h-5 w-5" />
+                      {t('newAsset', 'New Asset')}
+                  </Button>
+              )}
+          </div>
+        </div>
 
         <Dialog open={isNewFolderDialogOpen} onOpenChange={(isOpen) => {
           if (isCreatingFolder) return;
