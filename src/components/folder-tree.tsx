@@ -89,7 +89,79 @@ const FolderDisplayCard = React.memo(function FolderDisplayCard({
   );
 });
 
-interface FolderGridViewProps {
+interface FolderGridCardProps {
+  folder: Folder;
+  onSelectFolder: (folder: Folder) => void;
+  onAddSubfolder: (parentFolder: Folder) => void;
+  onEditFolder: (folder: Folder) => void;
+  onActualDeleteFolder: (e: React.MouseEvent, folder: Folder) => void;
+  t: (key: string, defaultText: string, params?: Record<string, string | number>) => string;
+}
+
+const FolderGridCard = React.memo(function FolderGridCard({
+  folder,
+  onSelectFolder,
+  onAddSubfolder,
+  onEditFolder,
+  onActualDeleteFolder,
+  t
+}: FolderGridCardProps) {
+  return (
+    <Card
+      className="group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 cursor-pointer aspect-square"
+      onClick={() => onSelectFolder(folder)}
+      title={folder.name}
+    >
+      <div className="absolute top-1 right-1 z-10">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 opacity-0 group-hover:opacity-100 focus:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreVertical className="h-4 w-4" />
+              <span className="sr-only">{t('folderActions', 'Folder actions')}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem onClick={() => onSelectFolder(folder)}>
+              <Eye className="mr-2 h-4 w-4" />
+              {t('openFolder', 'Open Folder')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAddSubfolder(folder)}>
+              <FolderPlus className="mr-2 h-4 w-4" />
+              {t('addSubfolderToCurrent', 'Add subfolder here')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEditFolder(folder)}>
+              <Edit3 className="mr-2 h-4 w-4" />
+              {t('editFolder', 'Edit folder')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={(e) => onActualDeleteFolder(e, folder)}
+              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t('deleteFolder', 'Delete folder')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div className="flex flex-col items-center justify-center text-center flex-grow">
+          <FolderIcon className="h-12 w-12 sm:h-16 sm:w-16 text-primary mb-2 transition-transform group-hover:scale-110" />
+          <CardTitle className="text-sm font-medium w-full break-words">
+            {folder.name}
+          </CardTitle>
+      </div>
+    </Card>
+  )
+});
+
+
+interface FolderTreeDisplayProps {
   foldersToDisplay: Folder[];
   assetsToDisplay: Asset[];
   projectId: string;
@@ -101,6 +173,7 @@ interface FolderGridViewProps {
   onDeleteAsset: (asset: Asset) => void; 
   onPreviewImageAsset: (imageUrl: string) => void;
   currentSelectedFolderId: string | null;
+  displayMode?: 'grid' | 'list';
 }
 
 export function FolderTreeDisplay({ 
@@ -115,7 +188,8 @@ export function FolderTreeDisplay({
   onDeleteAsset,
   onPreviewImageAsset,
   currentSelectedFolderId,
-}: FolderGridViewProps) {
+  displayMode = 'list',
+}: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
 
@@ -165,19 +239,35 @@ export function FolderTreeDisplay({
             <FolderIcon className="mr-2 h-5 w-5 text-primary" />
             {t('folders', 'Folders')} ({foldersToDisplay.length})
           </h3>
-          <div className="flex flex-col border rounded-md">
-            {foldersToDisplay.map(folder => (
-              <FolderDisplayCard
-                key={`folder-card-${folder.id}`}
-                folder={folder}
-                onSelectFolder={onSelectFolder}
-                onAddSubfolder={onAddSubfolder}
-                onEditFolder={onEditFolder}
-                onActualDeleteFolder={handleDeleteClick}
-                t={t}
-              />
-            ))}
-          </div>
+          {displayMode === 'grid' ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {foldersToDisplay.map(folder => (
+                <FolderGridCard
+                  key={`folder-grid-${folder.id}`}
+                  folder={folder}
+                  onSelectFolder={onSelectFolder}
+                  onAddSubfolder={onAddSubfolder}
+                  onEditFolder={onEditFolder}
+                  onActualDeleteFolder={handleDeleteClick}
+                  t={t}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col border rounded-md">
+              {foldersToDisplay.map(folder => (
+                <FolderDisplayCard
+                  key={`folder-card-${folder.id}`}
+                  folder={folder}
+                  onSelectFolder={onSelectFolder}
+                  onAddSubfolder={onAddSubfolder}
+                  onEditFolder={onEditFolder}
+                  onActualDeleteFolder={handleDeleteClick}
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
       {assetsToDisplay.length > 0 && (

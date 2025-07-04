@@ -336,6 +336,7 @@ export default function ProjectPage() {
             onDeleteAsset={handleDeleteAsset}
             onPreviewImageAsset={handleOpenImagePreviewModal}
             currentSelectedFolderId={selectedFolder ? selectedFolder.id : null}
+            displayMode="grid"
         />
         {isCurrentLocationEmpty && (
             <div className="text-center py-8">
@@ -449,4 +450,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
