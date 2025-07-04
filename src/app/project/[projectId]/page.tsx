@@ -208,7 +208,7 @@ export default function ProjectPage() {
     }
   }, [t, toast, loadAllProjectData]);
 
-  const handleAssetCreatedInModal = useCallback(async () => {
+  const handleAssetCreatedInModal = useCallback(async (newAsset: Asset) => {
     await loadAllProjectData();
   }, [loadAllProjectData]);
 
@@ -323,7 +323,7 @@ export default function ProjectPage() {
           {isCurrentLocationEmpty && (
               <div className="text-center py-8">
                   <p className="text-muted-foreground mb-4">
-                    {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('noFoldersInProjectStart', 'This project has no folders yet. Use the button below to add a new folder to get started.')}
+                    {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
                   </p>
                   {isMobile && !selectedFolder && (
                       <p className="text-sm text-muted-foreground">{t('useFabToAddFolderMobile', 'Use the "Add New Folder" button below to get started.')}</p>
