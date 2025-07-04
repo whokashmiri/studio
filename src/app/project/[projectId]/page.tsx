@@ -356,7 +356,7 @@ export default function ProjectPage() {
                   {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
                 </Button>
               )}
-              {!isMobile && selectedFolder && (
+              {!isMobile && (
                   <Button
                     onClick={() => setIsNewAssetModalOpen(true)} 
                     className="w-full sm:w-auto"
@@ -444,17 +444,15 @@ export default function ProjectPage() {
               <FolderPlus className="mr-2 h-5 w-5" />
               {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
             </Button>
-            {selectedFolder && (
-              <Button
-                onClick={() => setIsNewAssetModalOpen(true)} 
-                className="flex-1"
-                size="default"
-                title={t('newAsset', 'New Asset')}
-              >
-                <FilePlus className="mr-2 h-5 w-5" />
-                {t('newAsset', 'New Asset')}
-              </Button>
-            )}
+            <Button
+              onClick={() => setIsNewAssetModalOpen(true)} 
+              className="flex-1"
+              size="default"
+              title={t('newAsset', 'New Asset')}
+            >
+              <FilePlus className="mr-2 h-5 w-5" />
+              {t('newAsset', 'New Asset')}
+            </Button>
           </div>
         )}
 
@@ -528,3 +526,4 @@ export default function ProjectPage() {
     </DndContext>
   );
 }
+
