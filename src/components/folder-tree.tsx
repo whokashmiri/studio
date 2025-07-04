@@ -227,7 +227,7 @@ export function FolderTreeDisplay({
         <div>
           <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
             <FolderIcon className="mr-2 h-5 w-5 text-primary" />
-            {t('folders', 'Folders')} ({foldersToDisplay.length})
+            {t('folders', 'Folders')}
           </h3>
           {folderList}
         </div>
@@ -236,7 +236,7 @@ export function FolderTreeDisplay({
         <div className={foldersToDisplay.length > 0 ? "mt-6" : ""}>
           <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
             <FileArchive className="mr-2 h-5 w-5 text-accent" />
-            {t('assets', 'Assets')} ({assetsToDisplay.length})
+            {t('assets', 'Assets')}
           </h3>
           <div className="flex flex-col border rounded-md">
             {assetsToDisplay.map(asset => (
