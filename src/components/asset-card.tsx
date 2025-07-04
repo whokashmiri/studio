@@ -37,16 +37,88 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
     return t('noDescriptionAvailable', 'No description available.');
   }
 
-  const handleImageClick = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent link navigation if card is wrapped in Link
-    e.stopPropagation();
-    if (primaryPhoto) {
-      onPreviewImage(primaryPhoto);
-    }
-  };
+  if (displayMode === 'grid') {
+    const mainAction = () => {
+      if (primaryPhoto) {
+        onPreviewImage(primaryPhoto);
+      } else {
+        onEditAsset(asset);
+      }
+    };
 
-  if (displayMode === 'list') {
     return (
+      <Card
+        className="group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 aspect-square cursor-pointer bg-card/50"
+        onClick={mainAction}
+        title={asset.name}
+      >
+        <div className="absolute top-1 right-1 z-10">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">{t('assetActions', 'Asset actions')}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              {primaryPhoto && (
+                <DropdownMenuItem onClick={() => onPreviewImage(primaryPhoto)}>
+                  <Expand className="mr-2 h-4 w-4" />
+                  {t('viewImage', 'View Image')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => onEditAsset(asset)}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                {t('editAssetButton', 'Edit Asset')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDeleteAsset(asset)}
+                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t('deleteAssetButton', 'Delete Asset')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="flex flex-col items-center justify-center text-center flex-grow w-full pointer-events-none">
+          <div
+            className={cn(
+              "relative h-16 w-16 mb-2 rounded-md overflow-hidden bg-muted flex items-center justify-center",
+              "group-hover:scale-110 transition-transform"
+            )}
+          >
+            {primaryPhoto ? (
+              <Image
+                src={primaryPhoto}
+                alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
+                fill
+                className="object-cover"
+                data-ai-hint="asset photo"
+              />
+            ) : (
+              <FileArchive className="w-8 h-8 text-muted-foreground" />
+            )}
+          </div>
+          <CardTitle className="text-sm font-medium w-full break-words">
+            {asset.name}
+          </CardTitle>
+          <CardDescription className="text-xs line-clamp-1 pt-0.5" title={getDescriptionText()}>
+            {getDescriptionText()}
+          </CardDescription>
+        </div>
+      </Card>
+    );
+  }
+
+  // --- LIST MODE LOGIC ---
+  return (
       <Card 
         className="group flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md"
         title={asset.name}
@@ -113,82 +185,5 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
           </DropdownMenu>
         </div>
       </Card>
-    );
-  }
-
-
-  return (
-    <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200 group">
-      <CardHeader className="p-3 pb-1.5 flex flex-row justify-between items-start gap-2">
-        <div className="flex-grow min-w-0">
-          <CardTitle className="text-base font-headline leading-tight group-hover:text-primary transition-colors truncate" title={asset.name}>
-            {asset.name}
-          </CardTitle>
-          <CardDescription className="text-xs line-clamp-1 pt-0.5" title={getDescriptionText()}>
-              {getDescriptionText()}
-          </CardDescription>
-        </div>
-        <div className="shrink-0">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={(e) => e.stopPropagation()} 
-              >
-                <MoreVertical className="h-4 w-4" />
-                <span className="sr-only">{t('assetActions', 'Asset actions')}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              {primaryPhoto && (
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); if(primaryPhoto) onPreviewImage(primaryPhoto);}}>
-                  <Expand className="mr-2 h-4 w-4" />
-                  {t('viewImage', 'View Image')}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => onEditAsset(asset)}>
-                <Edit3 className="mr-2 h-4 w-4" />
-                {t('editAssetButton', 'Edit Asset')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onDeleteAsset(asset)}
-                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                {t('deleteAssetButton', 'Delete Asset')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent className="p-3 pt-0 flex-grow flex flex-col justify-between">
-        <div 
-          className={cn("aspect-square w-full relative mb-2 rounded-md overflow-hidden bg-muted", primaryPhoto && "cursor-pointer")}
-          onClick={primaryPhoto ? handleImageClick : undefined}
-          title={primaryPhoto ? t('clickToViewImage', 'Click to view full image') : undefined}
-        >
-          {primaryPhoto ? (
-            <>
-              <Image
-                src={primaryPhoto}
-                alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
-                fill
-                data-ai-hint="asset photo"
-                className="object-cover group-hover:scale-105 transition-transform duration-200"
-              />
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <Expand className="h-8 w-8 text-white" />
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <ImageOff className="w-12 h-12 text-muted-foreground" />
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
   );
 });

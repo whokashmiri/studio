@@ -17,6 +17,7 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import React, { useCallback } from 'react'; 
 import { AssetCard } from '@/components/asset-card';
+import { FolderGridCard } from '@/components/folder-grid-card';
 
 interface FolderDisplayCardProps {
   folder: Folder;
@@ -87,87 +88,6 @@ const FolderDisplayCard = React.memo(function FolderDisplayCard({
       </div>
     </Card>
   );
-});
-
-interface FolderGridCardProps {
-  folder: Folder;
-  onSelectFolder?: (folder: Folder) => void;
-  onAddSubfolder?: (parentFolder: Folder) => void;
-  onEditFolder?: (folder: Folder) => void;
-  onActualDeleteFolder?: (e: React.MouseEvent, folder: Folder) => void;
-  t: (key: string, defaultText: string, params?: Record<string, string | number>) => string;
-}
-
-export const FolderGridCard = React.memo(function FolderGridCard({
-  folder,
-  onSelectFolder,
-  onAddSubfolder,
-  onEditFolder,
-  onActualDeleteFolder,
-  t,
-}: FolderGridCardProps) {
-  
-  const handleCardClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onSelectFolder?.(folder);
-  };
-
-  return (
-    <Card
-      className={cn(
-        "group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 aspect-square border-0 shadow-none cursor-pointer"
-      )}
-      onClick={handleCardClick}
-      title={folder.name}
-    >
-      {onAddSubfolder && onEditFolder && onActualDeleteFolder && (
-        <div className="absolute top-1 right-1 z-10">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreVertical className="h-4 w-4" />
-                <span className="sr-only">{t('folderActions', 'Folder actions')}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              {onSelectFolder && <DropdownMenuItem onClick={() => onSelectFolder(folder)}>
-                <Eye className="mr-2 h-4 w-4" />
-                {t('openFolder', 'Open Folder')}
-              </DropdownMenuItem>}
-              <DropdownMenuItem onClick={() => onAddSubfolder(folder)}>
-                <FolderPlus className="mr-2 h-4 w-4" />
-                {t('addSubfolderToCurrent', 'Add subfolder here')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEditFolder(folder)}>
-                <Edit3 className="mr-2 h-4 w-4" />
-                {t('editFolder', 'Edit folder')}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => onActualDeleteFolder(e, folder)}
-                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                {t('deleteFolder', 'Delete folder')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
-
-      <div className="flex flex-col items-center justify-center text-center flex-grow pointer-events-none">
-          <FolderIcon className="h-12 w-12 sm:h-16 sm:w-16 text-primary mb-2 transition-transform group-hover:scale-110" />
-          <CardTitle className="text-sm font-medium w-full break-words">
-            {folder.name}
-          </CardTitle>
-      </div>
-    </Card>
-  )
 });
 
 interface FolderTreeDisplayProps {
@@ -247,12 +167,12 @@ export function FolderTreeDisplay({
     }
 
     return (
-      <div className="grid grid-cols-4 lg:grid-cols-8 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {combinedItems.map(item => {
           if (item.type === 'folder') {
             return (
               <FolderGridCard
-                key={`item-${item.data.id}`}
+                key={`item-folder-${item.data.id}`}
                 folder={item.data}
                 onSelectFolder={onSelectFolder}
                 onAddSubfolder={onAddSubfolder}
@@ -265,7 +185,7 @@ export function FolderTreeDisplay({
           if (item.type === 'asset') {
             return (
               <AssetCard
-                key={`item-${item.data.id}`}
+                key={`item-asset-${item.data.id}`}
                 asset={item.data}
                 onEditAsset={onEditAsset}
                 onDeleteAsset={() => handleDeleteAssetClick(item.data)}

@@ -53,6 +53,7 @@ export default function ProjectPage() {
   const { t } = useLanguage();
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'Admin';
+  const isMobile = useIsMobile();
 
   const loadAllProjectData = useCallback(async () => {
     if (projectId) {
@@ -281,7 +282,7 @@ export default function ProjectPage() {
               ))}
               </CardTitle>
           </CardHeader>
-          <CardContent className={cn("transition-colors rounded-b-lg")}>
+          <CardContent className={cn("transition-colors rounded-b-lg p-2 md:p-4")}>
           <FolderTreeDisplay
               foldersToDisplay={foldersToDisplay}
               assetsToDisplay={assetsToDisplay}
@@ -294,19 +295,13 @@ export default function ProjectPage() {
               onDeleteAsset={handleDeleteAsset}
               onPreviewImageAsset={handleOpenImagePreviewModal}
               currentSelectedFolderId={selectedFolder?.id || null}
-              displayMode="list"
+              displayMode="grid"
           />
           {isCurrentLocationEmpty && (
               <div className="text-center py-8">
                   <p className="text-muted-foreground mb-4">
                     {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
                   </p>
-                  {!selectedFolder && (
-                      <Button variant="outline" onClick={() => openNewFolderDialog(selectedFolder)}>
-                          <FolderPlus className="mr-2 h-4 w-4" />
-                          {t('createNewFolderInRootButton', 'Create First Folder in Project Root')}
-                      </Button>
-                  )}
               </div>
           )}
           </CardContent>
