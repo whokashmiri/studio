@@ -590,21 +590,28 @@ export async function getAssociatedCompanyIdsForUser(userId: string, primaryComp
     }
 
     try {
-        const projectsQuery = query(
-            collection(getDb(), PROJECTS_COLLECTION),
-            or(
-                where("assignedInspectorIds", "array-contains", userId),
-                where("assignedValuatorIds", "array-contains", userId),
-                where("createdByUserId", "==", userId) // Also include projects they created
-            )
-        );
-        const projectsSnapshot = await getDocs(projectsQuery);
-        projectsSnapshot.forEach(doc => {
-            const project = doc.data() as Project;
-            if (project.companyId) {
-                companyIds.add(project.companyId);
-            }
-        });
+        const inspectorProjectsQuery = query(collection(getDb(), PROJECTS_COLLECTION), where("assignedInspectorIds", "array-contains", userId));
+        const valuatorProjectsQuery = query(collection(getDb(), PROJECTS_COLLECTION), where("assignedValuatorIds", "array-contains", userId));
+        const creatorProjectsQuery = query(collection(getDb(), PROJECTS_COLLECTION), where("createdByUserId", "==", userId));
+
+        const [inspectorSnapshot, valuatorSnapshot, creatorSnapshot] = await Promise.all([
+            getDocs(inspectorProjectsQuery),
+            getDocs(valuatorProjectsQuery),
+            getDocs(creatorProjectsQuery)
+        ]);
+
+        const processAndAddIds = (snapshot: QuerySnapshot<DocumentData>) => {
+            snapshot.forEach(doc => {
+                const project = doc.data() as Project;
+                if (project.companyId) {
+                    companyIds.add(project.companyId);
+                }
+            });
+        };
+
+        processAndAddIds(inspectorSnapshot);
+        processAndAddIds(valuatorSnapshot);
+        processAndAddIds(creatorSnapshot);
 
         return Array.from(companyIds);
     } catch (error) {
