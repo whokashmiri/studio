@@ -83,7 +83,7 @@ export default function ProjectPage() {
         setIsLoading(false);
       }
     }
-  }, [projectId, router, toast, t]);
+  }, [projectId, router, t, toast]);
   
   useEffect(() => {
     loadAllProjectData();
@@ -100,7 +100,7 @@ export default function ProjectPage() {
         router.push(`/project/${projectId}`);
       }
     }
-  }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, toast, t, allProjectFolders.length]);
+  }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, t, toast, allProjectFolders.length]);
 
   const getFolderPath = useCallback((folderId: string | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
     const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
@@ -166,7 +166,7 @@ export default function ProjectPage() {
     } finally {
       setIsCreatingFolder(false);
     }
-  }, [newFolderName, project, newFolderParentContext, toast, t, loadAllProjectData]);
+  }, [newFolderName, project, newFolderParentContext, loadAllProjectData, t, toast]);
 
   const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
@@ -206,7 +206,7 @@ export default function ProjectPage() {
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
       }
     }
-  }, [t, toast, loadAllProjectData]);
+  }, [loadAllProjectData, t, toast]);
 
   const handleAssetCreatedInModal = useCallback(async (newAsset: Asset) => {
     await loadAllProjectData();
