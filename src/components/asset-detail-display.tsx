@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useLanguage } from '@/contexts/language-context';
-import { PlayCircle, PauseCircle, Text, Edit, ImageOff, Volume2, ArrowLeft } from 'lucide-react';
+import { PlayCircle, PauseCircle, Text, Edit, ImageOff, Volume2, ArrowLeft, ArrowRight } from 'lucide-react';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRouter } from 'next/navigation';
@@ -18,10 +18,28 @@ interface AssetDetailDisplayProps {
 export function AssetDetailDisplay({ asset, onBack }: AssetDetailDisplayProps) {
   const { t } = useLanguage();
   const router = useRouter();
-  const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
+
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const photos = asset.photos || [];
+  const currentPhoto = photos.length > 0 ? photos[currentPhotoIndex] : null;
 
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  
+  // Reset photo index when asset changes
+  useEffect(() => {
+    setCurrentPhotoIndex(0);
+  }, [asset.id]);
+
+  const handleNextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentPhotoIndex((prevIndex) => (prevIndex + 1) % photos.length);
+  };
+
+  const handlePrevPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentPhotoIndex((prevIndex) => (prevIndex - 1 + photos.length) % photos.length);
+  };
 
   const handlePlayRecordedAudio = useCallback(() => {
     if (asset.recordedAudioDataUrl && audioPlayerRef.current) {
@@ -31,7 +49,6 @@ export function AssetDetailDisplay({ asset, onBack }: AssetDetailDisplayProps) {
         audioPlayerRef.current.src = asset.recordedAudioDataUrl;
         audioPlayerRef.current.play().catch(e => {
           console.error("Error playing audio:", e);
-          // TODO: Consider a toast here if this component could use it (needs ToastProvider context)
         });
       }
     }
@@ -50,23 +67,22 @@ export function AssetDetailDisplay({ asset, onBack }: AssetDetailDisplayProps) {
         player.removeEventListener('play', onPlay);
         player.removeEventListener('pause', onPause);
         player.removeEventListener('ended', onEnded);
-        if (player) { // Ensure player exists before trying to modify src
+        if (player) { 
             player.pause();
-            player.src = ''; // Clear src to stop audio when component unmounts or asset changes
+            player.src = '';
         }
       };
     }
-  }, []); // Empty dependency array to setup/cleanup listeners once
+  }, []);
 
-  // Effect to handle asset change for audio player
   useEffect(() => {
     if (audioPlayerRef.current) {
         audioPlayerRef.current.pause();
         setIsAudioPlaying(false);
         if (asset.recordedAudioDataUrl) {
-            // Optionally pre-load new audio source here if desired, but typically src is set on play
+            // New audio source available
         } else {
-            audioPlayerRef.current.src = ''; // Clear src if no audio for new asset
+            audioPlayerRef.current.src = '';
         }
     }
   }, [asset]);
@@ -101,16 +117,40 @@ export function AssetDetailDisplay({ asset, onBack }: AssetDetailDisplayProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {primaryPhoto ? (
-          <div className="relative w-full max-w-2xl mx-auto aspect-[4/3] rounded-lg overflow-hidden bg-muted border shadow-inner">
+        {currentPhoto ? (
+          <div className="relative w-full max-w-2xl mx-auto aspect-[4/3] rounded-lg overflow-hidden bg-muted border shadow-inner group">
             <Image
-              src={primaryPhoto}
+              key={currentPhoto}
+              src={currentPhoto}
               alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
               layout="fill"
-              objectFit="contain" // Changed to contain to ensure full image is visible
+              objectFit="contain"
               data-ai-hint="asset photo detail"
-              className="p-1" // Added padding if objectFit="contain"
+              className="p-1"
             />
+            {photos.length > 1 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/30 text-white hover:bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
+                  onClick={handlePrevPhoto}
+                >
+                  <ArrowLeft className="h-6 w-6" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/30 text-white hover:bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
+                  onClick={handleNextPhoto}
+                >
+                  <ArrowRight className="h-6 w-6" />
+                </Button>
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs font-medium rounded-full px-2.5 py-1 pointer-events-none">
+                  {currentPhotoIndex + 1} / {photos.length}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="flex items-center justify-center h-64 md:h-96 rounded-lg border bg-muted text-muted-foreground shadow-inner">
