@@ -36,12 +36,16 @@ export default function HomePage() {
         const companyIds = await FirestoreService.getAssociatedCompanyIdsForUser(currentUser.id, currentUser.companyId);
         
         if (companyIds.length > 0) {
-          const companies = await FirestoreService.getCompaniesByIds(companyIds);
+          let companies = await FirestoreService.getCompaniesByIds(companyIds);
+
+          // Sort the companies to ensure the user's primary company is always first.
+          companies = companies.sort((a, b) => {
+            if (a.id === currentUser.companyId) return -1; // a (own company) comes first
+            if (b.id === currentUser.companyId) return 1;  // b (own company) comes first
+            return a.name.localeCompare(b.name); // otherwise, sort alphabetically
+          });
+
           setAssociatedCompanies(companies);
-          // If there's only one associated company, select it automatically.
-          if (companies.length === 1) {
-            setSelectedCompany(companies[0]);
-          }
         } else {
           // This handles the case where a user truly has no company associations.
           setAssociatedCompanies([]);
@@ -81,7 +85,7 @@ export default function HomePage() {
     );
   }
 
-  // If a company is selected (either automatically or by the user), show the dashboard
+  // If a company has been selected by the user, show the dashboard
   if (selectedCompany) {
     return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8">
@@ -93,14 +97,13 @@ export default function HomePage() {
     );
   }
 
-  // If companies are loaded and there's more than one, show the selector
-  if (associatedCompanies && associatedCompanies.length > 1) {
+  // If there are any associated companies, always show the selector
+  if (associatedCompanies && associatedCompanies.length > 0) {
     return <CompanySelector companies={associatedCompanies} onSelectCompany={handleSelectCompany} />;
   }
   
-  // This is the final fallback for two cases:
-  // 1. The fetch completed and the user has no associated companies (associatedCompanies is an empty array).
-  // 2. Something unexpected happened and associatedCompanies is still null after loading.
+  // This is the final fallback case:
+  // The fetch completed and the user has no associated companies (associatedCompanies is an empty array).
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
         <Card className="w-full max-w-md">
