@@ -18,7 +18,6 @@ import { useToast } from '@/hooks/use-toast';
 import React, { useCallback, useMemo } from 'react'; 
 import { AssetCard } from '@/components/asset-card';
 import { useSortable, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 interface FolderDisplayCardProps {
   folder: Folder;
@@ -196,8 +195,8 @@ function SortableFolderItem({ folder, isDraggable, overId, children }: { folder:
     disabled: !isDraggable,
   });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
+  const style: React.CSSProperties = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     transition,
     opacity: isDragging ? 0.3 : 1,
     zIndex: isDragging ? 10 : 'auto',
