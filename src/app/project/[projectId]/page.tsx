@@ -23,7 +23,7 @@ import { DndContext, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useS
 import { useDroppable } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { cn } from '@/lib/utils';
-import { FolderGridCard } from '@/components/folder-tree'; // We'll export this from folder-tree
+import { FolderGridCard } from '@/components/folder-tree';
 
 export default function ProjectPage() {
   const params = useParams();
@@ -36,7 +36,7 @@ export default function ProjectPage() {
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
   const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
 
@@ -89,7 +89,7 @@ export default function ProjectPage() {
 
   const loadProjectData = useCallback(async () => {
     if (projectId) {
-      setIsLoadingData(true);
+      setIsLoading(true);
       try {
         const [foundProject, projectFolders, projectAssets] = await Promise.all([
           FirestoreService.getProjectById(projectId),
@@ -107,34 +107,27 @@ export default function ProjectPage() {
         setAllProjectFolders(projectFolders);
         setAllProjectAssets(projectAssets);
 
+        const folderFromUrl = currentUrlFolderId ? projectFolders.find(f => f.id === currentUrlFolderId) : null;
+        if (currentUrlFolderId && !folderFromUrl) {
+            toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
+            router.push(`/project/${projectId}`);
+        }
+        setSelectedFolder(folderFromUrl || null);
+
       } catch (error) {
         console.error("Error loading project data:", error);
         toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
         router.push('/');
       } finally {
-        setIsLoadingData(false);
+        setIsLoading(false);
       }
     }
-  }, [projectId, router, toast, t]);
+  }, [projectId, currentUrlFolderId, router, toast, t]);
 
-  // Effect to load all data once when the component mounts or projectId changes
   useEffect(() => {
     loadProjectData();
   }, [loadProjectData]); 
   
-  // Effect to sync the selected folder with the URL, without re-fetching
-  useEffect(() => {
-      if (isLoadingData) return; // Don't run until initial data is loaded
-      
-      const folderIdFromUrl = searchParams.get('folderId');
-      if (folderIdFromUrl) {
-          const folderFromUrl = allProjectFolders.find(f => f.id === folderIdFromUrl);
-          setSelectedFolder(folderFromUrl || null);
-      } else {
-          setSelectedFolder(null);
-      }
-  }, [searchParams, allProjectFolders, isLoadingData]);
-
 
   const breadcrumbItems = useMemo(() => {
     if (!project) return []; 
@@ -313,7 +306,7 @@ export default function ProjectPage() {
   });
 
 
-  if (isLoadingData || !project) {
+  if (isLoading || !project) {
     return (
         <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -351,29 +344,29 @@ export default function ProjectPage() {
             <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
-              {!isMobile && (
-                <Button 
-                  variant="default" 
-                  size="default" 
-                  onClick={() => openNewFolderDialog(selectedFolder)} 
-                  title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+            {!isMobile && (
+              <Button 
+                variant="default" 
+                size="default" 
+                onClick={() => openNewFolderDialog(selectedFolder)} 
+                title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                className="w-full sm:w-auto"
+              >
+                <FolderPlus className="mr-2 h-4 w-4" />
+                {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+              </Button>
+            )}
+            {selectedFolder && !isMobile && (
+                <Button
+                  onClick={() => setIsNewAssetModalOpen(true)} 
                   className="w-full sm:w-auto"
+                  size="default"
+                  title={t('newAsset', 'New Asset')}
                 >
-                  <FolderPlus className="mr-2 h-4 w-4" />
-                  {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                  <FilePlus className="mr-2 h-5 w-5" />
+                  {t('newAsset', 'New Asset')}
                 </Button>
-              )}
-              {!isMobile && (
-                  <Button
-                    onClick={() => setIsNewAssetModalOpen(true)} 
-                    className="w-full sm:w-auto"
-                    size="default"
-                    title={t('newAsset', 'New Asset')}
-                  >
-                    <FilePlus className="mr-2 h-5 w-5" />
-                    {t('newAsset', 'New Asset')}
-                  </Button>
-              )}
+            )}
           </div>
         </div>
 
@@ -451,15 +444,17 @@ export default function ProjectPage() {
               <FolderPlus className="mr-2 h-5 w-5" />
               {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
             </Button>
-            <Button
-              onClick={() => setIsNewAssetModalOpen(true)} 
-              className="flex-1"
-              size="default"
-              title={t('newAsset', 'New Asset')}
-            >
-              <FilePlus className="mr-2 h-5 w-5" />
-              {t('newAsset', 'New Asset')}
-            </Button>
+            {selectedFolder && (
+              <Button
+                onClick={() => setIsNewAssetModalOpen(true)} 
+                className="flex-1"
+                size="default"
+                title={t('newAsset', 'New Asset')}
+              >
+                <FilePlus className="mr-2 h-5 w-5" />
+                {t('newAsset', 'New Asset')}
+              </Button>
+            )}
           </div>
         )}
 
@@ -509,7 +504,7 @@ export default function ProjectPage() {
           />
         )}
         
-        {project && (
+        {project && selectedFolder && (
           <NewAssetModal
               isOpen={isNewAssetModalOpen}
               onClose={() => setIsNewAssetModalOpen(false)}
