@@ -267,9 +267,10 @@ export function FolderTreeDisplay({
               <AssetCard
                 key={`item-${item.data.id}`}
                 asset={item.data}
-                onEditAsset={() => onEditAsset(item.data)}
+                onEditAsset={onEditAsset}
                 onDeleteAsset={() => handleDeleteAssetClick(item.data)}
                 onPreviewImage={onPreviewImageAsset}
+                displayMode="grid"
               />
             );
           }
@@ -317,14 +318,15 @@ export function FolderTreeDisplay({
             <FileArchive className="mr-2 h-5 w-5 text-accent" />
             {t('assets', 'Assets')} ({assetsToDisplay.length})
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="flex flex-col border rounded-md">
             {assetsToDisplay.map(asset => (
               <AssetCard
                 key={`asset-${asset.id}`}
                 asset={asset}
-                onEditAsset={() => onEditAsset(asset)}
+                onEditAsset={onEditAsset}
                 onDeleteAsset={() => handleDeleteAssetClick(asset)}
                 onPreviewImage={onPreviewImageAsset}
+                displayMode="list"
               />
             ))}
           </div>

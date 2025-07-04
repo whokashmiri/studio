@@ -4,7 +4,7 @@ import type { Asset } from '@/data/mock-data';
 import React from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit3, Trash2, ImageOff, MoreVertical, Expand } from 'lucide-react';
+import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,10 +19,11 @@ interface AssetCardProps {
   asset: Asset;
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void;
-  onPreviewImage: (imageUrl: string) => void; // New prop for image preview
+  onPreviewImage: (imageUrl: string) => void;
+  displayMode?: 'grid' | 'list';
 }
 
-export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewImage }: AssetCardProps) {
+export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewImage, displayMode = 'grid' }: AssetCardProps) {
   const { t } = useLanguage();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
 
@@ -43,6 +44,78 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
       onPreviewImage(primaryPhoto);
     }
   };
+
+  if (displayMode === 'list') {
+    return (
+      <Card 
+        className="group flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md"
+        title={asset.name}
+      >
+        <div 
+          className="flex items-center gap-3 flex-grow min-w-0 cursor-pointer"
+          onClick={() => onEditAsset(asset)}
+        >
+          <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted">
+            {primaryPhoto ? (
+              <Image
+                src={primaryPhoto}
+                alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
+                fill
+                className="object-cover"
+                data-ai-hint="asset photo"
+              />
+            ) : (
+              <FileArchive className="w-6 h-6 text-muted-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            )}
+          </div>
+          <div className="flex-grow min-w-0">
+            <CardTitle className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
+              {asset.name}
+            </CardTitle>
+            <CardDescription className="text-xs line-clamp-1 pt-0.5" title={getDescriptionText()}>
+                {getDescriptionText()}
+            </CardDescription>
+          </div>
+        </div>
+
+        <div className="shrink-0 ml-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => e.stopPropagation()} 
+              >
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">{t('assetActions', 'Asset actions')}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              {primaryPhoto && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); if(primaryPhoto) onPreviewImage(primaryPhoto);}}>
+                  <Expand className="mr-2 h-4 w-4" />
+                  {t('viewImage', 'View Image')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => onEditAsset(asset)}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                {t('editAssetButton', 'Edit Asset')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDeleteAsset(asset)}
+                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t('deleteAssetButton', 'Delete Asset')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </Card>
+    );
+  }
+
 
   return (
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200 group">
@@ -101,10 +174,9 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
               <Image
                 src={primaryPhoto}
                 alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
-                layout="fill"
-                objectFit="cover"
+                fill
                 data-ai-hint="asset photo"
-                className="group-hover:scale-105 transition-transform duration-200"
+                className="object-cover group-hover:scale-105 transition-transform duration-200"
               />
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                 <Expand className="h-8 w-8 text-white" />
@@ -120,5 +192,3 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
     </Card>
   );
 });
-
-    
