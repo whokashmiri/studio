@@ -4,62 +4,58 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProjectDashboard } from '@/components/project-dashboard';
 import { CompanySelector } from '@/components/company-selector';
-import type { Company, Project, ProjectWithAssetCount } from '@/data/mock-data'; // Added ProjectWithAssetCount
+import type { Company } from '@/data/mock-data';
 import { useAuth } from '@/contexts/auth-context';
-import * as FirestoreService from '@/lib/firestore-service'; // Import FirestoreService
+import * as FirestoreService from '@/lib/firestore-service';
 import { Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-
 
 export default function HomePage() {
   const { currentUser, isLoading: authIsLoading, logout: authLogout } = useAuth();
   const router = useRouter();
   const { t } = useLanguage();
-  
+
+  const [associatedCompanies, setAssociatedCompanies] = useState<Company[] | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-  const [userAssociatedCompanies, setUserAssociatedCompanies] = useState<Company[]>([]);
-  const [isLoadingUserCompanies, setIsLoadingUserCompanies] = useState(true);
-  const [pageIsLoading, setPageIsLoading] = useState(true); // General page loading state
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!authIsLoading) {
-      if (!currentUser) {
-        router.push('/login');
-      } else {
-        const fetchUserCompanies = async () => {
-          setIsLoadingUserCompanies(true);
-          setPageIsLoading(true);
-          
-          try {
-            // Get all unique company IDs the user is associated with
-            const associatedCompanyIds = await FirestoreService.getAssociatedCompanyIdsForUser(currentUser.id, currentUser.companyId);
-
-            if (associatedCompanyIds.length > 0) {
-              // Fetch only the company documents we need
-              const companies = await FirestoreService.getCompaniesByIds(associatedCompanyIds);
-              setUserAssociatedCompanies(companies);
-              
-              if (companies.length === 1) {
-                  setSelectedCompany(companies[0]);
-              }
-            } else {
-              // This case should be rare: user exists but has no company and no projects.
-              setUserAssociatedCompanies([]);
-            }
-          } catch (error) {
-            console.error("Error fetching user associated companies:", error);
-            setUserAssociatedCompanies([]);
-          } finally {
-            setIsLoadingUserCompanies(false);
-            setPageIsLoading(false);
-          }
-        };
-        fetchUserCompanies();
-      }
-    } else {
-      setPageIsLoading(true); // Auth is still loading
+    if (authIsLoading) {
+      return; // Wait for auth to finish loading
     }
+
+    if (!currentUser) {
+      router.push('/login');
+      return;
+    }
+
+    const fetchUserCompanies = async () => {
+      setIsLoading(true);
+      try {
+        const companyIds = await FirestoreService.getAssociatedCompanyIdsForUser(currentUser.id, currentUser.companyId);
+        
+        if (companyIds.length > 0) {
+          const companies = await FirestoreService.getCompaniesByIds(companyIds);
+          setAssociatedCompanies(companies);
+          // If there's only one associated company, select it automatically.
+          if (companies.length === 1) {
+            setSelectedCompany(companies[0]);
+          }
+        } else {
+          // This handles the case where a user truly has no company associations.
+          setAssociatedCompanies([]);
+        }
+      } catch (error) {
+        console.error("Error fetching user's associated companies:", error);
+        setAssociatedCompanies([]); // Set to empty on error to show the "No Companies" message.
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchUserCompanies();
+
   }, [authIsLoading, currentUser, router]);
 
   const handleSelectCompany = (company: Company) => {
@@ -69,11 +65,12 @@ export default function HomePage() {
   const handleLogoutAndReset = () => {
     authLogout();
     setSelectedCompany(null); 
-    setUserAssociatedCompanies([]); // Reset associated companies
-    setIsLoadingUserCompanies(true); // Reset loading state for next login
+    setAssociatedCompanies(null);
+    setIsLoading(true);
   };
 
-  if (authIsLoading || pageIsLoading) { // pageIsLoading will cover isLoadingUserCompanies indirectly
+  // Main loading state for the page
+  if (isLoading) {
     return (
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -84,16 +81,7 @@ export default function HomePage() {
     );
   }
 
-  if (!currentUser) {
-      return (
-         <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-lg text-muted-foreground mt-4">{t('redirectingToLogin', 'Redirecting to login...')}</p>
-        </div>
-      );
-  }
-
-  // If a company is selected (either by user click or auto-selected in useEffect), show the dashboard
+  // If a company is selected (either automatically or by the user), show the dashboard
   if (selectedCompany) {
     return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8">
@@ -104,24 +92,15 @@ export default function HomePage() {
       </div>
     );
   }
-  
-  // If loading is finished but no company is selected yet, figure out what to show.
-  if (isLoadingUserCompanies) {
-      return (
-        <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-lg text-muted-foreground mt-4">{t('loading', 'Determining your companies...')}</p>
-        </div>
-      );
-  }
-  
-  // If more than one company and none is selected yet, show selector.
-  // The case of a single company was handled by auto-selection in useEffect.
-  if (userAssociatedCompanies.length > 1) {
-    return <CompanySelector companies={userAssociatedCompanies} onSelectCompany={handleSelectCompany} />;
-  }
 
-  // This is the final fallback: user has no associated companies at all.
+  // If companies are loaded and there's more than one, show the selector
+  if (associatedCompanies && associatedCompanies.length > 1) {
+    return <CompanySelector companies={associatedCompanies} onSelectCompany={handleSelectCompany} />;
+  }
+  
+  // This is the final fallback for two cases:
+  // 1. The fetch completed and the user has no associated companies (associatedCompanies is an empty array).
+  // 2. Something unexpected happened and associatedCompanies is still null after loading.
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
         <Card className="w-full max-w-md">
