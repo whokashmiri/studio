@@ -1,3 +1,4 @@
+
 "use client";
 import React from 'react';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -39,7 +40,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   return (
     <Card
       className={cn(
-        "group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 aspect-square cursor-pointer bg-card/50"
+        "group relative flex flex-col items-center justify-center p-2 hover:shadow-lg transition-shadow duration-200 aspect-square cursor-pointer bg-card/50"
       )}
       onClick={handleCardClick}
       title={folder.name}

@@ -1,3 +1,4 @@
+
 "use client";
 import type { Asset } from '@/data/mock-data';
 import React from 'react'; // Import React for React.memo
@@ -47,7 +48,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
 
     return (
       <Card
-        className="group relative flex flex-col items-center justify-center p-4 hover:shadow-lg transition-shadow duration-200 aspect-square cursor-pointer bg-card/50"
+        className="group relative flex flex-col items-center justify-center p-2 hover:shadow-lg transition-shadow duration-200 aspect-square cursor-pointer bg-card/50"
         onClick={mainAction}
         title={asset.name}
       >

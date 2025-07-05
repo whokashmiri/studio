@@ -1,3 +1,4 @@
+
 "use client";
 import type { Folder, Asset } from '@/data/mock-data';
 import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, FileArchive } from 'lucide-react';
@@ -166,7 +167,7 @@ export function FolderTreeDisplay({
     }
 
     return (
-      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8 gap-4">
+      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8 gap-2">
         {combinedItems.map(item => {
           if (item.type === 'folder') {
             return (
