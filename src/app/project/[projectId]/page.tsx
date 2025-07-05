@@ -20,6 +20,7 @@ import { NewAssetModal } from '@/components/modals/new-asset-modal';
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function ProjectPage() {
   const params = useParams();
@@ -281,27 +282,29 @@ export default function ProjectPage() {
               </CardTitle>
           </CardHeader>
           <CardContent className={cn("transition-colors rounded-b-lg p-2 md:p-4")}>
-          <FolderTreeDisplay
-              foldersToDisplay={foldersToDisplay}
-              assetsToDisplay={assetsToDisplay}
-              projectId={project.id}
-              onSelectFolder={handleSelectFolder}
-              onAddSubfolder={openNewFolderDialog}
-              onEditFolder={handleOpenEditFolderModal}
-              onDeleteFolder={handleFolderDeleted}
-              onEditAsset={handleEditAsset} 
-              onDeleteAsset={handleDeleteAsset}
-              onPreviewImageAsset={handleOpenImagePreviewModal}
-              currentSelectedFolderId={selectedFolder?.id || null}
-              displayMode="grid"
-          />
-          {isCurrentLocationEmpty && (
-              <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">
-                    {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
-                  </p>
-              </div>
-          )}
+            <ScrollArea className="h-[calc(100vh-21rem)] pr-3">
+              <FolderTreeDisplay
+                  foldersToDisplay={foldersToDisplay}
+                  assetsToDisplay={assetsToDisplay}
+                  projectId={project.id}
+                  onSelectFolder={handleSelectFolder}
+                  onAddSubfolder={openNewFolderDialog}
+                  onEditFolder={handleOpenEditFolderModal}
+                  onDeleteFolder={handleFolderDeleted}
+                  onEditAsset={handleEditAsset} 
+                  onDeleteAsset={handleDeleteAsset}
+                  onPreviewImageAsset={handleOpenImagePreviewModal}
+                  currentSelectedFolderId={selectedFolder?.id || null}
+                  displayMode="grid"
+              />
+              {isCurrentLocationEmpty && (
+                  <div className="text-center py-8">
+                      <p className="text-muted-foreground mb-4">
+                        {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
+                      </p>
+                  </div>
+              )}
+            </ScrollArea>
           </CardContent>
         </Card>
 
