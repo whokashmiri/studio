@@ -4,7 +4,7 @@ export interface Company {
   name: string;
 }
 
-export type ProjectStatus = 'done' | 'favorite' | 'recent' | 'new';
+export type ProjectStatus = 'done' | 'recent' | 'new';
 
 export interface Project {
   id:string;
