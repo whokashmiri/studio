@@ -7,7 +7,7 @@ import { NewProjectModal } from '@/components/modals/new-project-modal';
 import { EditProjectModal } from '@/components/modals/edit-project-modal';
 import type { Company, Project, ProjectStatus } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { FolderPlus, CheckCircle, Star, Clock, Sparkles, Loader2, ArrowLeftRight, PackageSearch } from 'lucide-react';
+import { FolderPlus, CheckCircle, Star, Clock, Sparkles, Loader2, ArrowLeftRight } from 'lucide-react';
 import { ProjectCard } from './project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/contexts/language-context';
@@ -29,7 +29,7 @@ export function ProjectDashboard({ company, onLogout, onSwitchCompany }: Project
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [projects, setProjects] = useState<ProjectWithAssetCount[]>([]);
-  const [activeTab, setActiveTab] = useState<ProjectStatus | 'favorite' | 'all'>('recent');
+  const [activeTab, setActiveTab] = useState<ProjectStatus | 'favorite'>('recent');
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [loadingProjectId, setLoadingProjectId] = useState<string | null>(null);
 
@@ -66,15 +66,9 @@ export function ProjectDashboard({ company, onLogout, onSwitchCompany }: Project
     });
 
     return roleFilteredProjects.filter(p => {
-      if (activeTab === 'all') return true;
       if (activeTab === 'favorite') return p.isFavorite === true;
       return p.status === activeTab;
     }).sort((a, b) => {
-      if (activeTab === 'all') {
-        if (a.isFavorite && !b.isFavorite) return -1;
-        if (!a.isFavorite && b.isFavorite) return 1;
-        return (b.lastAccessed || 0) - (a.lastAccessed || 0);
-      }
       if (activeTab === 'recent' && a.lastAccessed && b.lastAccessed) {
         return b.lastAccessed - a.lastAccessed; // Sort by number
       }
@@ -138,8 +132,7 @@ export function ProjectDashboard({ company, onLogout, onSwitchCompany }: Project
     }
   }, [t, toast]); // Removed fetchProjectsAndCounts from here to rely on optimistic update mostly
 
-  const tabItems: { value: ProjectStatus | 'favorite' | 'all'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
-    { value: 'all', labelKey: 'all', defaultLabel: 'All Projects', icon: PackageSearch },
+  const tabItems: { value: ProjectStatus | 'favorite'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
     { value: 'recent', labelKey: 'recent', defaultLabel: 'Recent', icon: Clock },
     { value: 'favorite', labelKey: 'favorite', defaultLabel: 'Favorite', icon: Star },
     { value: 'new', labelKey: 'new', defaultLabel: 'New', icon: Sparkles },
@@ -167,8 +160,8 @@ export function ProjectDashboard({ company, onLogout, onSwitchCompany }: Project
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ProjectStatus | 'favorite' | 'all')}>
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ProjectStatus | 'favorite')}>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
           {tabItems.map(item => (
             <TabsTrigger key={item.value} value={item.value} className="text-xs sm:text-sm py-2 sm:py-1.5">
               <item.icon className="mr-2 h-4 w-4" />
