@@ -77,7 +77,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
           </DropdownMenu>
         </div>
 
-        <div className="relative w-full aspect-video bg-muted group-hover:opacity-90 transition-opacity p-[5px]">
+        <div className="relative w-full aspect-square bg-muted group-hover:opacity-90 transition-opacity p-[5px]">
           {primaryPhoto ? (
             <Image
               src={primaryPhoto}
