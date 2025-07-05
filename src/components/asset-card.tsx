@@ -48,7 +48,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
 
     return (
       <Card
-        className="group relative flex flex-col items-center justify-center p-2 hover:shadow-lg transition-shadow duration-200 aspect-square cursor-pointer bg-card/50"
+        className="group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 cursor-pointer"
         onClick={mainAction}
         title={asset.name}
       >
@@ -87,31 +87,28 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
           </DropdownMenu>
         </div>
 
-        <div className="flex flex-col items-center justify-center text-center flex-grow w-full pointer-events-none">
-          <div
-            className={cn(
-              "relative h-20 w-20 mb-2 rounded-md overflow-hidden bg-muted flex items-center justify-center",
-              "group-hover:scale-110 transition-transform"
-            )}
-          >
-            {primaryPhoto ? (
-              <Image
-                src={primaryPhoto}
-                alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
-                fill
-                className="object-cover"
-                data-ai-hint="asset photo"
-              />
-            ) : (
+        <div className="relative w-full aspect-video bg-muted group-hover:opacity-90 transition-opacity">
+          {primaryPhoto ? (
+            <Image
+              src={primaryPhoto}
+              alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
+              fill
+              className="object-cover"
+              data-ai-hint="asset photo"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
               <FileArchive className="w-8 h-8 text-muted-foreground" />
-            )}
-          </div>
-          <CardTitle className="text-sm font-medium w-full break-words">
-            {asset.name}
-          </CardTitle>
-          <CardDescription className="text-xs line-clamp-1 pt-0.5" title={getDescriptionText()}>
-            {getDescriptionText()}
-          </CardDescription>
+            </div>
+          )}
+        </div>
+        <div className="p-2 text-center">
+            <CardTitle className="text-sm font-medium w-full break-words">
+                {asset.name}
+            </CardTitle>
+            <CardDescription className="text-xs line-clamp-1 pt-0.5" title={getDescriptionText()}>
+                {getDescriptionText()}
+            </CardDescription>
         </div>
       </Card>
     );

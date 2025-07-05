@@ -40,7 +40,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   return (
     <Card
       className={cn(
-        "group relative flex flex-col items-center justify-center p-2 hover:shadow-lg transition-shadow duration-200 aspect-square cursor-pointer bg-card/50"
+        "group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 cursor-pointer"
       )}
       onClick={handleCardClick}
       title={folder.name}
@@ -83,11 +83,14 @@ export const FolderGridCard = React.memo(function FolderGridCard({
         </DropdownMenu>
       </div>
 
-      <div className="flex flex-col items-center justify-center text-center flex-grow pointer-events-none">
-          <FolderIcon className="h-20 w-20 text-primary mb-2 transition-transform group-hover:scale-110" />
-          <CardTitle className="text-sm font-medium w-full break-words">
+      <div className="relative flex-grow flex items-center justify-center w-full aspect-video bg-muted/30 group-hover:bg-muted/50 transition-colors">
+        <FolderIcon className="h-16 w-16 text-primary transition-transform group-hover:scale-110" />
+      </div>
+
+      <div className="p-2 text-center">
+        <CardTitle className="text-sm font-medium w-full break-words">
             {folder.name}
-          </CardTitle>
+        </CardTitle>
       </div>
     </Card>
   )
