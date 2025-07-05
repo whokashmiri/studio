@@ -15,7 +15,7 @@ interface LanguageContextType {
 // Basic translations - extend as needed
 const translations: Record<Language, Record<string, string>> = {
   en: {
-    appName: "Asset Inspector Pro",
+    appName: "ValTech",
     selectCompany: "Select a Company",
     selectCompanyDesc: "Choose a company profile to manage its inspection projects.",
     noCompaniesAvailable: "No companies available for you.",
@@ -442,7 +442,7 @@ const translations: Record<Language, Record<string, string>> = {
 
   },
   ar: {
-    appName: "مفتش الأصول برو",
+    appName: "فالتيك للتقييم",
     selectCompany: "اختر شركة",
     selectCompanyDesc: "اختر ملف تعريف شركة لإدارة مشاريع الفحص الخاصة بها.",
     noCompaniesAvailable: "لا توجد شركات متاحة لك.",
