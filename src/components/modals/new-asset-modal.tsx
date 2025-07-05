@@ -237,7 +237,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             toast({ title: "Image Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive"});
           }
         }
-        setPhotoPreviews(prev => [...prev, ...processedDataUris].slice(0, 50)); 
+        setPhotoPreviews(prev => [...prev, ...processedDataUris]); 
       } catch (error: any) {
          toast({ title: "Error", description: error.message || "An error occurred processing gallery photos.", variant: "destructive"});
       } finally {
@@ -283,7 +283,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive"});
         }
       }
-      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris].slice(0, 50));
+      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris]);
       setCapturedPhotosInSession([]);
       setIsCustomCameraOpen(false); 
     } catch (error) {

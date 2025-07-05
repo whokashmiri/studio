@@ -218,7 +218,7 @@ export default function NewAssetPage() {
             toast({ title: "Image Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive" });
           }
         }
-        setPhotoPreviews(prev => [...prev, ...processedDataUris].slice(0, 10));
+        setPhotoPreviews(prev => [...prev, ...processedDataUris]);
         if (!isPhotoModalOpen) setIsPhotoModalOpen(true);
       } catch (error: any) {
         toast({ title: "Error", description: error.message || "An error occurred processing gallery photos.", variant: "destructive" });
@@ -263,7 +263,7 @@ export default function NewAssetPage() {
           toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive" });
         }
       }
-      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris].slice(0, 10));
+      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris]);
       setCapturedPhotosInSession([]);
       setIsCustomCameraOpen(false);
       if (!isPhotoModalOpen && photoPreviews.length + newProcessedDataUris.length > 0) {
