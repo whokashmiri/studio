@@ -47,7 +47,7 @@ export default function ProjectPage() {
 
   const [isNewAssetModalOpen, setIsNewAssetModalOpen] = useState(false); 
 
-  const [imageToPreview, setImageToPreview] = useState<string | null>(null);
+  const [assetToPreview, setAssetToPreview] = useState<Asset | null>(null);
   const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false);
 
   const { toast } = useToast();
@@ -209,14 +209,14 @@ export default function ProjectPage() {
     await loadAllProjectData();
   }, [loadAllProjectData]);
 
-  const handleOpenImagePreviewModal = useCallback((imageUrl: string) => {
-    setImageToPreview(imageUrl);
+  const handleOpenImagePreviewModal = useCallback((asset: Asset) => {
+    setAssetToPreview(asset);
     setIsImagePreviewModalOpen(true);
   }, []);
 
   const handleCloseImagePreviewModal = useCallback(() => {
     setIsImagePreviewModalOpen(false);
-    setImageToPreview(null);
+    setAssetToPreview(null);
   }, []);
 
   if (isLoading || !project) {
@@ -293,7 +293,7 @@ export default function ProjectPage() {
                   onDeleteFolder={handleFolderDeleted}
                   onEditAsset={handleEditAsset} 
                   onDeleteAsset={handleDeleteAsset}
-                  onPreviewImageAsset={handleOpenImagePreviewModal}
+                  onPreviewAsset={handleOpenImagePreviewModal}
                   currentSelectedFolderId={selectedFolder?.id || null}
                   displayMode="grid"
               />
@@ -390,11 +390,11 @@ export default function ProjectPage() {
           />
         )}
 
-        {imageToPreview && (
+        {assetToPreview && (
           <ImagePreviewModal
             isOpen={isImagePreviewModalOpen}
             onClose={handleCloseImagePreviewModal}
-            imageUrl={imageToPreview}
+            asset={assetToPreview}
           />
         )}
       </div>

@@ -19,18 +19,18 @@ interface AssetCardProps {
   asset: Asset;
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void;
-  onPreviewImage: (imageUrl: string) => void;
+  onPreviewAsset: (asset: Asset) => void;
   displayMode?: 'grid' | 'list';
 }
 
-export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewImage, displayMode = 'grid' }: AssetCardProps) {
+export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewAsset, displayMode = 'grid' }: AssetCardProps) {
   const { t } = useLanguage();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
 
   if (displayMode === 'grid') {
     const mainAction = () => {
       if (primaryPhoto) {
-        onPreviewImage(primaryPhoto);
+        onPreviewAsset(asset);
       } else {
         onEditAsset(asset);
       }
@@ -57,7 +57,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               {primaryPhoto && (
-                <DropdownMenuItem onClick={() => onPreviewImage(primaryPhoto)}>
+                <DropdownMenuItem onClick={() => onPreviewAsset(asset)}>
                   <Expand className="mr-2 h-4 w-4" />
                   {t('viewImage', 'View Image')}
                 </DropdownMenuItem>
@@ -109,7 +109,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
       >
         <div 
           className="flex items-center gap-3 flex-grow min-w-0 cursor-pointer"
-          onClick={() => onEditAsset(asset)}
+          onClick={() => primaryPhoto ? onPreviewAsset(asset) : onEditAsset(asset)}
         >
           <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted">
             {primaryPhoto ? (
@@ -146,7 +146,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               {primaryPhoto && (
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); if(primaryPhoto) onPreviewImage(primaryPhoto);}}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); if(primaryPhoto) onPreviewAsset(asset);}}>
                   <Expand className="mr-2 h-4 w-4" />
                   {t('viewImage', 'View Image')}
                 </DropdownMenuItem>

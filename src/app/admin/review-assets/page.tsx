@@ -40,7 +40,7 @@ export default function ReviewAllAssetsPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [projectContentLoading, setProjectContentLoading] = useState(false);
 
-  const [imageToPreview, setImageToPreview] = useState<string | null>(null);
+  const [assetToPreview, setAssetToPreview] = useState<Asset | null>(null);
   const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false);
   const [refreshFolderTreeKey, setRefreshFolderTreeKey] = useState(0);
 
@@ -169,14 +169,14 @@ export default function ReviewAllAssetsPage() {
     }
   }, [t, toast, selectedProject, selectedProjectCurrentFolder, handleSelectFolderInTree, currentView, assetForDetailView, handleBackToProjectContentView]);
 
-  const handleOpenImagePreviewModal = useCallback((imageUrl: string) => {
-    setImageToPreview(imageUrl);
+  const handleOpenImagePreviewModal = useCallback((asset: Asset) => {
+    setAssetToPreview(asset);
     setIsImagePreviewModalOpen(true);
   }, []);
 
   const handleCloseImagePreviewModal = useCallback(() => {
     setIsImagePreviewModalOpen(false);
-    setImageToPreview(null);
+    setAssetToPreview(null);
   }, []);
 
 
@@ -384,7 +384,7 @@ export default function ReviewAllAssetsPage() {
                             onDeleteFolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('deleteFolderNotAvailableDescReview', 'Deleting folders is done on the main project page.'), variant: "default"})}
                             onEditAsset={handleViewAssetDetail} 
                             onDeleteAsset={handleDeleteAsset}
-                            onPreviewImageAsset={handleOpenImagePreviewModal}
+                            onPreviewAsset={handleOpenImagePreviewModal}
                             currentSelectedFolderId={selectedProjectCurrentFolder?.id || null}
                         />
                          {(foldersForTree.length === 0 && currentAssetsInSelectedProjectFolder.length === 0) && (
@@ -406,11 +406,11 @@ export default function ReviewAllAssetsPage() {
           )}
         </SidebarInset>
       </div>
-       {imageToPreview && (
+       {assetToPreview && (
         <ImagePreviewModal
           isOpen={isImagePreviewModalOpen}
           onClose={handleCloseImagePreviewModal}
-          imageUrl={imageToPreview}
+          asset={assetToPreview}
         />
       )}
     </SidebarProvider>

@@ -100,7 +100,7 @@ interface FolderTreeDisplayProps {
   onDeleteFolder: () => void; 
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void; 
-  onPreviewImageAsset: (imageUrl: string) => void;
+  onPreviewAsset: (asset: Asset) => void;
   currentSelectedFolderId: string | null;
   displayMode?: 'grid' | 'list';
 }
@@ -115,7 +115,7 @@ export function FolderTreeDisplay({
   onDeleteFolder,
   onEditAsset,
   onDeleteAsset,
-  onPreviewImageAsset,
+  onPreviewAsset,
   currentSelectedFolderId,
   displayMode = 'list',
 }: FolderTreeDisplayProps) {
@@ -189,7 +189,7 @@ export function FolderTreeDisplay({
                 asset={item.data}
                 onEditAsset={onEditAsset}
                 onDeleteAsset={() => handleDeleteAssetClick(item.data)}
-                onPreviewImage={onPreviewImageAsset}
+                onPreviewAsset={onPreviewAsset}
                 displayMode="grid"
               />
             );
@@ -251,7 +251,7 @@ export function FolderTreeDisplay({
                 asset={asset}
                 onEditAsset={onEditAsset}
                 onDeleteAsset={() => handleDeleteAssetClick(asset)}
-                onPreviewImage={onPreviewImageAsset}
+                onPreviewAsset={onPreviewAsset}
                 displayMode="list"
               />
             ))}
