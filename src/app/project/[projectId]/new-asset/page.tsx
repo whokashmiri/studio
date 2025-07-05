@@ -17,6 +17,7 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { processImageForSaving } from '@/lib/image-handler-service';
+import { useAuth } from '@/contexts/auth-context';
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1';
@@ -60,6 +61,7 @@ export default function NewAssetPage() {
 
   const { toast } = useToast();
   const { t, language } = useLanguage();
+  const { currentUser } = useAuth();
 
   const loadProjectAndAsset = useCallback(async () => {
     setIsLoadingPage(true);
@@ -321,6 +323,10 @@ export default function NewAssetPage() {
       toast({ title: t('projectContextLost', "Project context lost"), variant: "destructive" });
       return;
     }
+    if (!currentUser) {
+      toast({ title: t('error', 'Error'), description: t('userNotAuthenticatedError', "User not authenticated. Cannot save asset."), variant: "destructive" });
+      return;
+    }
      if (!assetName.trim()) {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), variant: "destructive" });
       setCurrentStep('photos_and_name'); 
@@ -360,7 +366,11 @@ export default function NewAssetPage() {
       
       success = await FirestoreService.updateAsset(assetIdToEdit, updateData);
     } else {
-      const newAsset = await FirestoreService.addAsset(assetDataPayload as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
+      const dataForCreation = {
+        ...assetDataPayload,
+        userId: currentUser.id
+      };
+      const newAsset = await FirestoreService.addAsset(dataForCreation as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
       if (newAsset) {
         success = true;
         savedAssetName = newAsset.name;

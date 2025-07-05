@@ -43,6 +43,7 @@ export interface Asset {
   textDescription?: string;
   createdAt: number; // Changed from string to number
   updatedAt?: number; // Changed from string to number
+  userId?: string;
 }
 
 export type UserRole = 'Admin' | 'Inspector' | 'Valuation';
@@ -68,4 +69,3 @@ export const mockCompanies: Company[] = [
 export const mockProjects: Project[] = [];
 export const mockFolders: Folder[] = [];
 export const mockAssets: Asset[] = [];
-

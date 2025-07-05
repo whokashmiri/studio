@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { processImageForSaving } from '@/lib/image-handler-service'; 
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/auth-context';
 
 type AssetCreationStep = 'photos_capture' | 'name_input' | 'descriptions';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1Modal';
@@ -63,6 +64,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
 
   const { toast } = useToast();
   const { t, language } = useLanguage();
+  const { currentUser } = useAuth();
 
   const resetModalState = useCallback(() => {
     setCurrentStep('photos_capture');
@@ -486,6 +488,10 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       toast({ title: t('projectContextLost', "Project context lost"), variant: "destructive" });
       return;
     }
+    if (!currentUser) {
+        toast({ title: t('error', 'Error'), description: t('userNotAuthenticatedError', "User not authenticated. Cannot save asset."), variant: "destructive" });
+        return;
+    }
      if (!assetName.trim()) {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), variant: "destructive" });
       setCurrentStep('name_input'); 
@@ -504,6 +510,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         });
         
         const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
+          userId: currentUser.id,
           name: assetName,
           projectId: project.id,
           folderId: parentFolder ? parentFolder.id : null,
@@ -539,7 +546,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     } finally {
         setIsSavingAsset(false);
     }
-  }, [project, assetName, photoPreviews, parentFolder, assetVoiceDescription, recordedAudioDataUrl, assetTextDescription, t, toast, handleModalClose, onAssetCreated]);
+  }, [project, assetName, photoPreviews, parentFolder, assetVoiceDescription, recordedAudioDataUrl, assetTextDescription, t, toast, handleModalClose, onAssetCreated, currentUser]);
   
   const renderStepContent = () => {
     switch (currentStep) {
