@@ -102,11 +102,11 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
             </div>
           )}
         </div>
-        <div className="p-2 text-center">
+        <div className="p-3 text-center">
             <CardTitle className="text-sm font-medium w-full break-words">
                 {asset.name}
             </CardTitle>
-            <CardDescription className="text-xs line-clamp-1 pt-0.5" title={getDescriptionText()}>
+            <CardDescription className="text-xs line-clamp-1 pt-1.5" title={getDescriptionText()}>
                 {getDescriptionText()}
             </CardDescription>
         </div>
@@ -141,7 +141,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
             <CardTitle className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
               {asset.name}
             </CardTitle>
-            <CardDescription className="text-xs line-clamp-1 pt-0.5" title={getDescriptionText()}>
+            <CardDescription className="text-xs line-clamp-1 pt-1.5" title={getDescriptionText()}>
                 {getDescriptionText()}
             </CardDescription>
           </div>
