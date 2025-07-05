@@ -1,4 +1,3 @@
-
 "use client";
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,6 +9,8 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+const SELECTED_COMPANY_ID_KEY = 'selectedCompanyId';
 
 export default function HomePage() {
   const { currentUser, isLoading: authIsLoading, logout: authLogout } = useAuth();
@@ -40,19 +41,28 @@ export default function HomePage() {
 
           // Sort the companies to ensure the user's primary company is always first.
           companies = companies.sort((a, b) => {
-            if (a.id === currentUser.companyId) return -1; // a (own company) comes first
-            if (b.id === currentUser.companyId) return 1;  // b (own company) comes first
-            return a.name.localeCompare(b.name); // otherwise, sort alphabetically
+            if (a.id === currentUser.companyId) return -1;
+            if (b.id === currentUser.companyId) return 1;
+            return a.name.localeCompare(b.name);
           });
 
           setAssociatedCompanies(companies);
+          
+          // Check session storage for a previously selected company
+          const storedCompanyId = sessionStorage.getItem(SELECTED_COMPANY_ID_KEY);
+          if (storedCompanyId) {
+            const companyFromStorage = companies.find(c => c.id === storedCompanyId);
+            if (companyFromStorage) {
+              setSelectedCompany(companyFromStorage);
+            }
+          }
+
         } else {
-          // This handles the case where a user truly has no company associations.
           setAssociatedCompanies([]);
         }
       } catch (error) {
         console.error("Error fetching user's associated companies:", error);
-        setAssociatedCompanies([]); // Set to empty on error to show the "No Companies" message.
+        setAssociatedCompanies([]);
       } finally {
         setIsLoading(false);
       }
@@ -64,9 +74,11 @@ export default function HomePage() {
 
   const handleSelectCompany = (company: Company) => {
     setSelectedCompany(company);
+    sessionStorage.setItem(SELECTED_COMPANY_ID_KEY, company.id);
   };
 
   const handleLogoutAndReset = () => {
+    sessionStorage.removeItem(SELECTED_COMPANY_ID_KEY);
     authLogout();
     setSelectedCompany(null); 
     setAssociatedCompanies(null);
@@ -74,6 +86,7 @@ export default function HomePage() {
   };
 
   const handleSwitchCompany = () => {
+    sessionStorage.removeItem(SELECTED_COMPANY_ID_KEY);
     setSelectedCompany(null);
   };
 
