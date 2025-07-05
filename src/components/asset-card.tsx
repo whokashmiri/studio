@@ -27,16 +27,6 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
   const { t } = useLanguage();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
 
-  const getDescriptionText = () => {
-    if (asset.textDescription && asset.voiceDescription) {
-      const baseText = asset.textDescription.length > 30 ? `${asset.textDescription.substring(0, 30)}...` : asset.textDescription;
-      return t('textAndVoiceDescShort', '{text} (voice available)', { text: baseText });
-    }
-    if (asset.textDescription) return asset.textDescription;
-    if (asset.voiceDescription) return t('voiceDescriptionOnly', 'Voice description available');
-    return t('noDescriptionAvailable', 'No description available.');
-  }
-
   if (displayMode === 'grid') {
     const mainAction = () => {
       if (primaryPhoto) {
@@ -106,9 +96,6 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
             <CardTitle className="text-sm font-medium w-full break-words">
                 {asset.name}
             </CardTitle>
-            <CardDescription className="text-xs line-clamp-1 pt-1.5" title={getDescriptionText()}>
-                {getDescriptionText()}
-            </CardDescription>
         </div>
       </Card>
     );
@@ -141,9 +128,6 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
             <CardTitle className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
               {asset.name}
             </CardTitle>
-            <CardDescription className="text-xs line-clamp-1 pt-1.5" title={getDescriptionText()}>
-                {getDescriptionText()}
-            </CardDescription>
           </div>
         </div>
 
