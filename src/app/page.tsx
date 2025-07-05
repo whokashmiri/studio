@@ -73,6 +73,10 @@ export default function HomePage() {
     setIsLoading(true);
   };
 
+  const handleSwitchCompany = () => {
+    setSelectedCompany(null);
+  };
+
   // Main loading state for the page
   if (isLoading) {
     return (
@@ -92,6 +96,7 @@ export default function HomePage() {
         <ProjectDashboard
           company={selectedCompany}
           onLogout={handleLogoutAndReset}
+          onSwitchCompany={handleSwitchCompany}
         />
       </div>
     );

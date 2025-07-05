@@ -7,7 +7,7 @@ import { NewProjectModal } from '@/components/modals/new-project-modal';
 import { EditProjectModal } from '@/components/modals/edit-project-modal';
 import type { Company, Project, ProjectStatus } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { FolderPlus, CheckCircle, Star, Clock, Sparkles, Loader2 } from 'lucide-react';
+import { FolderPlus, CheckCircle, Star, Clock, Sparkles, Loader2, ArrowLeftRight } from 'lucide-react';
 import { ProjectCard } from './project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/contexts/language-context';
@@ -18,11 +18,12 @@ import Link from 'next/link';
 interface ProjectDashboardProps {
   company: Company;
   onLogout: () => void;
+  onSwitchCompany: () => void;
 }
 
 type ProjectWithAssetCount = Project & { assetCount: number };
 
-export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
+export function ProjectDashboard({ company, onLogout, onSwitchCompany }: ProjectDashboardProps) {
   const { currentUser } = useAuth();
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -153,6 +154,10 @@ export function ProjectDashboard({ company, onLogout }: ProjectDashboardProps) {
           </h1>
           {currentUser && <p className="text-sm text-muted-foreground">{t('loggedInAsRole', 'Logged in as: {role}', { role: t(currentUser.role.toLowerCase() + 'Role', currentUser.role) })}</p>}
         </div>
+        <Button variant="outline" onClick={onSwitchCompany}>
+            <ArrowLeftRight className="mr-2 h-4 w-4" />
+            {t('switchCompany', 'Switch Company')}
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ProjectStatus | 'favorite')}>

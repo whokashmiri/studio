@@ -251,7 +251,7 @@ export default function ProjectPage() {
               ) : (
                 <Home className="mr-1 h-4 w-4" />
               )}
-              {t('allProjects', 'All Projects')}
+              {t('backToDashboard', 'Back to Dashboard')}
             </Button>
             <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
           </div>
