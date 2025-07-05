@@ -1,4 +1,3 @@
-
 "use client";
 import React from 'react';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -84,7 +83,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
       </div>
 
       <div className="flex flex-col items-center justify-center text-center flex-grow pointer-events-none">
-          <FolderIcon className="h-16 w-16 text-primary mb-2 transition-transform group-hover:scale-110" />
+          <FolderIcon className="h-20 w-20 text-primary mb-2 transition-transform group-hover:scale-110" />
           <CardTitle className="text-sm font-medium w-full break-words">
             {folder.name}
           </CardTitle>
