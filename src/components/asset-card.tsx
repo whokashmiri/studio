@@ -38,7 +38,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
 
     return (
       <Card
-        className="group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 cursor-pointer"
+        className="group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 cursor-pointer p-1.5"
         onClick={mainAction}
         title={asset.name}
       >
@@ -77,7 +77,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
           </DropdownMenu>
         </div>
 
-        <div className="relative w-full aspect-square bg-muted group-hover:opacity-90 transition-opacity p-[5px]">
+        <div className="relative w-full aspect-square bg-muted group-hover:opacity-90 transition-opacity">
           {primaryPhoto ? (
             <Image
               src={primaryPhoto}
@@ -92,7 +92,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
             </div>
           )}
         </div>
-        <div className="p-1 text-center">
+        <div className="pt-1 text-center">
             <CardTitle className="text-sm font-medium w-full break-words">
                 {asset.name}
             </CardTitle>
