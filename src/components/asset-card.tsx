@@ -77,22 +77,22 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
           </DropdownMenu>
         </div>
 
-        <div className="relative w-full aspect-video bg-muted group-hover:opacity-90 transition-opacity">
+        <div className="relative w-full aspect-video bg-muted group-hover:opacity-90 transition-opacity p-[5px]">
           {primaryPhoto ? (
             <Image
               src={primaryPhoto}
               alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
               fill
-              className="object-cover"
+              className="object-cover rounded-md"
               data-ai-hint="asset photo"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
-              <FileArchive className="w-8 h-8 text-muted-foreground" />
+              <FileArchive className="w-16 h-16 text-muted-foreground" />
             </div>
           )}
         </div>
-        <div className="p-3 text-center">
+        <div className="p-1 text-center">
             <CardTitle className="text-sm font-medium w-full break-words">
                 {asset.name}
             </CardTitle>
