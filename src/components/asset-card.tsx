@@ -38,7 +38,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
 
     return (
       <Card
-        className="group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 cursor-pointer p-1.5"
+        className="group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 cursor-pointer p-1"
         onClick={mainAction}
         title={asset.name}
       >
@@ -83,7 +83,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
               src={primaryPhoto}
               alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
               fill
-              className="object-cover rounded-md"
+              className="object-cover rounded-md p-1"
               data-ai-hint="asset photo"
             />
           ) : (
@@ -92,7 +92,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
             </div>
           )}
         </div>
-        <div className="pt-1 text-center">
+        <div className="pt-0.5 text-center">
             <CardTitle className="text-sm font-medium w-full break-words">
                 {asset.name}
             </CardTitle>
