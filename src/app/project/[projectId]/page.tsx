@@ -93,11 +93,9 @@ export default function ProjectPage() {
   const selectedFolder = useMemo(() => currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null, [currentUrlFolderId, foldersMap]);
   
   useEffect(() => {
-    if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0) {
-      if (!foldersMap.has(currentUrlFolderId)) {
+    if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
         toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
         router.push(`/project/${projectId}`);
-      }
     }
   }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, t, toast, allProjectFolders.length]);
 
@@ -319,15 +317,17 @@ export default function ProjectPage() {
                   <FolderPlus className="mr-2 h-5 w-5" />
                   {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
               </Button>
-              <Button
-                  onClick={() => setIsNewAssetModalOpen(true)} 
-                  className="shadow-lg"
-                  size="lg"
-                  title={t('newAsset', 'New Asset')}
-              >
-                  <FilePlus className="mr-2 h-5 w-5" />
-                  {t('newAsset', 'New Asset')}
-              </Button>
+              {selectedFolder && (
+                <Button
+                    onClick={() => setIsNewAssetModalOpen(true)} 
+                    className="shadow-lg"
+                    size="lg"
+                    title={t('newAsset', 'New Asset')}
+                >
+                    <FilePlus className="mr-2 h-5 w-5" />
+                    {t('newAsset', 'New Asset')}
+                </Button>
+              )}
           </div>
         </div>
 
