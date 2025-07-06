@@ -4,7 +4,7 @@ import Link from 'next/link';
 import React from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Star, Users, MoreVertical, Trash2, PackageSearch, Loader2 } from 'lucide-react';
+import { Edit, Star, Users, MoreVertical, Trash2, Download, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,7 @@ interface ProjectCardProps {
   onToggleFavorite: (project: Project) => void;
   onAssignUsers?: (project: Project) => void;
   onDeleteProject?: (project: Project) => void;
+  onExportProject?: (project: Project) => void;
   isLoading?: boolean; // New prop
 }
 
@@ -35,6 +36,7 @@ export const ProjectCard = React.memo(function ProjectCard({
   onToggleFavorite, 
   onAssignUsers,
   onDeleteProject,
+  onExportProject,
   isLoading 
 }: ProjectCardProps) {
   const { t } = useLanguage();
@@ -55,7 +57,7 @@ export const ProjectCard = React.memo(function ProjectCard({
     onToggleFavorite(project);
   };
 
-  const hasAdminActions = !!onEditProject || !!onAssignUsers || !!onDeleteProject;
+  const hasAdminActions = !!onEditProject || !!onAssignUsers || !!onDeleteProject || !!onExportProject;
 
   return (
     <Card className="relative flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200">
@@ -131,9 +133,15 @@ export const ProjectCard = React.memo(function ProjectCard({
                           {t('assignUsersButtonTitle', 'Assign Users')}
                         </DropdownMenuItem>
                       )}
+                      {onExportProject && (
+                        <DropdownMenuItem onClick={() => onExportProject(project)}>
+                            <Download className="mr-2 h-4 w-4" />
+                            {t('exportProject', 'Export Project')}
+                        </DropdownMenuItem>
+                      )}
                       {onDeleteProject && (
                         <>
-                          { (onEditProject || onAssignUsers) && <DropdownMenuSeparator />}
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => onDeleteProject(project)}
                             className="text-destructive focus:text-destructive focus:bg-destructive/10"

@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
 
 // Define a type for project with asset count
 type ProjectWithAssetCount = Project & { assetCount: number };
@@ -48,6 +50,8 @@ export default function AdminDashboardPage() {
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [exportingProjectId, setExportingProjectId] = useState<string | null>(null);
+
 
   const loadAdminData = useCallback(async () => {
     if (currentUser && currentUser.role === 'Admin' && currentUser.companyId) {
@@ -219,6 +223,85 @@ export default function AdminDashboardPage() {
     }
   }, [projectToDelete, loadAdminData, t, toast]);
 
+  const handleExportProject = useCallback(async (project: Project) => {
+    setExportingProjectId(project.id);
+    toast({
+        title: "Exporting Project",
+        description: `Preparing to export "${project.name}"...`,
+    });
+
+    try {
+        const [folders, assets] = await Promise.all([
+            FirestoreService.getFolders(project.id),
+            FirestoreService.getAllAssetsForProject(project.id),
+        ]);
+
+        const assetsByFolder = new Map<string | null, Asset[]>();
+        assets.forEach(asset => {
+            const folderId = asset.folderId || null;
+            if (!assetsByFolder.has(folderId)) {
+                assetsByFolder.set(folderId, []);
+            }
+            assetsByFolder.get(folderId)!.push(asset);
+        });
+
+        const zip = new JSZip();
+        const folderMap = new Map(folders.map(f => [f.id, f.name]));
+
+        for (const [folderId, folderAssets] of assetsByFolder.entries()) {
+            if (folderAssets.length === 0) continue;
+
+            const sheetData = folderAssets.map(asset => ({
+                'Name': asset.name,
+                'Serial Number': asset.serialNumber || '',
+                'Text Description': asset.textDescription || '',
+                'Voice Description (Transcript)': asset.voiceDescription || '',
+                'Photos': (asset.photos || []).join(', '),
+                'Videos': (asset.videos || []).join(', '),
+                'Created At': new Date(asset.createdAt).toLocaleString(),
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(sheetData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Assets');
+            
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            
+            const folderName = folderId ? folderMap.get(folderId) : '_root_assets';
+            const safeFolderName = folderName?.replace(/[\/\\?%*:|"<>]/g, '-') || 'unnamed-folder';
+
+            zip.file(`${safeFolderName}.xlsx`, excelBuffer);
+        }
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        const safeProjectName = project.name.replace(/[\/\\?%*:|"<>]/g, '-');
+        link.download = `${safeProjectName}_Export.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+
+        toast({
+            title: "Export Complete",
+            description: `Project "${project.name}" has been exported.`,
+            variant: "success-yellow"
+        });
+
+    } catch (error) {
+        console.error("Error exporting project:", error);
+        toast({
+            title: "Export Failed",
+            description: "An error occurred while exporting the project.",
+            variant: "destructive"
+        });
+    } finally {
+        setExportingProjectId(null);
+    }
+  }, [toast, t]);
+
   if (authLoading || pageLoading) {
     return (
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
@@ -281,6 +364,8 @@ export default function AdminDashboardPage() {
                         onToggleFavorite={handleToggleFavorite}
                         onAssignUsers={handleOpenAssignUsersModal}
                         onDeleteProject={promptDeleteProject}
+                        onExportProject={handleExportProject}
+                        isLoading={exportingProjectId === project.id}
                       />
                   );
                 })}
