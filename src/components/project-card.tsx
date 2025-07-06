@@ -2,7 +2,7 @@
 "use client";
 import Link from 'next/link';
 import React from 'react'; // Import React for React.memo
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit, Star, Users, MoreVertical, Trash2, Download, Loader2 } from 'lucide-react';
 import {
@@ -56,8 +56,16 @@ export const ProjectCard = React.memo(function ProjectCard({
     e.preventDefault(); 
     onToggleFavorite(project);
   };
+  
+  const handleExportClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (onExportProject) {
+      onExportProject(project);
+    }
+  };
 
-  const hasAdminActions = !!onEditProject || !!onAssignUsers || !!onDeleteProject || !!onExportProject;
+  const hasAdminActions = !!onEditProject || !!onAssignUsers || !!onDeleteProject;
 
   return (
     <Card className="relative flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200">
@@ -66,7 +74,8 @@ export const ProjectCard = React.memo(function ProjectCard({
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </div>
       )}
-      <Link href={`/project/${project.id}`} className={cn("flex flex-col flex-grow group", isLoading ? "pointer-events-none opacity-50" : "cursor-pointer")}>
+      <div className={cn("flex flex-col flex-grow", isLoading ? "pointer-events-none opacity-50" : "")}>
+        <Link href={`/project/${project.id}`} className="flex flex-col flex-grow group cursor-pointer">
           <CardHeader className="p-3 pb-1.5 w-full">
             <div className="flex justify-between items-start w-full gap-2">
               <div className="flex-grow min-w-0">
@@ -133,12 +142,6 @@ export const ProjectCard = React.memo(function ProjectCard({
                           {t('assignUsersButtonTitle', 'Assign Users')}
                         </DropdownMenuItem>
                       )}
-                      {onExportProject && (
-                        <DropdownMenuItem onClick={() => onExportProject(project)}>
-                            <Download className="mr-2 h-4 w-4" />
-                            {t('exportProject', 'Export Project')}
-                        </DropdownMenuItem>
-                      )}
                       {onDeleteProject && (
                         <>
                           <DropdownMenuSeparator />
@@ -158,7 +161,7 @@ export const ProjectCard = React.memo(function ProjectCard({
             </div>
           </CardHeader>
           <CardContent className="flex-grow p-3 pt-1.5 flex items-end">
-            {(!isMobile || (isMobile && hasAdminActions)) && (
+            {(!isMobile || (isMobile && (hasAdminActions || onExportProject))) && (
                <Badge 
                 variant={getStatusBadgeVariant(project.status)} 
                 className="capitalize text-xs"
@@ -168,8 +171,20 @@ export const ProjectCard = React.memo(function ProjectCard({
             )}
           </CardContent>
       </Link>
+      </div>
+      {onExportProject && (
+        <CardFooter className="p-2 border-t mt-auto">
+          <Button
+            variant="ghost"
+            className="w-full h-8"
+            onClick={handleExportClick}
+            disabled={isLoading}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {t('exportProject', 'Export Project')}
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 });
-
-    
