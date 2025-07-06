@@ -32,8 +32,8 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
 
   if (displayMode === 'grid') {
     const mainAction = () => {
-      if (isUploading) return;
-      onPreviewAsset(asset);
+      if (isUploading || isOffline) return;
+      onEditAsset(asset);
     };
 
     return (
@@ -134,7 +134,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
         )}
         <div 
           className="flex items-center gap-3 flex-grow min-w-0"
-          onClick={() => (isUploading || isOffline) ? null : onPreviewAsset(asset)}
+          onClick={() => (isUploading || isOffline) ? null : onEditAsset(asset)}
         >
           {isOffline && !isUploading && (
             <CloudOff className="h-5 w-5 text-muted-foreground shrink-0" title="Saved locally, pending sync"/>
