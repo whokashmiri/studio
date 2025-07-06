@@ -759,36 +759,50 @@ export async function searchAssets(
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     const isSerialSearch = /^\d+$/.test(searchTerm) && searchTerm.length > 0;
     
-    const constraints: any[] = [where("projectId", "==", projectId)];
+    const baseConstraints: any[] = [where("projectId", "==", projectId)];
+    let finalConstraints: any[] = [];
 
-    // If inside a folder, search by name or serial within that folder
     if (folderId !== undefined && folderId !== null) {
-      constraints.push(where("folderId", "==", folderId));
+      // --- SEARCHING INSIDE A FOLDER ---
+      baseConstraints.push(where("folderId", "==", folderId));
       if (isSerialSearch) {
-        constraints.push(where("serialNumber", "==", Number(searchTerm)));
+        finalConstraints = [
+          ...baseConstraints,
+          where("serialNumber", "==", Number(searchTerm)),
+          orderBy(documentId()), // Order by doc ID for pagination
+          limit(pageSize),
+        ];
       } else {
-        // Name search (exact, case-insensitive) is only allowed inside a folder
-        constraints.push(where("name_lowercase", "==", searchTerm.toLowerCase()));
+        // Name search (prefix search)
+        const lowerCaseTerm = searchTerm.toLowerCase();
+        finalConstraints = [
+          ...baseConstraints,
+          where("name_lowercase", ">=", lowerCaseTerm),
+          where("name_lowercase", "<=", lowerCaseTerm + '\uf8ff'),
+          orderBy("name_lowercase"), // Must order by the inequality field
+          limit(pageSize),
+        ];
       }
     } 
-    // If at the root, only allow serial number search across the whole project
     else {
+      // --- SEARCHING AT PROJECT ROOT (SERIAL ONLY) ---
       if (isSerialSearch) {
-        constraints.push(where("serialNumber", "==", Number(searchTerm)));
+        finalConstraints = [
+          ...baseConstraints,
+          where("serialNumber", "==", Number(searchTerm)),
+          orderBy(documentId()),
+          limit(pageSize),
+        ];
       } else {
-        // If not a serial search at root, return no results as per new logic
         return { assets: [], lastDoc: null };
       }
     }
 
-    constraints.push(orderBy(documentId())); // Use doc ID for stable pagination
-    constraints.push(limit(pageSize));
-
     if (startAfterDoc) {
-      constraints.push(startAfter(startAfterDoc));
+      finalConstraints.push(startAfter(startAfterDoc));
     }
 
-    const q = query(assetsCollectionRef, ...constraints);
+    const q = query(assetsCollectionRef, ...finalConstraints);
     
     const snapshot = await getDocs(q);
     const assets = processSnapshot<Asset>(snapshot);
