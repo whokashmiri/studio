@@ -260,15 +260,23 @@ export default function AdminDashboardPage() {
         for (const [folderId, folderAssets] of assetsByFolder.entries()) {
             if (folderAssets.length === 0) continue;
 
-            const sheetData = folderAssets.map(asset => ({
-                'Name': asset.name,
-                'Serial Number': asset.serialNumber || '',
-                'Text Description': truncateCell(asset.textDescription),
-                'Voice Description (Transcript)': truncateCell(asset.voiceDescription),
-                'Photos': truncateCell((asset.photos || []).join(', ')),
-                'Videos': truncateCell((asset.videos || []).join(', ')),
-                'Created At': new Date(asset.createdAt).toLocaleString(),
-            }));
+            const sheetData = folderAssets.map(asset => {
+                // Start with miscellaneous data, if any
+                const miscellaneousData = asset.miscellaneous ? { ...asset.miscellaneous } : {};
+                
+                // Create the full row object for the Excel sheet
+                const rowData = {
+                    'Name': asset.name,
+                    'Serial Number': asset.serialNumber || '',
+                    'Text Description': truncateCell(asset.textDescription),
+                    'Voice Description (Transcript)': truncateCell(asset.voiceDescription),
+                    'Photos': truncateCell((asset.photos || []).join(', ')),
+                    'Videos': truncateCell((asset.videos || []).join(', ')),
+                    'Created At': new Date(asset.createdAt).toLocaleString(),
+                    ...miscellaneousData, // Spread miscellaneous data as additional columns
+                };
+                return rowData;
+            });
 
             const worksheet = XLSX.utils.json_to_sheet(sheetData);
             const workbook = XLSX.utils.book_new();
@@ -309,7 +317,7 @@ export default function AdminDashboardPage() {
     } finally {
         setExportingProjectId(null);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   if (authLoading || pageLoading) {
     return (
