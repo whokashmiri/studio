@@ -35,6 +35,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const [currentStep, setCurrentStep] = useState<AssetCreationStep>('photos_capture');
   
   const [assetName, setAssetName] = useState('');
+  const [serialNumber, setSerialNumber] = useState('');
   const [assetVoiceDescription, setAssetVoiceDescription] = useState(''); 
   const [recordedAudioDataUrl, setRecordedAudioDataUrl] = useState<string | null>(null); 
   const [assetTextDescription, setAssetTextDescription] = useState('');
@@ -79,6 +80,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const resetModalState = useCallback(() => {
     setCurrentStep('photos_capture');
     setAssetName('');
+    setSerialNumber('');
     setAssetVoiceDescription('');
     setRecordedAudioDataUrl(null);
     setAssetTextDescription('');
@@ -587,6 +589,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     const assetDataPayload: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
       userId: currentUser.id,
       name: assetName,
+      serialNumber: serialNumber.trim() || undefined,
       projectId: project.id,
       folderId: parentFolder ? parentFolder.id : null,
       photos: photoPreviews,
@@ -598,7 +601,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
 
     onAssetCreated(assetDataPayload);
     handleModalClose();
-  }, [project, currentUser, assetName, photoPreviews, videoPreviews, parentFolder, assetVoiceDescription, recordedAudioDataUrl, assetTextDescription, onAssetCreated, handleModalClose, toast, t]);
+  }, [project, currentUser, assetName, serialNumber, photoPreviews, videoPreviews, parentFolder, assetVoiceDescription, recordedAudioDataUrl, assetTextDescription, onAssetCreated, handleModalClose, toast, t]);
   
   const totalMediaCount = photoPreviews.length + videoPreviews.length;
 
@@ -676,7 +679,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
               <DialogTitle className="text-xl sm:text-2xl font-headline">{t('stepNameInputTitleModal', 'Step 2: Asset Name')}</DialogTitle>
                <DialogDescription>{t('provideNameForAsset', 'Provide a name for your asset.')}</DialogDescription>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto py-4 space-y-6">
+            <div className="flex-grow overflow-y-auto py-4 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="asset-name-modal-comp">{t('assetName', 'Asset Name')}</Label>
                 <Input
@@ -684,6 +687,15 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                   value={assetName}
                   onChange={(e) => setAssetName(e.target.value)}
                   placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="serial-number-modal-comp">{t('serialNumberLabel', 'Serial Number')}</Label>
+                <Input
+                  id="serial-number-modal-comp"
+                  value={serialNumber}
+                  onChange={(e) => setSerialNumber(e.target.value)}
+                  placeholder={t('serialNumberPlaceholder', "e.g., A-123-XYZ")}
                 />
               </div>
             </div>
@@ -757,7 +769,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                 <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToAssetNameModal', 'Back')}
               </Button>
               <Button onClick={handleSaveAsset} size="lg" disabled={(photoPreviews.length === 0 && videoPreviews.length === 0) || !assetName.trim()}>
-                {t('saveAssetButton', 'Save Asset')}
+                {t('saveAssetButton', 'Finish')}
               </Button>
             </DialogFooter>
           </>

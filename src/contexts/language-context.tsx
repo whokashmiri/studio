@@ -54,7 +54,7 @@ const translations: Record<Language, Record<string, string>> = {
     addNewFolder: "New Folder",
     addNewFolderToRoot: "Add Folder to Root",
     addNewSubfolder: "New Folder",
-    addNewSubfolderTo: "New Folder in \"{parentName}\"",
+    addNewFolderTo: "New Folder in \"{parentName}\"",
     folderName: "Folder Name",
     confirm: "Confirm",
     folderCreated: "Folder Created",
@@ -109,7 +109,7 @@ const translations: Record<Language, Record<string, string>> = {
     managePhotosModalTitle: "Manage Photos for Asset:",
     managePhotosModalDesc: "Add more photos using your camera or gallery, or remove existing ones from the batch.",
 
-    photosAdded: "Photos Added",
+    photosAdded: "Media Added",
     editPhotos: "Add/Edit Photos",
     removePhotoTitle: "Remove photo",
 
@@ -439,6 +439,21 @@ const translations: Record<Language, Record<string, string>> = {
     noVoiceContentAvailable: "No voice content (audio or transcript) available.",
     companyProjectsListTitle: "Company Projects",
     viewContentButton: "View Content",
+    
+    serialNumberLabel: "Serial Number",
+    serialNumberPlaceholder: "e.g., A-123-XYZ",
+    importAssetsButton: "Import Assets",
+    importAssetsModalTitle: "Import Assets from Excel",
+    importAssetsModalDesc: "Select an .xlsx file with columns: Name, quantity, Serial Number, Description.",
+    excelFileLabel: "Excel File",
+    import: "Import",
+    importing: "Importing...",
+    importErrorTitle: "Import Error",
+    importErrorEmptyFile: "The Excel file is empty or could not be read.",
+    importErrorMissingNameColumn: "The Excel file must contain a 'Name' column.",
+    importErrorGeneric: "An error occurred while processing the file.",
+    importSuccessTitle: "Import Successful",
+    importSuccessDesc: "{count} assets have been created.",
 
   },
   ar: {
@@ -481,7 +496,7 @@ const translations: Record<Language, Record<string, string>> = {
     addNewFolder: "مجلد جديد",
     addNewFolderToRoot: "إضافة مجلد إلى الجذر",
     addNewSubfolder: "مجلد جديد",
-    addNewSubfolderTo: "مجلد جديد في \"{parentName}\"",
+    addNewFolderTo: "مجلد جديد في \"{parentName}\"",
     folderName: "اسم المجلد",
     confirm: "تأكيد",
     folderCreated: "تم إنشاء المجلد",
@@ -864,6 +879,22 @@ const translations: Record<Language, Record<string, string>> = {
     noVoiceContentAvailable: "لا يوجد محتوى صوتي (صوت أو نص) متاح.",
     companyProjectsListTitle: "مشاريع الشركة",
     viewContentButton: "عرض المحتوى",
+    
+    serialNumberLabel: "الرقم التسلسلي",
+    serialNumberPlaceholder: "مثال: A-123-XYZ",
+    importAssetsButton: "استيراد الأصول",
+    importAssetsModalTitle: "استيراد الأصول من Excel",
+    importAssetsModalDesc: "حدد ملف .xlsx بالأعمدة: Name, quantity, Serial Number, Description.",
+    excelFileLabel: "ملف Excel",
+    import: "استيراد",
+    importing: "جاري الاستيراد...",
+    importErrorTitle: "خطأ في الاستيراد",
+    importErrorEmptyFile: "ملف Excel فارغ أو لا يمكن قراءته.",
+    importErrorMissingNameColumn: "يجب أن يحتوي ملف Excel على عمود 'Name'.",
+    importErrorGeneric: "حدث خطأ أثناء معالجة الملف.",
+    importSuccessTitle: "نجح الاستيراد",
+    importSuccessDesc: "تم إنشاء {count} من الأصول.",
+
   },
 };
 

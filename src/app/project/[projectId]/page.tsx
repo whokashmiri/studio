@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff } from 'lucide-react';
+import { Home, Loader2, CloudOff, FolderPlus, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import * as OfflineService from '@/lib/offline-service';
+import * as XLSX from 'xlsx';
 
 export default function ProjectPage() {
   const params = useParams();
@@ -55,6 +56,11 @@ export default function ProjectPage() {
 
   const [assetToPreview, setAssetToPreview] = useState<Asset | null>(null);
   const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false);
+  
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [fileToImport, setFileToImport] = useState<File | null>(null);
+
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -327,6 +333,86 @@ export default function ProjectPage() {
     setIsImagePreviewModalOpen(false);
     setAssetToPreview(null);
   }, []);
+  
+  const handleFileImport = async () => {
+    if (!fileToImport || !project || !currentUser) return;
+    setIsImporting(true);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+            if (jsonData.length === 0) {
+                toast({ title: t('importErrorTitle', "Import Error"), description: t('importErrorEmptyFile', "The Excel file is empty or could not be read."), variant: "destructive" });
+                return;
+            }
+
+            const headers = Object.keys(jsonData[0]);
+            const findHeader = (possibleNames: string[]) => {
+                for (const name of possibleNames) {
+                    const foundHeader = headers.find(h => h.toLowerCase().trim() === name);
+                    if (foundHeader) return foundHeader;
+                }
+                return null;
+            };
+
+            const nameHeader = findHeader(['name', 'asset name']);
+            const quantityHeader = findHeader(['quantity', 'qty']);
+            const serialHeader = findHeader(['serial number', 'serial']);
+            const descHeader = findHeader(['description', 'desc']);
+
+            if (!nameHeader) {
+                toast({ title: t('importErrorTitle', "Import Error"), description: t('importErrorMissingNameColumn', "The Excel file must contain a 'Name' column."), variant: "destructive" });
+                return;
+            }
+
+            const assetsToCreate: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>[] = [];
+            for (const row of jsonData) {
+                const baseName = row[nameHeader];
+                if (!baseName || typeof baseName !== 'string') continue;
+
+                const quantity = Number(row[quantityHeader as string] || 1);
+                const serial = row[serialHeader as string] ? String(row[serialHeader as string]) : undefined;
+                const description = row[descHeader as string] ? String(row[descHeader as string]) : undefined;
+
+                for (let i = 1; i <= quantity; i++) {
+                    assetsToCreate.push({
+                        name: quantity > 1 ? `${baseName} ${i}` : baseName,
+                        projectId: project.id,
+                        folderId: selectedFolder?.id || null,
+                        serialNumber: serial,
+                        textDescription: description,
+                        photos: [],
+                        videos: [],
+                        userId: currentUser.id,
+                    });
+                }
+            }
+            
+            let createdCount = 0;
+            for (const assetPayload of assetsToCreate) {
+                const newAsset = await FirestoreService.addAsset(assetPayload);
+                if (newAsset) createdCount++;
+            }
+
+            toast({ title: t('importSuccessTitle', "Import Successful"), description: t('importSuccessDesc', "{count} assets have been created.", { count: createdCount }) });
+            await loadAllProjectData();
+        } catch (error) {
+            console.error("Error importing file:", error);
+            toast({ title: t('importErrorTitle', "Import Error"), description: t('importErrorGeneric', "An error occurred while processing the file."), variant: "destructive" });
+        } finally {
+            setIsImporting(false);
+            setFileToImport(null);
+            setIsImportModalOpen(false);
+        }
+    };
+    reader.readAsBinaryString(fileToImport);
+  };
 
   if (isLoading || !project) {
     return (
@@ -421,7 +507,7 @@ export default function ProjectPage() {
         </Card>
 
         <div className="fixed bottom-0 inset-x-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40">
-          <div className="container mx-auto flex justify-center items-center gap-4">
+          <div className="container mx-auto flex justify-center items-center gap-2 flex-wrap">
               <Button 
                   variant="default" 
                   size="lg" 
@@ -429,16 +515,20 @@ export default function ProjectPage() {
                   title={selectedFolder ? t('addNewFolder', 'New Folder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
                   className="shadow-lg"
               >
-                  {selectedFolder ? t('addNewFolder', 'New Folder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                  {t('addNewFolder', 'New Folder')}
               </Button>
-              {selectedFolder && (
-                <Button
-                    onClick={() => setIsNewAssetModalOpen(true)} 
-                    className="shadow-lg"
-                    size="lg"
-                    title={t('newAsset', 'New Asset')}
-                >
-                    {t('newAsset', 'New Asset')}
+              <Button
+                  onClick={() => setIsNewAssetModalOpen(true)} 
+                  className="shadow-lg"
+                  size="lg"
+                  title={t('newAsset', 'New Asset')}
+              >
+                  {t('newAsset', 'New Asset')}
+              </Button>
+               {isAdmin && (
+                <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)} className="shadow-lg">
+                  <Upload className="mr-2 h-4 w-4" />
+                  {t('importAssetsButton', 'Import Assets')}
                 </Button>
               )}
           </div>
@@ -477,6 +567,38 @@ export default function ProjectPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        {isAdmin && (
+          <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>{t('importAssetsModalTitle', 'Import Assets from Excel')}</DialogTitle>
+                <DialogDescription>
+                  {t('importAssetsModalDesc', 'Select an .xlsx file with columns: Name, quantity, Serial Number, Description.')}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="pt-4 pb-0 space-y-2">
+                  <Label htmlFor="import-file">{t('excelFileLabel', 'Excel File')}</Label>
+                  <Input 
+                    id="import-file" 
+                    type="file" 
+                    accept=".xlsx"
+                    onChange={(e) => setFileToImport(e.target.files ? e.target.files[0] : null)}
+                    disabled={isImporting}
+                  />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsImportModalOpen(false)} disabled={isImporting}>
+                  {t('cancel', 'Cancel')}
+                </Button>
+                <Button onClick={handleFileImport} disabled={isImporting || !fileToImport}>
+                  {isImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isImporting ? t('importing', 'Importing...') : t('import', 'Import')}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {editingFolder && (
           <EditFolderModal

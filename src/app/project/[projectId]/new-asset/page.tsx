@@ -41,6 +41,7 @@ export default function NewAssetPage() {
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   
   const [assetName, setAssetName] = useState('');
+  const [serialNumber, setSerialNumber] = useState('');
   const [assetVoiceDescription, setAssetVoiceDescription] = useState('');
   const [recordedAudioDataUrl, setRecordedAudioDataUrl] = useState<string | null>(null);
   const [assetTextDescription, setAssetTextDescription] = useState('');
@@ -106,6 +107,7 @@ export default function NewAssetPage() {
           if (foundAsset && foundAsset.projectId === projectId) {
             setIsEditMode(true);
             setAssetName(foundAsset.name);
+            setSerialNumber(foundAsset.serialNumber || '');
             setAssetVoiceDescription(foundAsset.voiceDescription || '');
             setRecordedAudioDataUrl(foundAsset.recordedAudioDataUrl || null);
             setAssetTextDescription(foundAsset.textDescription || '');
@@ -594,6 +596,7 @@ export default function NewAssetPage() {
     
     const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
       name: assetName,
+      serialNumber: serialNumber.trim() || undefined,
       projectId: project.id,
       folderId: folderId,
       photos: photoUrls,
@@ -751,6 +754,15 @@ export default function NewAssetPage() {
                         />
                     </div>
                 )}
+                <div className="space-y-2">
+                  <Label htmlFor="serial-number">{t('serialNumberLabel', 'Serial Number')}</Label>
+                  <Input
+                    id="serial-number"
+                    value={serialNumber}
+                    onChange={(e) => setSerialNumber(e.target.value)}
+                    placeholder={t('serialNumberPlaceholder', "e.g., A-123-XYZ")}
+                  />
+                </div>
                 {totalMediaCount > 0 && (
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">

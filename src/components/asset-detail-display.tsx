@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useLanguage } from '@/contexts/language-context';
-import { PlayCircle, PauseCircle, Text, Edit, ImageOff, Volume2, ArrowLeft, ArrowRight, Video } from 'lucide-react';
+import { PlayCircle, PauseCircle, Text, Edit, ImageOff, Volume2, ArrowLeft, ArrowRight, Video, Hash } from 'lucide-react';
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRouter } from 'next/navigation';
@@ -174,6 +174,18 @@ export function AssetDetailDisplay({ asset, onBack }: AssetDetailDisplayProps) {
           <div className="flex items-center justify-center h-64 md:h-96 rounded-lg border bg-muted text-muted-foreground shadow-inner">
             <ImageOff className="w-24 h-24" />
           </div>
+        )}
+        
+        {asset.serialNumber && (
+            <div className="p-4 border rounded-lg bg-card/60">
+                 <h3 className="text-lg font-semibold flex items-center text-foreground/90">
+                    <Hash className="mr-2 h-5 w-5 text-accent" />
+                    {t('serialNumberLabel', 'Serial Number')}
+                </h3>
+                 <p className="text-sm text-foreground p-3 border rounded-md bg-background mt-2">
+                  {asset.serialNumber}
+                </p>
+            </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
