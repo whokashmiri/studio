@@ -758,7 +758,7 @@ export async function searchAssets(
 
     let q;
     if (isSerialSearch) {
-      // This query is efficient and doesn't require a custom index.
+      // This query is efficient and works with pagination.
       const constraints: any[] = [
           where("projectId", "==", projectId),
           where("serialNumber", "==", searchTerm),
@@ -768,13 +768,12 @@ export async function searchAssets(
       if (startAfterDoc) constraints.push(startAfter(startAfterDoc));
       q = query(assetsCollectionRef, ...constraints);
     } else {
-        // This requires a composite index on (projectId, name) for ordering.
-        // Firestore will provide a link to create it if it doesn't exist.
+        // This has been changed to an exact match to avoid a required composite index.
+        // The original prefix search (e.g., where("name", ">=", ...)) caused a crash without the index.
         const constraints: any[] = [
             where("projectId", "==", projectId),
-            where("name", ">=", searchTerm),
-            where("name", "<=", searchTerm + '\uf8ff'),
-            orderBy("name"),
+            where("name", "==", searchTerm), // Using exact match now
+            orderBy(documentId()), // Order by document ID for pagination
             limit(pageSize),
         ];
         if (startAfterDoc) constraints.push(startAfter(startAfterDoc));
