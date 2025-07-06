@@ -82,6 +82,8 @@ export default function ProjectPage() {
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'Admin';
   const isMobile = useIsMobile();
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
 
   const loadInitialStructure = useCallback(async () => {
     if (projectId) {
@@ -129,7 +131,7 @@ export default function ProjectPage() {
     // Also fetch offline assets for this folder
     const queuedActions = OfflineService.getOfflineQueue();
     const offlineForView = queuedActions
-        .filter(a => a.type === 'add-asset' && a.projectId === pId && a.folderId === fId)
+        .filter(a => a.type === 'add-asset' && a.projectId === pId && (a.payload.folderId || null) === fId)
         .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
     setOfflineAssets(offlineForView);
 
@@ -587,6 +589,7 @@ export default function ProjectPage() {
                     onLoadMore={loadMoreAssets}
                     hasMore={hasMoreAssets}
                     isLoadingMore={isLoadingMore}
+                    scrollAreaRef={scrollAreaRef}
                 />
             )}
             
@@ -603,7 +606,7 @@ export default function ProjectPage() {
   
   const renderSearchResults = () => {
     return (
-        <ScrollArea className="h-full pr-3">
+        <ScrollArea className="h-full pr-3" viewportRef={scrollAreaRef}>
             {(isSearchLoading && searchedAssets.length === 0) && (
                 <div className="flex justify-center items-center h-40">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -745,9 +748,11 @@ export default function ProjectPage() {
                     {renderSearchResults()}
                 </div>
             ) : (
-                <ScrollArea className="h-[calc(100vh-28rem)] pr-3">
-                    {renderFolderView()}
-                </ScrollArea>
+                <div className="h-[calc(100vh-32rem)]" ref={scrollAreaRef}>
+                  <ScrollArea className="h-full pr-3">
+                      {renderFolderView()}
+                  </ScrollArea>
+                </div>
             )}
           </CardContent>
         </Card>

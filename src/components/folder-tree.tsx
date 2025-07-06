@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import React, { useCallback, useMemo, useRef, useEffect } from 'react'; 
 import { AssetCard } from '@/components/asset-card';
 import { FolderGridCard } from '@/components/folder-grid-card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 interface FolderDisplayCardProps {
   folder: Folder;
@@ -115,6 +117,7 @@ interface FolderTreeDisplayProps {
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  scrollAreaRef?: React.RefObject<HTMLDivElement>;
 }
 
 export function FolderTreeDisplay({ 
@@ -135,6 +138,7 @@ export function FolderTreeDisplay({
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
+  scrollAreaRef,
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -150,7 +154,7 @@ export function FolderTreeDisplay({
                 onLoadMore();
             }
         },
-        { threshold: 1.0 }
+        { root: scrollAreaRef?.current, threshold: 1.0 }
     );
 
     const currentLoader = loaderRef.current;
@@ -163,7 +167,7 @@ export function FolderTreeDisplay({
             observer.unobserve(currentLoader);
         }
     };
-  }, [hasMore, isLoadingMore, onLoadMore]);
+  }, [hasMore, isLoadingMore, onLoadMore, scrollAreaRef]);
 
   const assetCountsByFolder = useMemo(() => {
     if (!allProjectAssets) return new Map<string, number>();
