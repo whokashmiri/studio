@@ -75,7 +75,7 @@ const translations: Record<Language, Record<string, string>> = {
     assetSavedDesc: "Asset \"{assetName}\" has been saved.",
 
     photosRequiredTitle: "Photos Required",
-    photosRequiredDesc: "Please add at least one photo for the asset.",
+    photosRequiredDesc: "Please add at least one photo or video for the asset.",
     
     stepNameInputTitle: "Step 1: Asset Name", 
     stepPhotosCaptureTitle: "Step 2: Photos", 
