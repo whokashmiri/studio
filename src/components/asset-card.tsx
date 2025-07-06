@@ -4,7 +4,7 @@ import type { Asset } from '@/data/mock-data';
 import React from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive } from 'lucide-react';
+import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,9 +26,11 @@ interface AssetCardProps {
 export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewAsset, displayMode = 'grid' }: AssetCardProps) {
   const { t } = useLanguage();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
+  const isUploading = !!asset.isUploading;
 
   if (displayMode === 'grid') {
     const mainAction = () => {
+      if (isUploading) return;
       if (primaryPhoto) {
         onPreviewAsset(asset);
       } else {
@@ -38,10 +40,18 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
 
     return (
       <Card
-        className="group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 cursor-pointer p-1"
+        className={cn(
+            "group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 p-1",
+            isUploading ? "cursor-wait" : "cursor-pointer"
+        )}
         onClick={mainAction}
         title={asset.name}
       >
+        {isUploading && (
+          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex items-center justify-center rounded-lg z-20">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        )}
         <div className="absolute top-1 right-1 z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -50,6 +60,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
                 size="icon"
                 className="h-8 w-8 opacity-0 group-hover:opacity-100 focus:opacity-100"
                 onClick={(e) => e.stopPropagation()}
+                disabled={isUploading}
               >
                 <MoreVertical className="h-4 w-4" />
                 <span className="sr-only">{t('assetActions', 'Asset actions')}</span>
@@ -104,12 +115,20 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
   // --- LIST MODE LOGIC ---
   return (
       <Card 
-        className="group flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md"
+        className={cn(
+            "group relative flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md",
+            isUploading && "opacity-60"
+        )}
         title={asset.name}
       >
+        {isUploading && (
+            <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 rounded-md">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+        )}
         <div 
-          className="flex items-center gap-3 flex-grow min-w-0 cursor-pointer"
-          onClick={() => primaryPhoto ? onPreviewAsset(asset) : onEditAsset(asset)}
+          className="flex items-center gap-3 flex-grow min-w-0"
+          onClick={() => isUploading ? null : (primaryPhoto ? onPreviewAsset(asset) : onEditAsset(asset))}
         >
           <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted">
             {primaryPhoto ? (
@@ -139,6 +158,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
                 size="icon"
                 className="h-8 w-8"
                 onClick={(e) => e.stopPropagation()} 
+                disabled={isUploading}
               >
                 <MoreVertical className="h-4 w-4" />
                 <span className="sr-only">{t('assetActions', 'Asset actions')}</span>

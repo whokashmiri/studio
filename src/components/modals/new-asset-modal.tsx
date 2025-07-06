@@ -25,7 +25,7 @@ interface NewAssetModalProps {
     onClose: () => void;
     project: Project;
     parentFolder: FolderType | null;
-    onAssetCreated: (createdAsset: Asset) => Promise<void>;
+    onAssetCreated: (assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
 export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetCreated }: NewAssetModalProps) {
@@ -59,7 +59,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  const [isSavingAsset, setIsSavingAsset] = useState(false);
   const [isProcessingPhotos, setIsProcessingPhotos] = useState(false); 
 
   const { toast } = useToast();
@@ -76,7 +75,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     setCapturedPhotosInSession([]);
     setIsManagePhotosBatchModalOpen(false);
     setIsCustomCameraOpen(false);
-    setIsSavingAsset(false);
     setIsProcessingPhotos(false);
     
     if (audioPlayerRef.current) {
@@ -380,7 +378,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
 
 
   const toggleRecording = useCallback(async () => {
-    if (isSavingAsset) return;
     
     if (audioPlayerRef.current && isAudioPlaying) { 
         audioPlayerRef.current.pause(); 
@@ -426,7 +423,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         }
     }
   }, [
-    isRecording, isSavingAsset, mediaStream, t, toast, isAudioPlaying, 
+    isRecording, mediaStream, t, toast, isAudioPlaying, 
     startRecordingWithStream, speechRecognitionRef, setMediaStream, isCustomCameraOpen
 ]);
 
@@ -472,81 +469,37 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         };
     }
   }, []);
-
-  const removeUndefinedProps = (obj: Record<string, any>): Record<string, any> => {
-    const newObj = { ...obj };
-    Object.keys(newObj).forEach(key => {
-      if (newObj[key] === undefined || newObj[key] === null) { 
-        delete newObj[key];
-      }
-    });
-    return newObj;
-  };
   
-  const handleSaveAsset = useCallback(async () => {
-    if (!project) {
-      toast({ title: t('projectContextLost', "Project context lost"), variant: "destructive" });
+  const handleSaveAsset = useCallback(() => {
+    if (!project || !currentUser) {
+      toast({ title: t('error', 'Error'), description: !project ? t('projectContextLost', "Project context lost") : t('userNotAuthenticatedError', "User not authenticated. Cannot save asset."), variant: "destructive" });
       return;
     }
-    if (!currentUser) {
-        toast({ title: t('error', 'Error'), description: t('userNotAuthenticatedError', "User not authenticated. Cannot save asset."), variant: "destructive" });
-        return;
-    }
-     if (!assetName.trim()) {
+    if (!assetName.trim()) {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), variant: "destructive" });
-      setCurrentStep('name_input'); 
+      setCurrentStep('name_input');
       return;
     }
-    if (photoPreviews.length === 0) { 
+    if (photoPreviews.length === 0) {
       toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
       setCurrentStep('photos_capture');
       return;
     }
 
-    setIsSavingAsset(true);
-    try {
-        await FirestoreService.updateProject(project.id, {
-          status: 'recent' as ProjectStatus,
-        });
-        
-        const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
-          userId: currentUser.id,
-          name: assetName,
-          projectId: project.id,
-          folderId: parentFolder ? parentFolder.id : null,
-          photos: photoPreviews,
-        };
+    const assetDataPayload: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
+      userId: currentUser.id,
+      name: assetName,
+      projectId: project.id,
+      folderId: parentFolder ? parentFolder.id : null,
+      photos: photoPreviews,
+      voiceDescription: assetVoiceDescription.trim() || undefined,
+      recordedAudioDataUrl: recordedAudioDataUrl || undefined,
+      textDescription: assetTextDescription.trim() || undefined,
+    };
 
-        if (assetVoiceDescription.trim()) {
-          assetDataPayload.voiceDescription = assetVoiceDescription.trim();
-        }
-        if (recordedAudioDataUrl) {
-            assetDataPayload.recordedAudioDataUrl = recordedAudioDataUrl;
-        }
-        if (assetTextDescription.trim()) {
-          assetDataPayload.textDescription = assetTextDescription.trim();
-        }
-        
-        const newAsset = await FirestoreService.addAsset(removeUndefinedProps(assetDataPayload) as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
-        
-        if (newAsset) {
-            await onAssetCreated(newAsset);
-            toast({ 
-                title: t('assetSavedTitle', "Asset Saved"), 
-                description: t('assetSavedDesc', `Asset "${newAsset.name}" has been saved.`, { assetName: newAsset.name }),
-                variant: "success-yellow" 
-            });
-            handleModalClose();
-        } else {
-            toast({ title: "Error", description: "Failed to save asset.", variant: "destructive" });
-        }
-    } catch (error) {
-        console.error("Error saving asset:", error);
-        toast({ title: "Error", description: "An unexpected error occurred while saving the asset.", variant: "destructive" });
-    } finally {
-        setIsSavingAsset(false);
-    }
-  }, [project, assetName, photoPreviews, parentFolder, assetVoiceDescription, recordedAudioDataUrl, assetTextDescription, t, toast, handleModalClose, onAssetCreated, currentUser]);
+    onAssetCreated(assetDataPayload);
+    handleModalClose();
+  }, [project, currentUser, assetName, photoPreviews, parentFolder, assetVoiceDescription, recordedAudioDataUrl, assetTextDescription, onAssetCreated, handleModalClose, toast, t]);
   
   const renderStepContent = () => {
     switch (currentStep) {
@@ -561,10 +514,10 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             </DialogHeader>
             <div className="flex-grow overflow-y-auto py-4 space-y-6">
               <div className="flex flex-col sm:flex-row gap-2 mt-1">
-                  <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1" disabled={isSavingAsset || isProcessingPhotos}>
+                  <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1" disabled={isProcessingPhotos}>
                       <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
                   </Button>
-                  <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1" disabled={isSavingAsset || isProcessingPhotos}>
+                  <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1" disabled={isProcessingPhotos}>
                       {isProcessingPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
                       {isProcessingPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
                   </Button>
@@ -583,7 +536,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                 <div className="mt-4 space-y-2">
                   <div className="flex justify-between items-center">
                     <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                    <Button variant="outline" size="sm" onClick={() => setIsManagePhotosBatchModalOpen(true)} disabled={isSavingAsset || isProcessingPhotos}>
+                    <Button variant="outline" size="sm" onClick={() => setIsManagePhotosBatchModalOpen(true)} disabled={isProcessingPhotos}>
                        <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
                     </Button>
                   </div>
@@ -600,10 +553,10 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
               )}
             </div>
             <DialogFooter className="flex justify-between">
-              <Button variant="outline" onClick={handleModalClose} disabled={isSavingAsset || isProcessingPhotos}>
+              <Button variant="outline" onClick={handleModalClose} disabled={isProcessingPhotos}>
                 {t('cancel', 'Cancel')}
               </Button>
-              <Button onClick={handleNextFromPhotos} disabled={isSavingAsset || isProcessingPhotos || photoPreviews.length === 0}>
+              <Button onClick={handleNextFromPhotos} disabled={isProcessingPhotos || photoPreviews.length === 0}>
                 {t('nextStepAssetName', 'Next: Asset Name')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </DialogFooter>
@@ -624,15 +577,14 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                   value={assetName}
                   onChange={(e) => setAssetName(e.target.value)}
                   placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
-                  disabled={isSavingAsset}
                 />
               </div>
             </div>
             <DialogFooter className="flex justify-between">
-              <Button variant="outline" onClick={handleBackToPhotos} disabled={isSavingAsset}>
+              <Button variant="outline" onClick={handleBackToPhotos}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToPhotoCapture', 'Back')}
               </Button>
-              <Button onClick={handleNextFromNameInput} disabled={!assetName.trim() || isSavingAsset}>
+              <Button onClick={handleNextFromNameInput} disabled={!assetName.trim()}>
                 {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </DialogFooter>
@@ -651,7 +603,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                   <Label htmlFor="asset-voice-description-modal">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
                   <div className="flex items-center gap-2 flex-wrap">
                     {speechRecognitionAvailable ? ( 
-                      <Button onClick={toggleRecording} variant="outline" className="flex-1 min-w-[180px]" disabled={isSavingAsset || isAudioPlaying}>
+                      <Button onClick={toggleRecording} variant="outline" className="flex-1 min-w-[180px]" disabled={isAudioPlaying}>
                         <Mic className={`mr-2 h-4 w-4 ${isRecording ? 'animate-pulse text-destructive' : ''}`} />
                         {isRecording ? t('finishRecording', 'Finish Recording') : t('recordVoiceDescriptionButton', 'Record Voice')}
                       </Button>
@@ -663,7 +615,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                        </Alert>
                     )}
                     {recordedAudioDataUrl && (
-                       <Button onClick={handlePlayRecordedAudio} variant="outline" className="flex-1 min-w-[120px]" disabled={isSavingAsset || isRecording}>
+                       <Button onClick={handlePlayRecordedAudio} variant="outline" className="flex-1 min-w-[120px]" disabled={isRecording}>
                          {isAudioPlaying ? <PauseCircle className="mr-2 h-4 w-4" /> : <PlayCircle className="mr-2 h-4 w-4" />}
                          {isAudioPlaying ? t('pauseAudio', 'Pause') : t('playVoiceDescriptionButton', 'Listen')}
                        </Button>
@@ -690,17 +642,15 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                     placeholder={t('textDescriptionPlaceholder', 'Type detailed written description here...')}
                     rows={assetVoiceDescription.trim() || recordedAudioDataUrl ? 3 : 5}
                     className="resize-y"
-                    disabled={isSavingAsset}
                   />
                 </div>
             </div>
             <DialogFooter className="flex flex-row justify-end items-center gap-2 pt-4">
-              <Button variant="outline" onClick={handleBackToNameInput} disabled={isSavingAsset}>
+              <Button variant="outline" onClick={handleBackToNameInput}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToAssetNameModal', 'Back')}
               </Button>
-              <Button onClick={handleSaveAsset} size="lg" disabled={isSavingAsset || photoPreviews.length === 0 || !assetName.trim()}>
-                {isSavingAsset && <Loader2 className="mr-2 h-4 w-4 animate-spin" /> }
-                {isSavingAsset ? t('saving', 'Saving...') : t('saveAssetButton', 'Save Asset')}
+              <Button onClick={handleSaveAsset} size="lg" disabled={photoPreviews.length === 0 || !assetName.trim()}>
+                {t('saveAssetButton', 'Save Asset')}
               </Button>
             </DialogFooter>
           </>
@@ -721,8 +671,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       }}>
         <DialogContent 
           className={cn(
-            "sm:max-w-2xl max-h-[85vh] flex flex-col",
-            isSavingAsset && "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700"
+            "sm:max-w-2xl max-h-[85vh] flex flex-col"
           )} 
           hideCloseButton={isRecording}
         >
@@ -744,10 +693,10 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                 variant="outline" 
                 onClick={() => { setIsCustomCameraOpen(true); setIsManagePhotosBatchModalOpen(false); }} 
                 className="w-full sm:w-auto"
-                disabled={isProcessingPhotos || isSavingAsset}>
+                disabled={isProcessingPhotos}>
                 <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
               </Button>
-              <Button variant="outline" onClick={() => galleryInputModalRef.current?.click()} className="w-full sm:w-auto" disabled={isProcessingPhotos || isSavingAsset}>
+              <Button variant="outline" onClick={() => galleryInputModalRef.current?.click()} className="w-full sm:w-auto" disabled={isProcessingPhotos}>
                 {isProcessingPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
                 {isProcessingPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
@@ -759,7 +708,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                   ref={galleryInputModalRef} 
                   className="hidden"
                   onChange={handlePhotoUploadFromGallery}
-                  disabled={isProcessingPhotos || isSavingAsset}
+                  disabled={isProcessingPhotos}
                 />
             </div>
 
@@ -777,7 +726,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                             className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                             onClick={() => removePhotoFromPreviews(index)}
                             title={t('removePhotoTitle', "Remove photo")}
-                            disabled={isSavingAsset || isProcessingPhotos}
+                            disabled={isProcessingPhotos}
                           >
                             <X className="h-3 w-3" />
                           </Button>

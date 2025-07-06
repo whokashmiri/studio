@@ -44,6 +44,7 @@ export interface Asset {
   createdAt: number; // Changed from string to number
   updatedAt?: number; // Changed from string to number
   userId?: string;
+  isUploading?: boolean;
 }
 
 export type UserRole = 'Admin' | 'Inspector' | 'Valuation';

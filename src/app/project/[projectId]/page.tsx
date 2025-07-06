@@ -205,11 +205,50 @@ export default function ProjectPage() {
     }
   }, [loadAllProjectData, t, toast]);
 
-  const handleAssetCreatedInModal = useCallback(async () => {
-    await loadAllProjectData();
-  }, [loadAllProjectData]);
+  const handleAssetCreatedInModal = useCallback(async (assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const tempId = `temp_${Date.now()}`;
+    const optimisticAsset: Asset = {
+      ...assetData,
+      id: tempId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      isUploading: true,
+      photos: assetData.photos || [],
+      folderId: assetData.folderId || null,
+    };
+
+    setAllProjectAssets(prev => [...prev, optimisticAsset]);
+
+    toast({
+      title: t('saving', 'Saving...'),
+      description: `Asset "${assetData.name}" is being uploaded.`,
+    });
+
+    try {
+      const newAssetFromDb = await FirestoreService.addAsset(assetData);
+      if (newAssetFromDb) {
+        setAllProjectAssets(prev => prev.map(asset => 
+          asset.id === tempId ? { ...newAssetFromDb, isUploading: false } : asset
+        ));
+        toast({
+          title: t('assetSavedTitle', "Asset Saved"),
+          description: t('assetSavedDesc', `Asset "${newAssetFromDb.name}" has been saved.`, { assetName: newAssetFromDb.name }),
+          variant: "success-yellow"
+        });
+      } else {
+        toast({ title: "Error", description: `Failed to save asset "${assetData.name}".`, variant: "destructive" });
+        setAllProjectAssets(prev => prev.filter(asset => asset.id !== tempId));
+      }
+    } catch (error) {
+      console.error("Error saving asset in background:", error);
+      toast({ title: "Error", description: `An error occurred while saving "${assetData.name}".`, variant: "destructive" });
+      setAllProjectAssets(prev => prev.filter(asset => asset.id !== tempId));
+    }
+  }, [toast, t]);
+
 
   const handleOpenImagePreviewModal = useCallback((asset: Asset) => {
+    if(asset.isUploading) return;
     setAssetToPreview(asset);
     setIsImagePreviewModalOpen(true);
   }, []);
