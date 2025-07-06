@@ -133,10 +133,9 @@ export function AssetDetailDisplay({ asset, onBack }: AssetDetailDisplayProps) {
                 key={currentMedia.url}
                 src={currentMedia.url}
                 alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
-                layout="fill"
-                objectFit="contain"
+                fill
+                className="object-contain p-1"
                 data-ai-hint="asset photo detail"
-                className="p-1"
               />
             ) : (
               <video

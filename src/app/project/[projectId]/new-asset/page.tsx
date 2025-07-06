@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info, Loader2, Video, Film, Flashlight, FlashlightOff, Upload } from 'lucide-react';
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info, Loader2, Video, Film, Flashlight, FlashlightOff, Upload, PauseCircle, PlayCircle } from 'lucide-react';
 import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
@@ -42,6 +42,7 @@ export default function NewAssetPage() {
   
   const [assetName, setAssetName] = useState('');
   const [assetVoiceDescription, setAssetVoiceDescription] = useState('');
+  const [recordedAudioDataUrl, setRecordedAudioDataUrl] = useState<string | null>(null);
   const [assetTextDescription, setAssetTextDescription] = useState('');
   
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
@@ -66,9 +67,13 @@ export default function NewAssetPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const videoChunksRef = useRef<Blob[]>([]);
 
-  const [isListening, setIsListening] = useState(false);
+  const [isAudioDescRecording, setIsAudioDescRecording] = useState(false);
   const [speechRecognitionAvailable, setSpeechRecognitionAvailable] = useState(false);
   const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
 
   const { toast } = useToast();
@@ -102,6 +107,7 @@ export default function NewAssetPage() {
             setIsEditMode(true);
             setAssetName(foundAsset.name);
             setAssetVoiceDescription(foundAsset.voiceDescription || '');
+            setRecordedAudioDataUrl(foundAsset.recordedAudioDataUrl || null);
             setAssetTextDescription(foundAsset.textDescription || '');
             setPhotoUrls(foundAsset.photos || []);
             setVideoUrls(foundAsset.videos || []);
@@ -175,14 +181,19 @@ export default function NewAssetPage() {
       const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       speechRecognitionRef.current = new SpeechRecognitionAPI();
       const recognition = speechRecognitionRef.current;
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = language === 'ar' ? 'ar-SA' : 'en-US';
+      recognition.continuous = true;
+      recognition.interimResults = true;
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        const transcript = event.results[0][0].transcript;
-        setAssetVoiceDescription(prev => prev ? `${prev} ${transcript}`.trim() : transcript);
-        setIsListening(false);
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        if (finalTranscript.trim()) {
+             setAssetVoiceDescription(prev => (prev + ' ' + finalTranscript).trim());
+        }
       };
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error', event.error, event.message);
@@ -191,15 +202,17 @@ export default function NewAssetPage() {
         else if (event.error === 'audio-capture') errorMessage = t('speechErrorAudioCapture', 'Audio capture failed. Check microphone permissions.');
         else if (event.error === 'not-allowed') errorMessage = t('speechErrorNotAllowed', 'Microphone access denied. Please allow microphone access.');
         toast({ title: t('speechErrorTitle', 'Speech Recognition Error'), description: errorMessage, variant: 'destructive' });
-        setIsListening(false);
-      };
-      recognition.onend = () => {
-        setIsListening(false);
+        if (isAudioDescRecording) {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+                mediaRecorderRef.current.stop();
+            }
+            setIsAudioDescRecording(false); 
+        }
       };
     } else {
       setSpeechRecognitionAvailable(false);
     }
-  }, [toast, language, t]);
+  }, [toast, language, t, isAudioDescRecording]);
 
   useEffect(() => {
     if (speechRecognitionRef.current) {
@@ -414,25 +427,146 @@ export default function NewAssetPage() {
     setIsMediaModalOpen(false);
   };
 
-  const toggleListening = () => {
-    if (!speechRecognitionRef.current || !speechRecognitionAvailable) {
-      toast({ title: t('speechFeatureNotAvailableTitle', 'Feature Not Available'), description: t('speechFeatureNotAvailableDesc', 'Speech recognition is not supported or enabled in your browser.'), variant: 'destructive' });
-      return;
+  const startAudioDescRecordingWithStream = useCallback((streamForRecording: MediaStream) => {
+    if (!streamForRecording || !streamForRecording.active || streamForRecording.getAudioTracks().length === 0 || !streamForRecording.getAudioTracks().some(track => track.enabled && track.readyState === 'live')) {
+        toast({ title: t('speechErrorAudioCapture', 'Audio capture failed. Check microphone permissions.'), description: "The audio stream is not active or valid.", variant: "destructive" });
+        setIsAudioDescRecording(false);
+        if (speechRecognitionRef.current) speechRecognitionRef.current.stop();
+        return;
     }
-    if (isListening) {
-      speechRecognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      try {
-        speechRecognitionRef.current.start();
-        setIsListening(true);
-      } catch (e: any) {
-        console.error("Error starting speech recognition:", e);
-        toast({ title: t('speechErrorTitle', 'Could not start speech recognition'), description: e.message || t('speechStartErrorDesc', 'Please ensure microphone permissions are granted.'), variant: 'destructive' });
-        setIsListening(false);
-      }
+
+    audioChunksRef.current = [];
+    try {
+        const recorder = new MediaRecorder(streamForRecording, { mimeType: 'audio/webm;codecs=opus' });
+        mediaRecorderRef.current = recorder;
+
+        recorder.ondataavailable = (event) => {
+            if (event.data.size > 0) audioChunksRef.current.push(event.data);
+        };
+        recorder.onstop = () => {
+            if (audioChunksRef.current.length === 0) {
+               setRecordedAudioDataUrl(null); 
+               return;
+            }
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = () => { setRecordedAudioDataUrl(reader.result as string); };
+            audioChunksRef.current = []; 
+        };
+        recorder.onerror = (event: Event) => {
+            const mediaRecorderError = event as unknown as { error?: DOMException };
+            console.error('MediaRecorder.onerror event:', mediaRecorderError.error || event);
+            toast({ title: "Recording Error", description: `MediaRecorder failed: ${mediaRecorderError.error?.name || 'Unknown error'}. Check console.`, variant: "destructive" });
+            setIsAudioDescRecording(false);
+            if (speechRecognitionRef.current) speechRecognitionRef.current.stop();
+        };
+
+        recorder.start();
+        setIsAudioDescRecording(true);
+        
+        if (speechRecognitionRef.current && speechRecognitionAvailable) {
+            try {
+                speechRecognitionRef.current.start();
+            } catch (e: any) {
+                console.error("Error starting speech recognition:", e);
+                toast({ title: t('speechErrorTitle', 'Could not start speech recognition'), description: e.message || t('speechStartErrorDesc', 'Ensure microphone permissions.'), variant: 'warning' });
+            }
+        }
+    } catch (e: any) {
+        console.error("Error initializing or starting MediaRecorder instance:", e);
+        toast({ title: "Recording Setup Error", description: `Could not initialize/start MediaRecorder: ${e.message || 'Unknown error'}. Check console and microphone.`, variant: "destructive" });
+        setIsAudioDescRecording(false); 
+        if (speechRecognitionRef.current) speechRecognitionRef.current.stop();
     }
-  };
+  }, [toast, t, speechRecognitionAvailable]);
+
+  const toggleAudioDescRecording = useCallback(async () => {
+    if (audioPlayerRef.current && isAudioPlaying) { 
+        audioPlayerRef.current.pause(); 
+        setIsAudioPlaying(false);
+    }
+
+    if (isAudioDescRecording) { 
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+            mediaRecorderRef.current.stop();
+        }
+        if (speechRecognitionRef.current) {
+            speechRecognitionRef.current.stop();
+        }
+        setIsAudioDescRecording(false);
+        
+        if (mediaStream && mediaStream.getAudioTracks().length > 0 && !isCustomCameraOpen) {
+             mediaStream.getTracks().forEach(track => track.stop());
+             setMediaStream(null);
+        }
+    } else { 
+        setRecordedAudioDataUrl(null); 
+        setAssetVoiceDescription(''); 
+
+        try {
+            const newAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            if (mediaStream && mediaStream.id !== newAudioStream.id) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+            setMediaStream(newAudioStream); 
+            
+            startAudioDescRecordingWithStream(newAudioStream); 
+        
+        } catch (err) {
+            console.error("Error getting dedicated audio stream for recording:", err);
+            const typedError = err as Error;
+            let desc = typedError.message || t('speechErrorAudioCapture', 'Audio capture failed. Check microphone permissions.');
+            if (typedError.name === 'NotAllowedError' || typedError.name === 'PermissionDeniedError') {
+                desc = t('speechErrorNotAllowed', 'Microphone access denied. Please allow microphone access.');
+            }
+            toast({ title: t('speechErrorAudioCapture', 'Audio capture failed. Check microphone permissions.'), description: desc, variant: "destructive" });
+            setIsAudioDescRecording(false);
+            if (speechRecognitionRef.current) speechRecognitionRef.current.stop();
+        }
+    }
+  }, [isAudioDescRecording, mediaStream, t, toast, isAudioPlaying, startAudioDescRecordingWithStream, isCustomCameraOpen]);
+
+  const handlePlayRecordedAudio = useCallback(() => {
+    if (recordedAudioDataUrl && audioPlayerRef.current) {
+        if (isAudioPlaying) {
+            audioPlayerRef.current.pause();
+        } else {
+            if (isAudioDescRecording) { 
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+                    mediaRecorderRef.current.stop();
+                }
+                if (speechRecognitionRef.current) {
+                    speechRecognitionRef.current.stop();
+                }
+                setIsAudioDescRecording(false);
+            }
+            audioPlayerRef.current.src = recordedAudioDataUrl;
+            audioPlayerRef.current.play().catch(e => {
+                console.error("Error playing audio:", e);
+                toast({title: "Playback Error", description: "Could not play audio.", variant: "destructive"});
+                setIsAudioPlaying(false);
+            });
+        }
+    }
+  }, [recordedAudioDataUrl, isAudioPlaying, isAudioDescRecording, toast]);
+
+  useEffect(() => {
+    const player = audioPlayerRef.current;
+    if (player) {
+        const onPlay = () => setIsAudioPlaying(true);
+        const onPause = () => setIsAudioPlaying(false);
+        const onEnded = () => setIsAudioPlaying(false);
+        player.addEventListener('play', onPlay);
+        player.addEventListener('pause', onPause);
+        player.addEventListener('ended', onEnded);
+        return () => {
+            player.removeEventListener('play', onPlay);
+            player.removeEventListener('pause', onPause);
+            player.removeEventListener('ended', onEnded);
+        };
+    }
+  }, []);
 
   const handleSaveAsset = async () => {
     if (!project) {
@@ -464,14 +598,10 @@ export default function NewAssetPage() {
       folderId: folderId,
       photos: photoUrls,
       videos: videoUrls,
+      voiceDescription: assetVoiceDescription.trim() || undefined,
+      recordedAudioDataUrl: recordedAudioDataUrl || undefined,
+      textDescription: assetTextDescription.trim() || undefined,
     };
-
-    if (assetVoiceDescription.trim()) {
-      assetDataPayload.voiceDescription = assetVoiceDescription.trim();
-    }
-    if (assetTextDescription.trim()) {
-      assetDataPayload.textDescription = assetTextDescription.trim();
-    }
     
     let success = false;
     let savedAssetName = assetName;
@@ -647,19 +777,27 @@ export default function NewAssetPage() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="asset-voice-description">{t('voiceDescriptionLabel', 'Voice Description')}</Label>
-                  {speechRecognitionAvailable ? (
-                    <Button onClick={toggleListening} variant="outline" className="w-full sm:w-auto">
-                      <Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-destructive' : ''}`} />
-                      {isListening ? t('listening', 'Listening...') : t('recordVoiceDescriptionButton', 'Record Voice Description')}
-                    </Button>
-                  ) : (
-                     <Alert variant="default">
-                        <Info className="h-4 w-4" />
-                        <AlertTitle>{t('speechFeatureNotAvailableTitle', 'Speech Recognition Not Available')}</AlertTitle>
-                        <AlertDescription>{t('speechFeatureNotAvailableDesc', 'Your browser does not support speech recognition.')}</AlertDescription>
-                     </Alert>
-                  )}
-                  {assetVoiceDescription && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {speechRecognitionAvailable ? (
+                      <Button onClick={toggleAudioDescRecording} variant="outline" className="flex-1 min-w-[180px]" disabled={isAudioPlaying}>
+                        <Mic className={`mr-2 h-4 w-4 ${isAudioDescRecording ? 'animate-pulse text-destructive' : ''}`} />
+                        {isAudioDescRecording ? t('finishRecording', 'Finish Recording') : t('recordVoiceDescriptionButton', 'Record Voice')}
+                      </Button>
+                    ) : (
+                       <Alert variant="default" className="w-full">
+                          <Info className="h-4 w-4" />
+                          <AlertTitle>{t('speechFeatureNotAvailableTitle', 'Voice Recording Not Available')}</AlertTitle>
+                          <AlertDescription>{t('speechFeatureNotAvailableDesc', 'Your browser may not support voice recording or microphone access is denied.')}</AlertDescription>
+                       </Alert>
+                    )}
+                     {recordedAudioDataUrl && (
+                       <Button onClick={handlePlayRecordedAudio} variant="outline" className="flex-1 min-w-[120px]" disabled={isAudioDescRecording}>
+                         {isAudioPlaying ? <PauseCircle className="mr-2 h-4 w-4" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+                         {isAudioPlaying ? t('pauseAudio', 'Pause') : t('playVoiceDescriptionButton', 'Listen')}
+                       </Button>
+                    )}
+                  </div>
+                  {assetVoiceDescription.trim() && (
                     <Textarea
                       id="asset-voice-description-display"
                       value={assetVoiceDescription}
@@ -704,6 +842,7 @@ export default function NewAssetPage() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <audio ref={audioPlayerRef} className="hidden"></audio>
       <canvas ref={canvasRef} className="hidden"></canvas> 
       <Link href={backLinkHref} className="text-sm text-primary hover:underline flex items-center mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
@@ -904,5 +1043,3 @@ export default function NewAssetPage() {
     </div>
   );
 }
-
-    

@@ -473,7 +473,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         setIsAudioDescRecording(false); 
         if (speechRecognitionRef.current) speechRecognitionRef.current.stop();
     }
-  }, [toast, t, speechRecognitionAvailable, speechRecognitionRef]);
+  }, [toast, t, speechRecognitionAvailable]);
 
 
   const toggleAudioDescRecording = useCallback(async () => {
@@ -523,7 +523,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     }
   }, [
     isAudioDescRecording, mediaStream, t, toast, isAudioPlaying, 
-    startAudioDescRecordingWithStream, speechRecognitionRef, setMediaStream, isCustomCameraOpen
+    startAudioDescRecordingWithStream, isCustomCameraOpen
 ]);
 
 
@@ -531,7 +531,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     if (recordedAudioDataUrl && audioPlayerRef.current) {
         if (isAudioPlaying) {
             audioPlayerRef.current.pause();
-            setIsAudioPlaying(false);
         } else {
             if (isAudioDescRecording) { 
                 if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
@@ -550,7 +549,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             });
         }
     }
-  }, [recordedAudioDataUrl, isAudioPlaying, isAudioDescRecording, toast, speechRecognitionRef]); 
+  }, [recordedAudioDataUrl, isAudioPlaying, isAudioDescRecording, toast]); 
 
   useEffect(() => {
     const player = audioPlayerRef.current;
@@ -976,5 +975,3 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     </>
   );
 }
-
-    
