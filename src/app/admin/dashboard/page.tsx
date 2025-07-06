@@ -47,6 +47,7 @@ export default function AdminDashboardPage() {
 
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadAdminData = useCallback(async () => {
     if (currentUser && currentUser.role === 'Admin' && currentUser.companyId) {
@@ -195,18 +196,26 @@ export default function AdminDashboardPage() {
 
   const confirmDeleteProject = useCallback(async () => {
     if (projectToDelete) {
-      const success = await FirestoreService.deleteProject(projectToDelete.id);
-      if (success) {
-        toast({
-          title: t('projectDeletedTitle', 'Project Deleted'),
-          description: t('projectDeletedDesc', `Project "${projectToDelete.name}" has been deleted.`, { projectName: projectToDelete.name }),
-        });
-        loadAdminData(); // Reload all data, as deletion is a major change.
-      } else {
-        toast({ title: "Error", description: "Failed to delete project.", variant: "destructive" });
+      setIsDeleting(true);
+      try {
+        const success = await FirestoreService.deleteProject(projectToDelete.id);
+        if (success) {
+          toast({
+            title: t('projectDeletedTitle', 'Project Deleted'),
+            description: t('projectDeletedDesc', `Project "${projectToDelete.name}" has been deleted.`, { projectName: projectToDelete.name }),
+          });
+          loadAdminData(); // Reload all data, as deletion is a major change.
+        } else {
+          toast({ title: "Error", description: "Failed to delete project.", variant: "destructive" });
+        }
+      } catch (error) {
+        console.error("Error during project deletion:", error);
+        toast({ title: "Error", description: "An unexpected error occurred while deleting the project.", variant: "destructive" });
+      } finally {
+        setIsDeleting(false);
+        setProjectToDelete(null);
+        setIsDeleteConfirmOpen(false);
       }
-      setProjectToDelete(null);
-      setIsDeleteConfirmOpen(false);
     }
   }, [projectToDelete, loadAdminData, t, toast]);
 
@@ -430,7 +439,8 @@ export default function AdminDashboardPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => { setProjectToDelete(null); setIsDeleteConfirmOpen(false); }}>{t('cancel', 'Cancel')}</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogAction onClick={confirmDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeleting}>
+                {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t('delete', 'Delete')}
               </AlertDialogAction>
             </AlertDialogFooter>

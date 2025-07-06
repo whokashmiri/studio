@@ -46,6 +46,7 @@ export default function ReviewAllAssetsPage() {
 
   const [currentView, setCurrentView] = useState<ReviewPageView>('companyStats');
   const [assetForDetailView, setAssetForDetailView] = useState<Asset | null>(null);
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
 
 
   const loadInitialAdminData = useCallback(async () => {
@@ -150,21 +151,29 @@ export default function ReviewAllAssetsPage() {
 
   const handleDeleteAsset = useCallback(async (assetToDelete: Asset) => {
     if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
-      const success = await FirestoreService.deleteAsset(assetToDelete.id);
-      if (success) {
-        toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-        
-        setAllCompanyAssets(prev => prev.filter(a => a.id !== assetToDelete.id));
-        
-        if (currentView === 'assetDetail' && assetForDetailView?.id === assetToDelete.id) {
-          handleBackToProjectContentView(); 
+      setDeletingAssetId(assetToDelete.id);
+      try {
+        const success = await FirestoreService.deleteAsset(assetToDelete.id);
+        if (success) {
+          toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
+          
+          setAllCompanyAssets(prev => prev.filter(a => a.id !== assetToDelete.id));
+          
+          if (currentView === 'assetDetail' && assetForDetailView?.id === assetToDelete.id) {
+            handleBackToProjectContentView(); 
+          }
+          
+          if (selectedProject) { 
+              handleSelectFolderInTree(selectedProjectCurrentFolder);
+          }
+        } else {
+          toast({ title: t('error', 'Error'), description: t('deleteError', 'Failed to delete asset.'), variant: "destructive" });
         }
-        
-        if (selectedProject) { 
-            handleSelectFolderInTree(selectedProjectCurrentFolder);
-        }
-      } else {
-        toast({ title: t('error', 'Error'), description: t('deleteError', 'Failed to delete asset.'), variant: "destructive" });
+      } catch (error) {
+          console.error("Error deleting asset:", error);
+          toast({ title: t('error', 'Error'), description: t('deleteError', 'Failed to delete asset.'), variant: "destructive" });
+      } finally {
+        setDeletingAssetId(null);
       }
     }
   }, [t, toast, selectedProject, selectedProjectCurrentFolder, handleSelectFolderInTree, currentView, assetForDetailView, handleBackToProjectContentView]);
@@ -386,6 +395,7 @@ export default function ReviewAllAssetsPage() {
                             onDeleteAsset={handleDeleteAsset}
                             onPreviewAsset={handleOpenImagePreviewModal}
                             currentSelectedFolderId={selectedProjectCurrentFolder?.id || null}
+                            deletingAssetId={deletingAssetId}
                         />
                          {(foldersForTree.length === 0 && currentAssetsInSelectedProjectFolder.length === 0) && (
                             <p className="text-muted-foreground text-center py-6">

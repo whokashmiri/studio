@@ -103,6 +103,7 @@ interface FolderTreeDisplayProps {
   onPreviewAsset: (asset: Asset) => void;
   currentSelectedFolderId: string | null;
   displayMode?: 'grid' | 'list';
+  deletingAssetId?: string | null;
 }
 
 export function FolderTreeDisplay({ 
@@ -118,6 +119,7 @@ export function FolderTreeDisplay({
   onPreviewAsset,
   currentSelectedFolderId,
   displayMode = 'list',
+  deletingAssetId,
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -191,6 +193,7 @@ export function FolderTreeDisplay({
                 onDeleteAsset={() => handleDeleteAssetClick(item.data)}
                 onPreviewAsset={onPreviewAsset}
                 displayMode="grid"
+                isDeleting={deletingAssetId === item.data.id}
               />
             );
           }
@@ -253,6 +256,7 @@ export function FolderTreeDisplay({
                 onDeleteAsset={() => handleDeleteAssetClick(asset)}
                 onPreviewAsset={onPreviewAsset}
                 displayMode="list"
+                isDeleting={deletingAssetId === asset.id}
               />
             ))}
           </div>

@@ -61,6 +61,7 @@ export default function NewAssetPage() {
 
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [isProcessingMedia, setIsProcessingMedia] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -590,53 +591,62 @@ export default function NewAssetPage() {
       return;
     }
 
-    await FirestoreService.updateProject(project.id, {
-      status: 'recent' as ProjectStatus,
-    });
+    setIsSaving(true);
     
-    const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
-      name: assetName,
-      serialNumber: serialNumber.trim() || undefined,
-      projectId: project.id,
-      folderId: folderId,
-      photos: photoUrls,
-      videos: videoUrls,
-      voiceDescription: assetVoiceDescription.trim() || undefined,
-      recordedAudioDataUrl: recordedAudioDataUrl || undefined,
-      textDescription: assetTextDescription.trim() || undefined,
-    };
-    
-    let success = false;
-    let savedAssetName = assetName;
-
-    if (isEditMode && assetIdToEdit) {
-      const updateData: Partial<Asset> = { ...assetDataPayload };
-      const originalAsset = await FirestoreService.getAssetById(assetIdToEdit);
-      if (originalAsset) updateData.createdAt = originalAsset.createdAt; 
+    try {
+      await FirestoreService.updateProject(project.id, {
+        status: 'recent' as ProjectStatus,
+      });
       
-      success = await FirestoreService.updateAsset(assetIdToEdit, updateData);
-    } else {
-      const dataForCreation = {
-        ...assetDataPayload,
-        userId: currentUser.id
+      const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
+        name: assetName,
+        serialNumber: serialNumber.trim() || undefined,
+        projectId: project.id,
+        folderId: folderId,
+        photos: photoUrls,
+        videos: videoUrls,
+        voiceDescription: assetVoiceDescription.trim() || undefined,
+        recordedAudioDataUrl: recordedAudioDataUrl || undefined,
+        textDescription: assetTextDescription.trim() || undefined,
       };
-      const newAsset = await FirestoreService.addAsset(dataForCreation as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
-      if (newAsset) {
-        success = true;
-        savedAssetName = newAsset.name;
+      
+      let success = false;
+      let savedAssetName = assetName;
+
+      if (isEditMode && assetIdToEdit) {
+        const updateData: Partial<Asset> = { ...assetDataPayload };
+        const originalAsset = await FirestoreService.getAssetById(assetIdToEdit);
+        if (originalAsset) updateData.createdAt = originalAsset.createdAt; 
+        
+        success = await FirestoreService.updateAsset(assetIdToEdit, updateData);
+      } else {
+        const dataForCreation = {
+          ...assetDataPayload,
+          userId: currentUser.id
+        };
+        const newAsset = await FirestoreService.addAsset(dataForCreation as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
+        if (newAsset) {
+          success = true;
+          savedAssetName = newAsset.name;
+        }
       }
-    }
-    
-    if (success) {
-        toast({ 
-            title: isEditMode ? t('assetUpdatedTitle', "Asset Updated") : t('assetSavedTitle', "Asset Saved"), 
-            description: isEditMode ? 
-                t('assetUpdatedDesc', `Asset "${savedAssetName}" has been updated.`, { assetName: savedAssetName }) :
-                t('assetSavedDesc', `Asset "${savedAssetName}" has been saved.`, { assetName: savedAssetName })
-        });
-        router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
-    } else {
+      
+      if (success) {
+          toast({ 
+              title: isEditMode ? t('assetUpdatedTitle', "Asset Updated") : t('assetSavedTitle', "Asset Saved"), 
+              description: isEditMode ? 
+                  t('assetUpdatedDesc', `Asset "${savedAssetName}" has been updated.`, { assetName: savedAssetName }) :
+                  t('assetSavedDesc', `Asset "${savedAssetName}" has been saved.`, { assetName: savedAssetName })
+          });
+          router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
+      } else {
+          toast({ title: "Error", description: isEditMode ? "Failed to update asset." : "Failed to save asset.", variant: "destructive" });
+      }
+    } catch(error) {
+        console.error("Error saving asset:", error);
         toast({ title: "Error", description: isEditMode ? "Failed to update asset." : "Failed to save asset.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -837,7 +847,8 @@ export default function NewAssetPage() {
               <Button variant="outline" onClick={() => setCurrentStep('photos_and_name')}>
                 {t('backToPhotosName', 'Back to Media & Name')}
               </Button>
-              <Button onClick={handleSaveAsset} size="lg">
+              <Button onClick={handleSaveAsset} size="lg" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isEditMode ? t('updateAssetButton', "Update Asset") : t('saveAssetButton', 'Save Asset')}
               </Button>
             </CardFooter>

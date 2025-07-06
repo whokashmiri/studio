@@ -21,26 +21,27 @@ interface AssetCardProps {
   onDeleteAsset: (asset: Asset) => void;
   onPreviewAsset: (asset: Asset) => void;
   displayMode?: 'grid' | 'list';
+  isDeleting?: boolean;
 }
 
-export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewAsset, displayMode = 'grid' }: AssetCardProps) {
+export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewAsset, displayMode = 'grid', isDeleting = false }: AssetCardProps) {
   const { t } = useLanguage();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
   const hasVideo = asset.videos && asset.videos.length > 0;
   const isUploading = !!asset.isUploading;
   const isOffline = !!asset.isOffline;
 
-  if (displayMode === 'grid') {
-    const mainAction = () => {
-      if (isUploading || isOffline) return;
-      onEditAsset(asset);
-    };
+  const mainAction = () => {
+    if (isUploading || isOffline || isDeleting) return;
+    onEditAsset(asset);
+  };
 
+  if (displayMode === 'grid') {
     return (
       <Card
         className={cn(
             "group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 p-1",
-            (isUploading || isOffline) ? "cursor-wait" : "cursor-pointer"
+            (isUploading || isOffline || isDeleting) ? "cursor-wait" : "cursor-pointer"
         )}
         onClick={mainAction}
         title={asset.name}
@@ -68,26 +69,27 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
                 size="icon"
                 className="h-8 w-8 opacity-0 group-hover:opacity-100 focus:opacity-100"
                 onClick={(e) => e.stopPropagation()}
-                disabled={isUploading || isOffline}
+                disabled={isUploading || isOffline || isDeleting}
               >
                 <MoreVertical className="h-4 w-4" />
                 <span className="sr-only">{t('assetActions', 'Asset actions')}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenuItem onClick={() => onPreviewAsset(asset)}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onPreviewAsset(asset); }}>
                   <Expand className="mr-2 h-4 w-4" />
                   {t('viewImage', 'Preview Media')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEditAsset(asset)}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditAsset(asset); }}>
                 <Edit3 className="mr-2 h-4 w-4" />
                 {t('editAssetButton', 'Edit Asset')}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => onDeleteAsset(asset)}
+                onClick={(e) => { e.stopPropagation(); onDeleteAsset(asset); }}
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                disabled={isDeleting}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                 {t('deleteAssetButton', 'Delete Asset')}
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -123,7 +125,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
       <Card 
         className={cn(
             "group relative flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md",
-            (isUploading || isOffline) && "opacity-60"
+            (isUploading || isOffline || isDeleting) && "opacity-60"
         )}
         title={asset.name}
       >
@@ -134,7 +136,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
         )}
         <div 
           className="flex items-center gap-3 flex-grow min-w-0"
-          onClick={() => (isUploading || isOffline) ? null : onEditAsset(asset)}
+          onClick={() => (isUploading || isOffline || isDeleting) ? null : onEditAsset(asset)}
         >
           {isOffline && !isUploading && (
             <CloudOff className="h-5 w-5 text-muted-foreground shrink-0" title="Saved locally, pending sync"/>
@@ -175,7 +177,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
                 size="icon"
                 className="h-8 w-8"
                 onClick={(e) => e.stopPropagation()} 
-                disabled={isUploading || isOffline}
+                disabled={isUploading || isOffline || isDeleting}
               >
                 <MoreVertical className="h-4 w-4" />
                 <span className="sr-only">{t('assetActions', 'Asset actions')}</span>
@@ -186,15 +188,16 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
                   <Expand className="mr-2 h-4 w-4" />
                   {t('viewImage', 'Preview Media')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEditAsset(asset)}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditAsset(asset); }}>
                 <Edit3 className="mr-2 h-4 w-4" />
                 {t('editAssetButton', 'Edit Asset')}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => onDeleteAsset(asset)}
+                onClick={(e) => { e.stopPropagation(); onDeleteAsset(asset); }}
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                disabled={isDeleting}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                 {t('deleteAssetButton', 'Delete Asset')}
               </DropdownMenuItem>
             </DropdownMenuContent>

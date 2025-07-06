@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload } from 'lucide-react';
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -60,6 +60,7 @@ export default function ProjectPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [fileToImport, setFileToImport] = useState<File | null>(null);
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
 
 
   const { toast } = useToast();
@@ -256,12 +257,20 @@ export default function ProjectPage() {
       return;
     }
     if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
-      const success = await FirestoreService.deleteAsset(assetToDelete.id);
-      if (success) {
-        toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-        await loadAllProjectData();
-      } else {
+      setDeletingAssetId(assetToDelete.id);
+      try {
+        const success = await FirestoreService.deleteAsset(assetToDelete.id);
+        if (success) {
+          toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
+          await loadAllProjectData();
+        } else {
+          toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
+        }
+      } catch (error) {
+        console.error("Error deleting asset:", error);
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
+      } finally {
+        setDeletingAssetId(null);
       }
     }
   }, [loadAllProjectData, t, toast]);
@@ -494,6 +503,7 @@ export default function ProjectPage() {
                   onPreviewAsset={handleOpenImagePreviewModal}
                   currentSelectedFolderId={selectedFolder?.id || null}
                   displayMode="grid"
+                  deletingAssetId={deletingAssetId}
               />
               {isCurrentLocationEmpty && (
                   <div className="text-center py-8">
