@@ -1,4 +1,3 @@
-
 "use client";
 import type { Folder, Asset } from '@/data/mock-data';
 import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, FileArchive } from 'lucide-react';
@@ -154,10 +153,6 @@ export function FolderTreeDisplay({
     }
   }, [toast, t, onDeleteFolder]); 
   
-  const handleDeleteAssetClick = async (asset: Asset) => {
-    onDeleteAsset(asset);
-  };
-
   if (displayMode === 'grid') {
     const combinedItems = [
       ...foldersToDisplay.map(f => ({ type: 'folder' as const, data: f })),
@@ -190,7 +185,7 @@ export function FolderTreeDisplay({
                 key={`item-asset-${item.data.id}`}
                 asset={item.data}
                 onEditAsset={onEditAsset}
-                onDeleteAsset={() => handleDeleteAssetClick(item.data)}
+                onDeleteAsset={onDeleteAsset}
                 onPreviewAsset={onPreviewAsset}
                 displayMode="grid"
                 isDeleting={deletingAssetId === item.data.id}
@@ -253,7 +248,7 @@ export function FolderTreeDisplay({
                 key={`asset-${asset.id}`}
                 asset={asset}
                 onEditAsset={onEditAsset}
-                onDeleteAsset={() => handleDeleteAssetClick(asset)}
+                onDeleteAsset={onDeleteAsset}
                 onPreviewAsset={onPreviewAsset}
                 displayMode="list"
                 isDeleting={deletingAssetId === asset.id}
