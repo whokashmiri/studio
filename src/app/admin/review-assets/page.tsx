@@ -34,6 +34,7 @@ export default function ReviewAllAssetsPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedProjectFolders, setSelectedProjectFolders] = useState<FolderType[]>([]);
   const [selectedProjectRootAssets, setSelectedProjectRootAssets] = useState<Asset[]>([]);
+  const [selectedProjectAllAssets, setSelectedProjectAllAssets] = useState<Asset[]>([]);
   const [selectedProjectCurrentFolder, setSelectedProjectCurrentFolder] = useState<FolderType | null>(null);
   const [currentAssetsInSelectedProjectFolder, setCurrentAssetsInSelectedProjectFolder] = useState<Asset[]>([]);
 
@@ -89,20 +90,22 @@ export default function ReviewAllAssetsPage() {
       setCurrentView('projectContent');
       setProjectContentLoading(true);
       try {
-        const [folders, rootAssets] = await Promise.all([
+        const [folders, allAssets] = await Promise.all([
           FirestoreService.getFolders(project.id),
           FirestoreService.getAllAssetsForProject(project.id) 
         ]);
-        const rootAssetsForProject = rootAssets.filter(asset => asset.folderId === null);
+        const rootAssetsForProject = allAssets.filter(asset => asset.folderId === null);
         setSelectedProjectFolders(folders);
         setSelectedProjectRootAssets(rootAssetsForProject);
         setCurrentAssetsInSelectedProjectFolder(rootAssetsForProject); 
+        setSelectedProjectAllAssets(allAssets);
       } catch (error) {
         console.error(`Error loading content for project ${project.name}:`, error);
         toast({ title: t('error', 'Error'), description: t('projectContentError', `Failed to load content for ${project.name}.`), variant: 'destructive'});
         setSelectedProjectFolders([]);
         setSelectedProjectRootAssets([]);
         setCurrentAssetsInSelectedProjectFolder([]);
+        setSelectedProjectAllAssets([]);
       } finally {
         setProjectContentLoading(false);
         setRefreshFolderTreeKey(prev => prev + 1);
@@ -112,6 +115,7 @@ export default function ReviewAllAssetsPage() {
       setSelectedProjectFolders([]);
       setSelectedProjectRootAssets([]);
       setCurrentAssetsInSelectedProjectFolder([]);
+      setSelectedProjectAllAssets([]);
     }
   }, [toast, t]);
 
@@ -126,6 +130,7 @@ export default function ReviewAllAssetsPage() {
         const allAssets = await FirestoreService.getAllAssetsForProject(selectedProject.id);
         const assetsInFolder = allAssets.filter(asset => asset.folderId === (folder ? folder.id : null));
         setCurrentAssetsInSelectedProjectFolder(assetsInFolder);
+        setSelectedProjectAllAssets(allAssets);
       } catch (error) {
         console.error(`Error loading assets for folder:`, error);
         toast({ title: t('error', 'Error'), description: t('folderAssetsError', 'Failed to load assets for folder.'), variant: 'destructive'});
@@ -386,6 +391,7 @@ export default function ReviewAllAssetsPage() {
                             key={refreshFolderTreeKey}
                             foldersToDisplay={foldersForTree}
                             assetsToDisplay={currentAssetsInSelectedProjectFolder}
+                            allProjectAssets={selectedProjectAllAssets}
                             projectId={selectedProject.id}
                             onSelectFolder={handleSelectFolderInTree}
                             onAddSubfolder={() => toast({ title: t('actionNotAvailableTitle', 'Action Not Available'), description: t('addSubfolderNotAvailableDescReview', 'Adding subfolders is done on the main project page.'), variant: "default"})}

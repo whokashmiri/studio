@@ -1,3 +1,4 @@
+
 "use client";
 import type { Folder, Asset } from '@/data/mock-data';
 import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, FileArchive } from 'lucide-react';
@@ -14,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
-import React, { useCallback } from 'react'; 
+import React, { useCallback, useMemo } from 'react'; 
 import { AssetCard } from '@/components/asset-card';
 import { FolderGridCard } from '@/components/folder-grid-card';
 
@@ -25,6 +26,7 @@ interface FolderDisplayCardProps {
   onEditFolder: (folder: Folder) => void;
   onActualDeleteFolder: (e: React.MouseEvent, folder: Folder) => void;
   t: (key: string, defaultText: string, params?: Record<string, string | number>) => string;
+  assetCount?: number;
 }
 
 const FolderDisplayCard = React.memo(function FolderDisplayCard({
@@ -33,7 +35,8 @@ const FolderDisplayCard = React.memo(function FolderDisplayCard({
   onAddSubfolder,
   onEditFolder,
   onActualDeleteFolder,
-  t
+  t,
+  assetCount
 }: FolderDisplayCardProps) {
   return (
     <Card 
@@ -43,9 +46,14 @@ const FolderDisplayCard = React.memo(function FolderDisplayCard({
     >
       <div className="flex items-center gap-3 flex-grow min-w-0">
         <FolderIcon className="h-6 w-6 text-primary shrink-0" />
-        <CardTitle className="text-sm sm:text-base font-medium truncate">
-          {folder.name}
-        </CardTitle>
+        <div className="flex-grow min-w-0">
+            <CardTitle className="text-sm sm:text-base font-medium truncate">
+            {folder.name}
+            </CardTitle>
+            {assetCount !== undefined && (
+                <p className="text-xs text-muted-foreground">{t('totalAssets', '{count} Assets', { count: assetCount })}</p>
+            )}
+        </div>
       </div>
       
       <div className="shrink-0 ml-2">
@@ -92,6 +100,7 @@ const FolderDisplayCard = React.memo(function FolderDisplayCard({
 interface FolderTreeDisplayProps {
   foldersToDisplay: Folder[];
   assetsToDisplay: Asset[];
+  allProjectAssets?: Asset[];
   projectId: string;
   onSelectFolder: (folder: Folder) => void; 
   onAddSubfolder: (parentFolder: Folder) => void;
@@ -108,6 +117,7 @@ interface FolderTreeDisplayProps {
 export function FolderTreeDisplay({ 
   foldersToDisplay,
   assetsToDisplay,
+  allProjectAssets,
   projectId,
   onSelectFolder,
   onAddSubfolder,
@@ -122,6 +132,16 @@ export function FolderTreeDisplay({
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
+
+  const assetCountsByFolder = useMemo(() => {
+    if (!allProjectAssets) return new Map<string, number>();
+    return allProjectAssets.reduce((acc, asset) => {
+        if (asset.folderId) {
+            acc.set(asset.folderId, (acc.get(asset.folderId) || 0) + 1);
+        }
+        return acc;
+    }, new Map<string, number>());
+  }, [allProjectAssets]);
 
   const handleDeleteClick = useCallback(async (e: React.MouseEvent, currentFolder: Folder) => {
     e.stopPropagation();
@@ -171,6 +191,7 @@ export function FolderTreeDisplay({
               <FolderGridCard
                 key={`item-folder-${item.data.id}`}
                 folder={item.data}
+                assetCount={assetCountsByFolder.get(item.data.id)}
                 onSelectFolder={onSelectFolder}
                 onAddSubfolder={onAddSubfolder}
                 onEditFolder={onEditFolder}
@@ -215,6 +236,7 @@ export function FolderTreeDisplay({
         <FolderDisplayCard
           key={`folder-card-${folder.id}`}
           folder={folder}
+          assetCount={assetCountsByFolder.get(folder.id)}
           onSelectFolder={onSelectFolder}
           onAddSubfolder={onAddSubfolder}
           onEditFolder={onEditFolder}

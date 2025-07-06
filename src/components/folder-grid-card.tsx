@@ -21,6 +21,7 @@ interface FolderGridCardProps {
   onEditFolder: (folder: Folder) => void;
   onActualDeleteFolder: (e: React.MouseEvent, folder: Folder) => void;
   t: (key: string, defaultText: string, params?: Record<string, string | number>) => string;
+  assetCount?: number;
 }
 
 export const FolderGridCard = React.memo(function FolderGridCard({
@@ -30,6 +31,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   onEditFolder,
   onActualDeleteFolder,
   t,
+  assetCount,
 }: FolderGridCardProps) {
   
   const isOffline = !!folder.isOffline;
@@ -100,6 +102,9 @@ export const FolderGridCard = React.memo(function FolderGridCard({
         <CardTitle className="text-sm font-medium w-full break-words">
             {folder.name}
         </CardTitle>
+        {assetCount !== undefined && (
+            <p className="text-xs text-muted-foreground">{t('totalAssets', '{count} Assets', { count: assetCount })}</p>
+        )}
       </div>
     </Card>
   )

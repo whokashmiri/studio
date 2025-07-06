@@ -493,6 +493,7 @@ export default function ProjectPage() {
               <FolderTreeDisplay
                   foldersToDisplay={foldersToDisplay}
                   assetsToDisplay={assetsToDisplay}
+                  allProjectAssets={combinedAssets}
                   projectId={project.id}
                   onSelectFolder={handleSelectFolder}
                   onAddSubfolder={openNewFolderDialog}
