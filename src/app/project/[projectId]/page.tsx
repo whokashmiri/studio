@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus } from 'lucide-react';
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -30,17 +30,22 @@ export default function ProjectPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
-  const currentUrlFolderId = searchParams.get('folderId');
+  const currentUrlFolderId = searchParams.get('folderId') || null;
   const isOnline = useOnlineStatus();
 
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
-  const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]);
   
+  // State for all assets, used for counts. Fetched in background.
+  const [allAssetsForCount, setAllAssetsForCount] = useState<Asset[]>([]);
+  // State for assets in the current folder/view. Fetched on demand.
+  const [currentViewAssets, setCurrentViewAssets] = useState<Asset[]>([]);
+
   const [offlineFolders, setOfflineFolders] = useState<FolderType[]>([]);
   const [offlineAssets, setOfflineAssets] = useState<Asset[]>([]);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // For initial page structure
+  const [isContentLoading, setIsContentLoading] = useState(false); // For folder/asset content
   
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
 
@@ -62,6 +67,7 @@ export default function ProjectPage() {
   const [fileToImport, setFileToImport] = useState<File | null>(null);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
 
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -69,14 +75,13 @@ export default function ProjectPage() {
   const isAdmin = currentUser?.role === 'Admin';
   const isMobile = useIsMobile();
 
-  const loadAllProjectData = useCallback(async () => {
+  const loadInitialStructure = useCallback(async () => {
     if (projectId) {
       setIsLoading(true);
       try {
-        const [foundProject, projectFolders, projectAssets] = await Promise.all([
+        const [foundProject, projectFolders] = await Promise.all([
           FirestoreService.getProjectById(projectId),
           FirestoreService.getFolders(projectId),
-          FirestoreService.getAllAssetsForProject(projectId)
         ]);
 
         if (!foundProject) {
@@ -87,21 +92,15 @@ export default function ProjectPage() {
         
         setProject(foundProject);
         setAllProjectFolders(projectFolders);
-        setAllProjectAssets(projectAssets);
         
         const queuedActions = OfflineService.getOfflineQueue();
-        const localFolders = queuedActions
-          .filter(a => a.type === 'add-folder' && a.projectId === projectId)
-          .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
-        const localAssets = queuedActions
-          .filter(a => a.type === 'add-asset' && a.projectId === projectId)
-          .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
+        setOfflineFolders(queuedActions.filter(a => a.type === 'add-folder' && a.projectId === projectId).map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType)));
+        setOfflineAssets(queuedActions.filter(a => a.type === 'add-asset' && a.projectId === projectId).map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset)));
 
-        setOfflineFolders(localFolders);
-        setOfflineAssets(localAssets);
+        FirestoreService.getAllAssetsForProject(projectId).then(setAllAssetsForCount);
 
       } catch (error) {
-        console.error("Error loading project data:", error);
+        console.error("Error loading project structure:", error);
         toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
         router.push('/');
       } finally {
@@ -109,10 +108,35 @@ export default function ProjectPage() {
       }
     }
   }, [projectId, router, t, toast]);
+
+  const loadCurrentViewAssets = useCallback(async () => {
+    if (!projectId || isLoading) return;
+
+    setIsContentLoading(true);
+    try {
+        const assets = await FirestoreService.getAssets(projectId, currentUrlFolderId);
+        setCurrentViewAssets(assets);
+    } catch(error) {
+        console.error("Error loading view assets:", error);
+        toast({ title: "Error", description: "Failed to load folder contents.", variant: "destructive" });
+        setCurrentViewAssets([]);
+    } finally {
+        setIsContentLoading(false);
+    }
+  }, [projectId, currentUrlFolderId, isLoading, toast]);
+
+  useEffect(() => {
+    loadInitialStructure();
+  }, [loadInitialStructure]);
   
   useEffect(() => {
-    loadAllProjectData();
-  }, [loadAllProjectData]);
+    loadCurrentViewAssets();
+  }, [loadCurrentViewAssets]);
+  
+  const reloadAllData = useCallback(async () => {
+    await loadInitialStructure();
+    await loadCurrentViewAssets();
+  }, [loadInitialStructure, loadCurrentViewAssets]);
 
   useEffect(() => {
     if (isOnline) {
@@ -123,25 +147,16 @@ export default function ProjectPage() {
             description: `${syncedCount} offline item(s) have been successfully synced.`,
             variant: "success-yellow"
           });
-          loadAllProjectData(); 
+          reloadAllData();
         }
       });
     }
-  }, [isOnline, loadAllProjectData, toast]);
+  }, [isOnline, reloadAllData, toast]);
 
   const combinedFolders = useMemo(() => [...allProjectFolders, ...offlineFolders], [allProjectFolders, offlineFolders]);
-  const combinedAssets = useMemo(() => [...allProjectAssets, ...offlineAssets], [allProjectAssets, offlineAssets]);
-
   const foldersMap = useMemo(() => new Map(combinedFolders.map(f => [f.id, f])), [combinedFolders]);
   const selectedFolder = useMemo(() => currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null, [currentUrlFolderId, foldersMap]);
   
-  useEffect(() => {
-    if (!isLoading && currentUrlFolderId && combinedFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
-        toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
-        router.push(`/project/${projectId}`);
-    }
-  }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, t, toast, combinedFolders.length]);
-
   const getFolderPath = useCallback((folderId: string | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
     const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
     if (!project) return path;
@@ -162,16 +177,36 @@ export default function ProjectPage() {
     if (!project) return []; 
     return getFolderPath(currentUrlFolderId);
   }, [project, currentUrlFolderId, getFolderPath]);
+
+  const combinedCurrentViewAssets = useMemo(() => {
+    const offlineForView = offlineAssets.filter(asset => asset.folderId === currentUrlFolderId);
+    return [...currentViewAssets, ...offlineForView];
+  }, [currentViewAssets, offlineAssets, currentUrlFolderId]);
+
+  const filteredAssetsToDisplay = useMemo(() => {
+    if (!searchTerm) {
+      return combinedCurrentViewAssets;
+    }
+    const lowercasedSearch = searchTerm.toLowerCase();
+    return combinedCurrentViewAssets.filter(asset => 
+      asset.name.toLowerCase().includes(lowercasedSearch) ||
+      (asset.serialNumber && asset.serialNumber.toLowerCase().includes(lowercasedSearch))
+    );
+  }, [combinedCurrentViewAssets, searchTerm]);
   
   const foldersToDisplay = useMemo(() => {
     return combinedFolders.filter(folder => folder.parentId === (currentUrlFolderId || null));
   }, [combinedFolders, currentUrlFolderId]);
 
-  const assetsToDisplay = useMemo(() => {
-    return combinedAssets.filter(asset => asset.folderId === (currentUrlFolderId || null));
-  }, [combinedAssets, currentUrlFolderId]);
+  useEffect(() => {
+    if (!isLoading && currentUrlFolderId && combinedFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
+        toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
+        router.push(`/project/${projectId}`);
+    }
+  }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, t, toast, combinedFolders.length]);
 
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
+    setSearchTerm('');
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
     router.push(targetPath, { scroll: false }); 
   }, [projectId, router]);
@@ -192,7 +227,7 @@ export default function ProjectPage() {
         if (createdFolder) {
           await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
           toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
-          await loadAllProjectData();
+          await reloadAllData();
         } else {
           toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
         }
@@ -213,7 +248,7 @@ export default function ProjectPage() {
       setIsNewFolderDialogOpen(false);
       setNewFolderParentContext(null);
     }
-  }, [newFolderName, project, newFolderParentContext, loadAllProjectData, t, toast, isOnline]);
+  }, [newFolderName, project, newFolderParentContext, reloadAllData, t, toast, isOnline]);
 
   const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
@@ -230,17 +265,17 @@ export default function ProjectPage() {
   }, [toast]);
 
   const handleFolderDeleted = useCallback(async () => {
-    await loadAllProjectData(); 
-  }, [loadAllProjectData]);
+    await reloadAllData(); 
+  }, [reloadAllData]);
 
   const handleFolderUpdated = useCallback(async () => {
-    await loadAllProjectData(); 
+    await reloadAllData(); 
     if (project) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
       const updatedProj = await FirestoreService.getProjectById(project.id);
       setProject(updatedProj);
     }
-  }, [loadAllProjectData, project]);
+  }, [reloadAllData, project]);
 
   const handleEditAsset = useCallback((asset: Asset) => {
     if (asset.isOffline) {
@@ -262,7 +297,7 @@ export default function ProjectPage() {
         const success = await FirestoreService.deleteAsset(assetToDelete.id);
         if (success) {
           toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-          await loadAllProjectData();
+          await reloadAllData();
         } else {
           toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
         }
@@ -273,7 +308,7 @@ export default function ProjectPage() {
         setDeletingAssetId(null);
       }
     }
-  }, [loadAllProjectData, t, toast]);
+  }, [reloadAllData, t, toast]);
 
   const handleAssetCreatedInModal = useCallback(async (assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!isOnline) {
@@ -302,7 +337,7 @@ export default function ProjectPage() {
       folderId: assetData.folderId || null,
     };
 
-    setAllProjectAssets(prev => [...prev, optimisticAsset]);
+    setCurrentViewAssets(prev => [...prev, optimisticAsset]);
 
     toast({
       title: t('saving', 'Saving...'),
@@ -312,24 +347,22 @@ export default function ProjectPage() {
     try {
       const newAssetFromDb = await FirestoreService.addAsset(assetData);
       if (newAssetFromDb) {
-        setAllProjectAssets(prev => prev.map(asset => 
-          asset.id === tempId ? { ...newAssetFromDb, isUploading: false } : asset
-        ));
         toast({
           title: t('assetSavedTitle', "Asset Saved"),
           description: t('assetSavedDesc', `Asset "${newAssetFromDb.name}" has been saved.`, { assetName: newAssetFromDb.name }),
           variant: "success-yellow"
         });
+        await reloadAllData();
       } else {
         toast({ title: "Error", description: `Failed to save asset "${assetData.name}".`, variant: "destructive" });
-        setAllProjectAssets(prev => prev.filter(asset => asset.id !== tempId));
+        setCurrentViewAssets(prev => prev.filter(asset => asset.id !== tempId));
       }
     } catch (error) {
       console.error("Error saving asset in background:", error);
       toast({ title: "Error", description: `An error occurred while saving "${assetData.name}".`, variant: "destructive" });
-      setAllProjectAssets(prev => prev.filter(asset => asset.id !== tempId));
+      setCurrentViewAssets(prev => prev.filter(asset => asset.id !== tempId));
     }
-  }, [isOnline, projectId, toast, t]);
+  }, [isOnline, projectId, toast, t, reloadAllData]);
 
 
   const handleOpenImagePreviewModal = useCallback((asset: Asset) => {
@@ -421,7 +454,7 @@ export default function ProjectPage() {
             }
 
             toast({ title: t('importSuccessTitle', "Import Successful"), description: t('importSuccessDesc', "{count} assets have been created.", { count: createdCount }) });
-            await loadAllProjectData();
+            await reloadAllData();
         } catch (error) {
             console.error("Error importing file:", error);
             toast({ title: t('importErrorTitle', "Import Error"), description: t('importErrorGeneric', "An error occurred while processing the file."), variant: "destructive" });
@@ -445,7 +478,7 @@ export default function ProjectPage() {
     );
   }
 
-  const isCurrentLocationEmpty = foldersToDisplay.length === 0 && assetsToDisplay.length === 0;
+  const isCurrentLocationEmpty = foldersToDisplay.length === 0 && filteredAssetsToDisplay.length === 0;
 
   return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24">
@@ -500,24 +533,51 @@ export default function ProjectPage() {
               </CardTitle>
           </CardHeader>
           <CardContent className={cn("transition-colors rounded-b-lg p-2 md:p-4")}>
-            <ScrollArea className="h-[calc(100vh-21rem)] pr-3">
-              <FolderTreeDisplay
-                  foldersToDisplay={foldersToDisplay}
-                  assetsToDisplay={assetsToDisplay}
-                  allProjectAssets={combinedAssets}
-                  projectId={project.id}
-                  onSelectFolder={handleSelectFolder}
-                  onAddSubfolder={openNewFolderDialog}
-                  onEditFolder={handleOpenEditFolderModal}
-                  onDeleteFolder={handleFolderDeleted}
-                  onEditAsset={handleEditAsset} 
-                  onDeleteAsset={handleDeleteAsset}
-                  onPreviewAsset={handleOpenImagePreviewModal}
-                  currentSelectedFolderId={selectedFolder?.id || null}
-                  displayMode="grid"
-                  deletingAssetId={deletingAssetId}
-              />
-              {isCurrentLocationEmpty && (
+             <div className="flex justify-end mb-4">
+                <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder={t('searchByNameOrSerial', 'Search by name or serial...')}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                        disabled={isContentLoading}
+                    />
+                </div>
+            </div>
+            <ScrollArea className="h-[calc(100vh-28rem)] pr-3">
+              {isContentLoading ? (
+                <div className="flex justify-center items-center h-40">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <FolderTreeDisplay
+                    foldersToDisplay={foldersToDisplay}
+                    assetsToDisplay={filteredAssetsToDisplay}
+                    allProjectAssets={allAssetsForCount}
+                    projectId={project.id}
+                    onSelectFolder={handleSelectFolder}
+                    onAddSubfolder={openNewFolderDialog}
+                    onEditFolder={handleOpenEditFolderModal}
+                    onDeleteFolder={handleFolderDeleted}
+                    onEditAsset={handleEditAsset} 
+                    onDeleteAsset={handleDeleteAsset}
+                    onPreviewAsset={handleOpenImagePreviewModal}
+                    currentSelectedFolderId={selectedFolder?.id || null}
+                    displayMode="grid"
+                    deletingAssetId={deletingAssetId}
+                />
+              )}
+              
+              {isCurrentLocationEmpty && !isContentLoading && searchTerm && (
+                  <div className="text-center py-8">
+                      <p className="text-muted-foreground mb-4">
+                        {t('noSearchResults', 'No assets found matching your search.')}
+                      </p>
+                  </div>
+              )}
+
+              {isCurrentLocationEmpty && !isContentLoading && !searchTerm && (
                   <div className="text-center py-8">
                       <p className="text-muted-foreground mb-4">
                         {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}

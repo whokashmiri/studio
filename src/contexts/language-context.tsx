@@ -443,6 +443,8 @@ const translations: Record<Language, Record<string, string>> = {
     
     serialNumberLabel: "Serial Number",
     serialNumberPlaceholder: "e.g., A-123-XYZ",
+    searchByNameOrSerial: "Search by name or serial...",
+    noSearchResults: "No assets found matching your search.",
     importAssetsButton: "Import Assets",
     importAssetsModalTitle: "Import Assets from Excel",
     importAssetsModalDesc: "Select an .xlsx file with columns: Name, quantity, Serial Number, Description.",
@@ -884,6 +886,8 @@ const translations: Record<Language, Record<string, string>> = {
     
     serialNumberLabel: "الرقم التسلسلي",
     serialNumberPlaceholder: "مثال: A-123-XYZ",
+    searchByNameOrSerial: "البحث بالاسم أو الرقم التسلسلي...",
+    noSearchResults: "لم يتم العثور على أصول مطابقة لبحثك.",
     importAssetsButton: "استيراد الأصول",
     importAssetsModalTitle: "استيراد الأصول من Excel",
     importAssetsModalDesc: "حدد ملف .xlsx بالأعمدة: Name, quantity, Serial Number, Description.",
