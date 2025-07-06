@@ -770,9 +770,10 @@ export async function searchAssets(
       constraints.push(orderBy(documentId())); // Use doc ID for stable pagination on exact match
     } else {
       const lowerCaseSearchTerm = searchTerm.toLowerCase();
-      constraints.push(where("name_lowercase", ">=", lowerCaseSearchTerm));
-      constraints.push(where("name_lowercase", "<=", lowerCaseSearchTerm + '\uf8ff'));
-      constraints.push(orderBy("name_lowercase")); // Order by the field we are range-filtering
+      // To avoid a composite index requirement, we'll perform an exact match on the lowercase name.
+      constraints.push(where("name_lowercase", "==", lowerCaseSearchTerm));
+      // Order by document ID for consistent pagination.
+      constraints.push(orderBy(documentId()));
     }
     
     constraints.push(limit(pageSize));
