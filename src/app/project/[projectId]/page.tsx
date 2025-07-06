@@ -4,7 +4,6 @@ import React, { useEffect, useState, useCallback, useMemo, useDeferredValue, use
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { FolderTreeDisplay } from '@/components/folder-tree';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
 import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, Edit3, Image as ImageIcon, FileArchive } from 'lucide-react';
@@ -28,6 +27,7 @@ import type { DocumentData } from 'firebase/firestore';
 // Lazy load modals to improve initial page load time
 const EditFolderModal = React.lazy(() => import('@/components/modals/edit-folder-modal').then(module => ({ default: module.EditFolderModal })));
 const NewAssetModal = React.lazy(() => import('@/components/modals/new-asset-modal').then(module => ({ default: module.NewAssetModal })));
+const FolderTreeDisplay = React.lazy(() => import('@/components/folder-tree').then(module => ({ default: module.FolderTreeDisplay })));
 
 
 export default function ProjectPage() {
@@ -600,26 +600,32 @@ export default function ProjectPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : (
-                <FolderTreeDisplay
-                    foldersToDisplay={finalFoldersToDisplay}
-                    assetsToDisplay={finalAssetsToDisplay}
-                    allProjectAssets={allProjectAssets}
-                    projectId={project.id}
-                    onSelectFolder={handleSelectFolder}
-                    onAddSubfolder={openNewFolderDialog}
-                    onEditFolder={handleOpenEditFolderModal}
-                    onDeleteFolder={handleFolderDeleted}
-                    onEditAsset={handleEditAsset} 
-                    onDeleteAsset={handleDeleteAsset}
-                    onPreviewAsset={handleOpenImagePreviewModal}
-                    currentSelectedFolderId={selectedFolder?.id || null}
-                    displayMode="grid"
-                    deletingAssetId={deletingAssetId}
-                    onLoadMore={loadMoreAssets}
-                    hasMore={hasMoreAssets}
-                    isLoadingMore={isLoadingMore}
-                    scrollAreaRef={scrollAreaRef}
-                />
+                <React.Suspense fallback={
+                    <div className="flex justify-center items-center h-40">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                }>
+                    <FolderTreeDisplay
+                        foldersToDisplay={finalFoldersToDisplay}
+                        assetsToDisplay={finalAssetsToDisplay}
+                        allProjectAssets={allProjectAssets}
+                        projectId={project.id}
+                        onSelectFolder={handleSelectFolder}
+                        onAddSubfolder={openNewFolderDialog}
+                        onEditFolder={handleOpenEditFolderModal}
+                        onDeleteFolder={handleFolderDeleted}
+                        onEditAsset={handleEditAsset} 
+                        onDeleteAsset={handleDeleteAsset}
+                        onPreviewAsset={handleOpenImagePreviewModal}
+                        currentSelectedFolderId={selectedFolder?.id || null}
+                        displayMode="grid"
+                        deletingAssetId={deletingAssetId}
+                        onLoadMore={loadMoreAssets}
+                        hasMore={hasMoreAssets}
+                        isLoadingMore={isLoadingMore}
+                        scrollAreaRef={scrollAreaRef}
+                    />
+                </React.Suspense>
             )}
             
             {isCurrentLocationEmpty && !isContentLoading && (
