@@ -230,6 +230,15 @@ export default function AdminDashboardPage() {
         description: `Preparing to export "${project.name}"...`,
     });
 
+    const MAX_CELL_LENGTH = 32700; // A bit less than 32767 for safety
+    const truncateCell = (text: string | undefined | null): string => {
+        if (!text) return '';
+        if (text.length > MAX_CELL_LENGTH) {
+            return text.substring(0, MAX_CELL_LENGTH) + '... [TRUNCATED]';
+        }
+        return text;
+    };
+
     try {
         const [folders, assets] = await Promise.all([
             FirestoreService.getFolders(project.id),
@@ -254,10 +263,10 @@ export default function AdminDashboardPage() {
             const sheetData = folderAssets.map(asset => ({
                 'Name': asset.name,
                 'Serial Number': asset.serialNumber || '',
-                'Text Description': asset.textDescription || '',
-                'Voice Description (Transcript)': asset.voiceDescription || '',
-                'Photos': (asset.photos || []).join(', '),
-                'Videos': (asset.videos || []).join(', '),
+                'Text Description': truncateCell(asset.textDescription),
+                'Voice Description (Transcript)': truncateCell(asset.voiceDescription),
+                'Photos': truncateCell((asset.photos || []).join(', ')),
+                'Videos': truncateCell((asset.videos || []).join(', ')),
                 'Created At': new Date(asset.createdAt).toLocaleString(),
             }));
 
@@ -268,7 +277,7 @@ export default function AdminDashboardPage() {
             const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
             
             const folderName = folderId ? folderMap.get(folderId) : '_root_assets';
-            const safeFolderName = folderName?.replace(/[\/\\?%*:|"<>]/g, '-') || 'unnamed-folder';
+            const safeFolderName = folderName?.replace(/[/\\?%*:|"<>]/g, '-') || 'unnamed-folder';
 
             zip.file(`${safeFolderName}.xlsx`, excelBuffer);
         }
@@ -277,7 +286,7 @@ export default function AdminDashboardPage() {
         
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipBlob);
-        const safeProjectName = project.name.replace(/[\/\\?%*:|"<>]/g, '-');
+        const safeProjectName = project.name.replace(/[/\\?%*:|"<>]/g, '-');
         link.download = `${safeProjectName}_Export.zip`;
         document.body.appendChild(link);
         link.click();
@@ -300,7 +309,7 @@ export default function AdminDashboardPage() {
     } finally {
         setExportingProjectId(null);
     }
-  }, [toast, t]);
+  }, [toast]);
 
   if (authLoading || pageLoading) {
     return (
