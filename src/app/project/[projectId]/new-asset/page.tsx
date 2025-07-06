@@ -17,7 +17,7 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { processImageForSaving } from '@/lib/image-handler-service';
-import { uploadToCloudinary } from '@/lib/cloudinary-service';
+import { uploadImage } from '@/actions/cloudinary-actions';
 import { useAuth } from '@/contexts/auth-context';
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
@@ -214,7 +214,7 @@ export default function NewAssetPage() {
           });
           const processedUrl = await processImageForSaving(dataUrl);
           if (processedUrl) {
-            const finalUrl = await uploadToCloudinary(processedUrl);
+            const finalUrl = await uploadImage(processedUrl);
             if (finalUrl) {
               uploadedUrls.push(finalUrl);
             } else {
@@ -264,7 +264,7 @@ export default function NewAssetPage() {
       for (const photoDataUrl of capturedPhotosInSession) {
         const processedUrl = await processImageForSaving(photoDataUrl);
         if (processedUrl) {
-           const finalUrl = await uploadToCloudinary(processedUrl);
+           const finalUrl = await uploadImage(processedUrl);
            if (finalUrl) {
              uploadedUrls.push(finalUrl);
            } else {
