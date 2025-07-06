@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, FolderPlus, FilePlus, Loader2, CloudOff } from 'lucide-react';
+import { Home, Loader2, CloudOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -426,11 +426,10 @@ export default function ProjectPage() {
                   variant="default" 
                   size="lg" 
                   onClick={() => openNewFolderDialog(selectedFolder)} 
-                  title={selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                  title={selectedFolder ? t('addNewFolder', 'New Folder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
                   className="shadow-lg"
               >
-                  <FolderPlus className="mr-2 h-5 w-5" />
-                  {selectedFolder ? t('addNewSubfolder', 'Add New Subfolder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                  {selectedFolder ? t('addNewFolder', 'New Folder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
               </Button>
               {selectedFolder && (
                 <Button
@@ -439,7 +438,6 @@ export default function ProjectPage() {
                     size="lg"
                     title={t('newAsset', 'New Asset')}
                 >
-                    <FilePlus className="mr-2 h-5 w-5" />
                     {t('newAsset', 'New Asset')}
                 </Button>
               )}
@@ -457,7 +455,7 @@ export default function ProjectPage() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
-                  {newFolderParentContext ? t('addNewSubfolderTo', 'Add New Subfolder to "{parentName}"', { parentName: newFolderParentContext.name }) : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                  {newFolderParentContext ? t('addNewFolderTo', 'New Folder in "{parentName}"', { parentName: newFolderParentContext.name }) : t('addRootFolderTitle', 'Add Folder to Project Root')}
               </DialogTitle>
             </DialogHeader>
             <div className="pt-4 pb-0 space-y-2 flex-grow overflow-y-auto">
