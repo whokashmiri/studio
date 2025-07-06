@@ -520,7 +520,7 @@ export async function getAssetById(assetId: string): Promise<Asset | null> {
     }
 }
 
-export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>, localId?: string): Promise<Asset | null> {
+export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase'>, localId?: string): Promise<Asset | null> {
   try {
     const dataWithNullForOptionalAudio = {
       ...assetData,
@@ -529,6 +529,7 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
 
     const dataToSave = removeUndefinedProps({
       ...dataWithNullForOptionalAudio,
+      name_lowercase: assetData.name.toLowerCase(),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -554,7 +555,7 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
   }
 }
 
-export async function updateAsset(assetId: string, assetData: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>>): Promise<boolean> {
+export async function updateAsset(assetId: string, assetData: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase'>>): Promise<boolean> {
   try {
     const docRef = doc(getDb(), ASSETS_COLLECTION, assetId);
     
@@ -565,6 +566,7 @@ export async function updateAsset(assetId: string, assetData: Partial<Omit<Asset
 
     const dataToUpdate = removeUndefinedProps({
         ...dataWithNullForOptionalAudio,
+        ...(assetData.name && { name_lowercase: assetData.name.toLowerCase() }),
         updatedAt: serverTimestamp()
     });
 
@@ -765,11 +767,14 @@ export async function searchAssets(
 
     if (isSerialSearch) {
       constraints.push(where("serialNumber", "==", Number(searchTerm)));
+      constraints.push(orderBy(documentId())); // Use doc ID for stable pagination on exact match
     } else {
-      constraints.push(where("name", "==", searchTerm));
+      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+      constraints.push(where("name_lowercase", ">=", lowerCaseSearchTerm));
+      constraints.push(where("name_lowercase", "<=", lowerCaseSearchTerm + '\uf8ff'));
+      constraints.push(orderBy("name_lowercase")); // Order by the field we are range-filtering
     }
     
-    constraints.push(orderBy(documentId()));
     constraints.push(limit(pageSize));
 
     if (startAfterDoc) {
@@ -785,6 +790,9 @@ export async function searchAssets(
     return { assets, lastDoc };
   } catch (error) {
     console.error(`Error searching assets by term "${searchTerm}": `, error);
+    if (error instanceof Error && error.message.includes("query requires an index")) {
+      console.error("Firestore composite index required. Please create the index suggested in the Firebase console error message.");
+    }
     return { assets: [], lastDoc: null };
   }
 }

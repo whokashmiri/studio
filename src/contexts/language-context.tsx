@@ -458,6 +458,7 @@ const translations: Record<Language, Record<string, string>> = {
     importErrorGeneric: "An error occurred while processing the file.",
     importSuccessTitle: "Import Successful",
     importSuccessDesc: "{count} assets have been created.",
+    importSuccessDescInFolder: "{count} assets have been created in folder '{folderName}'.",
     miscellaneousData: "Additional Data",
   },
   ar: {
@@ -902,6 +903,7 @@ const translations: Record<Language, Record<string, string>> = {
     importErrorGeneric: "حدث خطأ أثناء معالجة الملف.",
     importSuccessTitle: "نجح الاستيراد",
     importSuccessDesc: "تم إنشاء {count} من الأصول.",
+    importSuccessDescInFolder: "تم إنشاء {count} من الأصول في المجلد '{folderName}'.",
     miscellaneousData: "بيانات إضافية",
   },
 };

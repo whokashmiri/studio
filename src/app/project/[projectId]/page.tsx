@@ -192,8 +192,8 @@ export default function ProjectPage() {
           project.id,
           term,
           10,
-          loadMore ? lastSearchedDoc : null,
-          currentUrlFolderId // Pass folderId to scope search
+          loadMore ? lastSearchedDoc : null
+          // folderId is intentionally omitted for project-wide search
       );
   
       if (loadMore) {
@@ -206,7 +206,7 @@ export default function ProjectPage() {
       setHasMoreSearchResults(lastDoc !== null);
       setIsSearchLoading(false);
   
-  }, [project, lastSearchedDoc, currentUrlFolderId]);
+  }, [project, lastSearchedDoc]);
   
   useEffect(() => {
       const term = deferredSearchTerm.trim();
@@ -394,7 +394,7 @@ export default function ProjectPage() {
     }
   }, [reloadAllData, t, toast]);
 
-  const handleAssetCreatedInModal = useCallback(async (assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleAssetCreatedInModal = useCallback(async (assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase'>) => {
     if (!isOnline) {
       const { localId } = OfflineService.queueOfflineAction('add-asset', assetData, projectId);
       const optimisticAsset: Asset = {
@@ -463,10 +463,26 @@ export default function ProjectPage() {
   const handleFileImport = async () => {
     if (!fileToImport || !project || !currentUser) return;
     setIsImporting(true);
-
+    
     const reader = new FileReader();
     reader.onload = async (e) => {
         try {
+            // 1. Create a new folder for the import
+            const folderName = fileToImport.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+            const newFolderData: Omit<FolderType, 'id'> = {
+                name: folderName,
+                projectId: project.id,
+                parentId: selectedFolder?.id || null, // Create inside current folder or at root
+            };
+            const createdFolder = await FirestoreService.addFolder(newFolderData);
+
+            if (!createdFolder) {
+                toast({ title: t('importErrorTitle', "Import Error"), description: "Could not create a folder for the import.", variant: "destructive" });
+                return;
+            }
+            const newFolderId = createdFolder.id;
+
+            // 2. Read the file and create assets within the new folder
             const data = e.target?.result;
             const workbook = XLSX.read(data, { type: 'binary' });
             const sheetName = workbook.SheetNames[0];
@@ -500,7 +516,7 @@ export default function ProjectPage() {
                 return;
             }
 
-            const assetsToCreate: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>[] = [];
+            const assetsToCreate: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase'>[] = [];
             for (const row of jsonData) {
                 const baseName = row[nameHeader];
                 if (!baseName || typeof baseName !== 'string') continue;
@@ -524,7 +540,7 @@ export default function ProjectPage() {
                     assetsToCreate.push({
                         name: quantity > 1 ? `${baseName} ${i}` : baseName,
                         projectId: project.id,
-                        folderId: selectedFolder?.id || null,
+                        folderId: newFolderId, // Use the new folder's ID
                         serialNumber: serial,
                         textDescription: description,
                         photos: [],
@@ -541,7 +557,7 @@ export default function ProjectPage() {
                 if (newAsset) createdCount++;
             }
 
-            toast({ title: t('importSuccessTitle', "Import Successful"), description: t('importSuccessDesc', "{count} assets have been created.", { count: createdCount }) });
+            toast({ title: t('importSuccessTitle', "Import Successful"), description: t('importSuccessDescInFolder', "{count} assets have been created in folder '{folderName}'.", { count: createdCount, folderName: folderName }) });
             await reloadAllData();
         } catch (error) {
             console.error("Error importing file:", error);
@@ -552,6 +568,14 @@ export default function ProjectPage() {
             setIsImportModalOpen(false);
         }
     };
+    
+    reader.onerror = () => {
+        toast({ title: t('importErrorTitle', "Import Error"), description: "Could not read the selected file.", variant: "destructive" });
+        setIsImporting(false);
+        setFileToImport(null);
+        setIsImportModalOpen(false);
+    };
+
     reader.readAsBinaryString(fileToImport);
   };
 
@@ -755,7 +779,7 @@ export default function ProjectPage() {
                     {renderSearchResults()}
                 </div>
             ) : (
-                <div className="h-[calc(100vh-32rem)]" ref={scrollAreaRef}>
+                <div className="h-[calc(100vh-28rem)]" ref={scrollAreaRef}>
                   <ScrollArea className="h-full pr-3">
                       {renderFolderView()}
                   </ScrollArea>

@@ -36,6 +36,7 @@ export interface Folder {
 export interface Asset {
   id: string;
   name: string;
+  name_lowercase?: string;
   projectId: string;
   folderId: string | null;
   serialNumber?: number;
