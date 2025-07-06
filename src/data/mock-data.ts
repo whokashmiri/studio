@@ -38,7 +38,7 @@ export interface Asset {
   name: string;
   projectId: string;
   folderId: string | null;
-  serialNumber?: string;
+  serialNumber?: number;
   photos: string[];
   videos?: string[];
   voiceDescription?: string; // Text transcript

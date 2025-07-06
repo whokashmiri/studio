@@ -506,7 +506,11 @@ export default function ProjectPage() {
                 if (!baseName || typeof baseName !== 'string') continue;
 
                 const quantity = Number(row[quantityHeader as string] || 1);
-                const serial = row[serialHeader as string] ? String(row[serialHeader as string]) : undefined;
+                
+                const serialValue = row[serialHeader as string];
+                const parsedSerial = serialValue != null ? parseFloat(String(serialValue)) : NaN;
+                const serial = !isNaN(parsedSerial) ? parsedSerial : undefined;
+
                 const description = row[descHeader as string] ? String(row[descHeader as string]) : undefined;
 
                 const miscellaneousData: Record<string, any> = {};

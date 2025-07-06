@@ -108,7 +108,7 @@ export default function NewAssetPage() {
           if (foundAsset && foundAsset.projectId === projectId) {
             setIsEditMode(true);
             setAssetName(foundAsset.name);
-            setSerialNumber(foundAsset.serialNumber || '');
+            setSerialNumber(foundAsset.serialNumber ? String(foundAsset.serialNumber) : '');
             setAssetVoiceDescription(foundAsset.voiceDescription || '');
             setRecordedAudioDataUrl(foundAsset.recordedAudioDataUrl || null);
             setAssetTextDescription(foundAsset.textDescription || '');
@@ -598,9 +598,11 @@ export default function NewAssetPage() {
         status: 'recent' as ProjectStatus,
       });
       
+      const finalSerial = serialNumber.trim() ? parseFloat(serialNumber.trim()) : NaN;
+
       const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
         name: assetName,
-        serialNumber: serialNumber.trim() || undefined,
+        serialNumber: !isNaN(finalSerial) ? finalSerial : undefined,
         projectId: project.id,
         folderId: folderId,
         photos: photoUrls,
@@ -771,6 +773,8 @@ export default function NewAssetPage() {
                     value={serialNumber}
                     onChange={(e) => setSerialNumber(e.target.value)}
                     placeholder={t('serialNumberPlaceholder', "e.g., A-123-XYZ")}
+                    type="text" 
+                    inputMode="numeric"
                   />
                 </div>
                 {totalMediaCount > 0 && (

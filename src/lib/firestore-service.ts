@@ -764,7 +764,7 @@ export async function searchAssets(
     }
 
     if (isSerialSearch) {
-      constraints.push(where("serialNumber", "==", searchTerm));
+      constraints.push(where("serialNumber", "==", Number(searchTerm)));
     } else {
       constraints.push(where("name", "==", searchTerm));
     }
