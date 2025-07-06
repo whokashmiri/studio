@@ -785,11 +785,11 @@ export default function ProjectPage() {
                 </div>
             </div>
             {isSearching ? (
-                <div className="h-[calc(100vh-32rem)]">
+                <div className="h-[calc(100vh-22rem)]">
                     {renderSearchResults()}
                 </div>
             ) : (
-                <div className="h-[calc(100vh-28rem)]" ref={scrollAreaRef}>
+                <div className="h-[calc(100vh-22rem)]" ref={scrollAreaRef}>
                   <ScrollArea className="h-full pr-3">
                       {renderFolderView()}
                   </ScrollArea>
