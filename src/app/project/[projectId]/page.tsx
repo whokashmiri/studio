@@ -40,6 +40,7 @@ export default function ProjectPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
+  const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]);
   
   const [currentViewAssets, setCurrentViewAssets] = useState<Asset[]>([]);
 
@@ -86,9 +87,10 @@ export default function ProjectPage() {
     if (projectId) {
       setIsLoading(true);
       try {
-        const [foundProject, projectFolders] = await Promise.all([
+        const [foundProject, projectFolders, allAssetsForCounts] = await Promise.all([
           FirestoreService.getProjectById(projectId),
           FirestoreService.getFolders(projectId),
+          FirestoreService.getAllAssetsForProject(projectId),
         ]);
 
         if (!foundProject) {
@@ -99,6 +101,7 @@ export default function ProjectPage() {
         
         setProject(foundProject);
         setAllProjectFolders(projectFolders);
+        setAllProjectAssets(allAssetsForCounts);
         
         const queuedActions = OfflineService.getOfflineQueue();
         setOfflineFolders(queuedActions.filter(a => a.type === 'add-folder' && a.projectId === projectId).map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType)));
@@ -520,7 +523,7 @@ export default function ProjectPage() {
                 <FolderTreeDisplay
                     foldersToDisplay={finalFoldersToDisplay}
                     assetsToDisplay={finalAssetsToDisplay}
-                    allProjectAssets={[]}
+                    allProjectAssets={allProjectAssets}
                     projectId={project.id}
                     onSelectFolder={handleSelectFolder}
                     onAddSubfolder={openNewFolderDialog}
