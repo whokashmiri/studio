@@ -125,15 +125,15 @@ export default function NewAssetPage() {
     loadProjectAndAsset();
   }, [loadProjectAndAsset]);
 
- useEffect(() => {
+  useEffect(() => {
     let streamInstance: MediaStream | null = null;
     const getCameraStream = async () => {
       if (isCustomCameraOpen) {
-        setHasCameraPermission(null); 
+        setHasCameraPermission(null);
         try {
-          streamInstance = await navigator.mediaDevices.getUserMedia({ 
+          streamInstance = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "environment" },
-            audio: captureMode === 'video' // request audio only when in video mode
+            audio: captureMode === 'video',
           });
           setMediaStream(streamInstance);
           setHasCameraPermission(true);
@@ -144,30 +144,30 @@ export default function NewAssetPage() {
             videoRef.current.srcObject = streamInstance;
           }
         } catch (error) {
-          console.error('Error accessing camera:', error);
+          console.error('Error opening camera:', error);
           setHasCameraPermission(false);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'false');
-          }
+          setMediaStream(null);
+          toast({
+            title: t('cameraAccessDeniedTitle', 'Camera Access Denied'),
+            description: t('cameraAccessDeniedEnableSettings', 'Please enable camera permissions in your browser settings and refresh.'),
+            variant: 'destructive',
+          });
         }
       }
     };
-    
-    if (isCustomCameraOpen) {
-        getCameraStream();
-    }
-    
-    return () => { 
+
+    getCameraStream();
+
+    return () => {
       if (streamInstance) {
         streamInstance.getTracks().forEach(track => track.stop());
       }
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
-      setMediaStream(null);
-      setFlashOn(false);
     };
-  }, [isCustomCameraOpen, captureMode]);
+  }, [isCustomCameraOpen, captureMode, t, toast]);
+
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -260,8 +260,8 @@ export default function NewAssetPage() {
     if (event.target) event.target.value = '';
   }, [toast, isMediaModalOpen]);
 
-  const handleCapturePhotoFromStream = () => {
-    if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream) {
+  const handleCapturePhotoFromStream = useCallback(() => {
+    if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream && mediaStream.active) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth;
@@ -269,33 +269,38 @@ export default function NewAssetPage() {
       const context = canvas.getContext('2d');
       if (context) {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-        const photoDataUrl = canvas.toDataURL('image/jpeg'); 
+        const photoDataUrl = canvas.toDataURL('image/jpeg');
         setCapturedPhotosInSession(prev => [...prev, photoDataUrl]);
       } else {
          toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
       }
-    }
-  };
-  
-  const handleToggleVideoRecording = () => {
-    if (isRecording) {
-      // Stop recording
-      if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop();
-        setIsRecording(false);
-      }
     } else {
-      // Start recording
-      if (mediaStream) {
+      toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('cameraNotReadyError', "Camera not ready or permission denied."), variant: "destructive" });
+    }
+  }, [hasCameraPermission, mediaStream, t, toast]);
+  
+  const handleToggleVideoRecording = useCallback(() => {
+    if (isRecording) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      setIsRecording(false);
+    } else {
+      if (mediaStream && mediaStream.active) {
         videoChunksRef.current = [];
         try {
-          const options = { mimeType: 'video/webm; codecs=vp9' };
+          const options = MediaRecorder.isTypeSupported('video/webm; codecs=vp9')
+            ? { mimeType: 'video/webm; codecs=vp9' }
+            : MediaRecorder.isTypeSupported('video/webm')
+            ? { mimeType: 'video/webm' }
+            : {};
           mediaRecorderRef.current = new MediaRecorder(mediaStream, options);
         } catch (e) {
-          console.warn("Could not create MediaRecorder with vp9, falling back.", e);
-          mediaRecorderRef.current = new MediaRecorder(mediaStream);
+          console.error("Failed to create MediaRecorder:", e);
+          toast({title: "Recording Error", description: "Could not initialize video recorder for this device.", variant: "destructive"});
+          return;
         }
-        
+
         mediaRecorderRef.current.ondataavailable = (event) => {
           if (event.data.size > 0) {
             videoChunksRef.current.push(event.data);
@@ -310,13 +315,16 @@ export default function NewAssetPage() {
             const base64data = reader.result as string;
             setCapturedVideosInSession(prev => [...prev, base64data]);
           };
+          videoChunksRef.current = [];
         };
 
         mediaRecorderRef.current.start();
         setIsRecording(true);
+      } else {
+        toast({title: "Recording Error", description: "Camera stream is not active or available.", variant: "destructive"});
       }
     }
-  };
+  }, [isRecording, mediaStream, toast]);
 
   const handleToggleFlash = async () => {
     if (!mediaStream) return;
@@ -815,7 +823,7 @@ export default function NewAssetPage() {
                   </TabsList>
                 </Tabs>
               </div>
-              <Button onClick={handleToggleFlash} variant="ghost" size="icon" className="absolute top-4 right-4 z-20 h-10 w-10 rounded-full bg-black/30 hover:bg-black/50 text-white" disabled={!hasCameraPermission || captureMode==='video'}>
+               <Button onClick={handleToggleFlash} variant="ghost" size="icon" className="absolute top-4 right-4 z-20 h-10 w-10 rounded-full bg-black/30 hover:bg-black/50 text-white" disabled={!hasCameraPermission || captureMode==='video'}>
                   {isFlashOn ? <FlashlightOff/> : <Flashlight />}
               </Button>
               {isRecording && <div className="absolute top-6 right-16 bg-red-500 rounded-full h-4 w-4 animate-pulse z-20"></div>}
@@ -896,3 +904,5 @@ export default function NewAssetPage() {
     </div>
   );
 }
+
+    

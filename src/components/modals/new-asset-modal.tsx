@@ -124,52 +124,44 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   }, [isOpen, project, parentFolder, resetModalState]);
 
   useEffect(() => {
-    let streamInstanceForEffect: MediaStream | null = null;
-    const getCameraStreamForEffect = async () => {
-      if (isCustomCameraOpen) { 
-        const storedPermission = typeof window !== 'undefined' ? localStorage.getItem(CAMERA_PERMISSION_GRANTED_KEY) : null;
-        if (storedPermission === 'true') setHasCameraPermission(true);
-        else if (storedPermission === 'false') setHasCameraPermission(false);
-        else setHasCameraPermission(null);
-        
+    let streamInstance: MediaStream | null = null;
+    const getCameraStream = async () => {
+      if (isCustomCameraOpen) {
+        setHasCameraPermission(null);
         try {
-          streamInstanceForEffect = await navigator.mediaDevices.getUserMedia({ 
+          streamInstance = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "environment" },
-            audio: captureMode === 'video' 
+            audio: captureMode === 'video',
           });
-          setMediaStream(prevStream => {
-            if (prevStream && prevStream.id !== streamInstanceForEffect?.id) {
-                 prevStream.getTracks().forEach(track => track.stop());
-            }
-            return streamInstanceForEffect;
-          });
+          setMediaStream(streamInstance);
           setHasCameraPermission(true);
-          if (typeof window !== 'undefined') localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'true');
-          if (videoRef.current && streamInstanceForEffect) {
-            videoRef.current.srcObject = streamInstanceForEffect;
+          if (videoRef.current) {
+            videoRef.current.srcObject = streamInstance;
           }
         } catch (error) {
-          console.error('ModalEffect: Error accessing camera devices:', error);
+          console.error('Error opening camera:', error);
           setHasCameraPermission(false);
-          if (typeof window !== 'undefined') localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'false');
-        }
-      } else { 
-         if (mediaStream && !isAudioDescRecording) { 
-             mediaStream.getTracks().forEach(track => track.stop());
-             setMediaStream(null);
-             setFlashOn(false);
+          setMediaStream(null);
+          toast({
+            title: t('cameraAccessDeniedTitle', 'Camera Access Denied'),
+            description: t('cameraAccessDeniedEnableSettings', 'Please enable camera permissions in your browser settings and refresh.'),
+            variant: 'destructive',
+          });
         }
       }
     };
-    
-    getCameraStreamForEffect();
-    
-    return () => { 
-      if (streamInstanceForEffect && (!mediaStream || streamInstanceForEffect.id !== mediaStream.id) && !isAudioDescRecording ) {
-        streamInstanceForEffect.getTracks().forEach(track => track.stop());
+
+    getCameraStream();
+
+    return () => {
+      if (streamInstance) {
+        streamInstance.getTracks().forEach(track => track.stop());
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
       }
     };
-  }, [isCustomCameraOpen, isAudioDescRecording, captureMode, mediaStream]);
+  }, [isCustomCameraOpen, captureMode, t, toast]);
 
 
   useEffect(() => {
@@ -274,7 +266,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   }, [toast]); 
 
   const handleCapturePhotoFromStream = useCallback(() => {
-    if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream && mediaStream.getVideoTracks().length > 0) {
+    if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream && mediaStream.active) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth;
@@ -288,25 +280,30 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
          toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
       }
     } else {
-        toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('cameraNotReadyError', "Camera not ready or permission denied."), variant: "destructive" });
+      toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('cameraNotReadyError', "Camera not ready or permission denied."), variant: "destructive" });
     }
   }, [hasCameraPermission, mediaStream, t, toast]);
 
-  const handleToggleVideoRecording = () => {
+  const handleToggleVideoRecording = useCallback(() => {
     if (isRecording) {
-      if (mediaRecorderRef.current) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.stop();
-        setIsRecording(false);
       }
+      setIsRecording(false);
     } else {
-      if (mediaStream) {
+      if (mediaStream && mediaStream.active) {
         videoChunksRef.current = [];
         try {
-          const options = { mimeType: 'video/webm; codecs=vp9' };
+          const options = MediaRecorder.isTypeSupported('video/webm; codecs=vp9')
+            ? { mimeType: 'video/webm; codecs=vp9' }
+            : MediaRecorder.isTypeSupported('video/webm')
+            ? { mimeType: 'video/webm' }
+            : {};
           mediaRecorderRef.current = new MediaRecorder(mediaStream, options);
         } catch (e) {
-          console.warn("Could not create MediaRecorder with vp9, falling back.", e);
-          mediaRecorderRef.current = new MediaRecorder(mediaStream);
+          console.error("Failed to create MediaRecorder:", e);
+          toast({title: "Recording Error", description: "Could not initialize video recorder for this device.", variant: "destructive"});
+          return;
         }
         
         mediaRecorderRef.current.ondataavailable = (event) => {
@@ -320,13 +317,16 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           reader.onloadend = () => {
             setCapturedVideosInSession(prev => [...prev, reader.result as string]);
           };
+          videoChunksRef.current = [];
         };
 
         mediaRecorderRef.current.start();
         setIsRecording(true);
+      } else {
+        toast({title: "Recording Error", description: "Camera stream is not active or available.", variant: "destructive"});
       }
     }
-  };
+  }, [isRecording, mediaStream, toast]);
 
   const handleToggleFlash = async () => {
     if (!mediaStream) return;
@@ -976,3 +976,5 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     </>
   );
 }
+
+    
