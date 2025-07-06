@@ -467,15 +467,14 @@ export async function getAssetsPaginated(
   try {
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     
-    // Base query constraints
+    // Base query constraints - orderBy('name') is removed to prevent the need for a composite index.
     const constraints: any[] = [
       where("projectId", "==", projectId),
       where("folderId", "==", folderId),
-      orderBy("name"), // Order by name for consistent pagination
+      orderBy(documentId()), // Use document ID for consistent pagination, which requires no special index.
       limit(pageSize)
     ];
 
-    // Add startAfter constraint if a cursor is provided
     if (startAfterDoc) {
       constraints.push(startAfter(startAfterDoc));
     }
@@ -483,8 +482,11 @@ export async function getAssetsPaginated(
     const q = query(assetsCollectionRef, ...constraints);
     
     const snapshot = await getDocs(q);
-    const assets = processSnapshot<Asset>(snapshot);
+    let assets = processSnapshot<Asset>(snapshot);
     const lastDoc = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
+
+    // Sort the results on the client-side to maintain a consistent user experience.
+    assets.sort((a, b) => a.name.localeCompare(b.name));
 
     return { assets, lastDoc };
   } catch (error) {
@@ -742,4 +744,38 @@ export async function getAllAssetsForCompany(companyId: string): Promise<AssetWi
     return []; // Return empty on error
   }
   return allAssetsProcessed;
+}
+
+export async function searchAssets(
+  projectId: string,
+  searchField: 'name' | 'serialNumber',
+  searchTerm: string,
+  pageSize: number,
+  startAfterDoc?: DocumentData
+): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
+  try {
+    const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
+
+    const constraints: any[] = [
+      where("projectId", "==", projectId),
+      where(searchField, '>=', searchTerm),
+      where(searchField, '<=', searchTerm + '\uf8ff'),
+      orderBy(searchField),
+      limit(pageSize)
+    ];
+
+    if (startAfterDoc) {
+      constraints.push(startAfter(startAfterDoc));
+    }
+
+    const q = query(assetsCollectionRef, ...constraints);
+    const snapshot = await getDocs(q);
+    const assets = processSnapshot<Asset>(snapshot);
+    const lastDoc = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
+
+    return { assets, lastDoc };
+  } catch (error) {
+    console.error(`Error searching assets by ${searchField}: `, error);
+    return { assets: [], lastDoc: null };
+  }
 }
