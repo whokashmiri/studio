@@ -750,36 +750,34 @@ export async function searchAssets(
   projectId: string,
   searchTerm: string,
   pageSize: number,
-  startAfterDoc?: DocumentData | null
+  startAfterDoc?: DocumentData | null,
+  folderId?: string | null
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
   try {
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     const isSerialSearch = /^\d+$/.test(searchTerm) && searchTerm.length > 0;
 
-    let q;
-    if (isSerialSearch) {
-      // This query is efficient and works with pagination.
-      const constraints: any[] = [
-          where("projectId", "==", projectId),
-          where("serialNumber", "==", searchTerm),
-          orderBy(documentId()),
-          limit(pageSize)
-      ];
-      if (startAfterDoc) constraints.push(startAfter(startAfterDoc));
-      q = query(assetsCollectionRef, ...constraints);
-    } else {
-        // This has been changed to an exact match to avoid a required composite index.
-        // The original prefix search (e.g., where("name", ">=", ...)) caused a crash without the index.
-        const constraints: any[] = [
-            where("projectId", "==", projectId),
-            where("name", "==", searchTerm), // Using exact match now
-            orderBy(documentId()), // Order by document ID for pagination
-            limit(pageSize),
-        ];
-        if (startAfterDoc) constraints.push(startAfter(startAfterDoc));
-        q = query(assetsCollectionRef, ...constraints);
+    const constraints: any[] = [where("projectId", "==", projectId)];
+
+    if (folderId !== undefined && folderId !== null) {
+      constraints.push(where("folderId", "==", folderId));
     }
 
+    if (isSerialSearch) {
+      constraints.push(where("serialNumber", "==", searchTerm));
+    } else {
+      constraints.push(where("name", "==", searchTerm));
+    }
+    
+    constraints.push(orderBy(documentId()));
+    constraints.push(limit(pageSize));
+
+    if (startAfterDoc) {
+      constraints.push(startAfter(startAfterDoc));
+    }
+
+    const q = query(assetsCollectionRef, ...constraints);
+    
     const snapshot = await getDocs(q);
     const assets = processSnapshot<Asset>(snapshot);
     const lastDoc = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;

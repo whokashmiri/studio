@@ -192,7 +192,8 @@ export default function ProjectPage() {
           project.id,
           term,
           10,
-          loadMore ? lastSearchedDoc : null
+          loadMore ? lastSearchedDoc : null,
+          currentUrlFolderId // Pass folderId to scope search
       );
   
       if (loadMore) {
@@ -205,7 +206,7 @@ export default function ProjectPage() {
       setHasMoreSearchResults(lastDoc !== null);
       setIsSearchLoading(false);
   
-  }, [project, lastSearchedDoc]);
+  }, [project, lastSearchedDoc, currentUrlFolderId]);
   
   useEffect(() => {
       const term = deferredSearchTerm.trim();
@@ -640,9 +641,11 @@ export default function ProjectPage() {
                                             <CardTitle className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
                                                 {asset.name}
                                             </CardTitle>
-                                            <CardDescription className="text-xs text-muted-foreground truncate" title={pathString}>
-                                                {pathString}
-                                            </CardDescription>
+                                            {!currentUrlFolderId && (
+                                                <CardDescription className="text-xs text-muted-foreground truncate" title={pathString}>
+                                                    {pathString}
+                                                </CardDescription>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="shrink-0 ml-2">
@@ -744,7 +747,7 @@ export default function ProjectPage() {
                 </div>
             </div>
             {isSearching ? (
-                <div className="h-[calc(100vh-28rem)]">
+                <div className="h-[calc(100vh-32rem)]">
                     {renderSearchResults()}
                 </div>
             ) : (
