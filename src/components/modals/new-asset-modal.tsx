@@ -14,6 +14,7 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { processImageForSaving } from '@/lib/image-handler-service'; 
+import { uploadToCloudinary } from '@/lib/cloudinary-service';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -206,7 +207,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     if (event.target.files) {
       setIsProcessingPhotos(true);
       const newFiles = Array.from(event.target.files);
-      const processedDataUris: string[] = [];
+      const uploadedUrls: string[] = [];
       
       if (newFiles.length === 0) {
         setIsProcessingPhotos(false);
@@ -230,12 +231,17 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           
           const processedUrl = await processImageForSaving(dataUrl);
           if (processedUrl) {
-            processedDataUris.push(processedUrl);
+            const finalUrl = await uploadToCloudinary(processedUrl);
+            if (finalUrl) {
+              uploadedUrls.push(finalUrl);
+            } else {
+              toast({ title: "Image Upload Error", description: `Failed to upload ${file.name}.`, variant: "destructive"});
+            }
           } else {
             toast({ title: "Image Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive"});
           }
         }
-        setPhotoPreviews(prev => [...prev, ...processedDataUris]); 
+        setPhotoPreviews(prev => [...prev, ...uploadedUrls]); 
       } catch (error: any) {
          toast({ title: "Error", description: error.message || "An error occurred processing gallery photos.", variant: "destructive"});
       } finally {
@@ -271,17 +277,22 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const handleAddSessionPhotosToBatch = useCallback(async () => {
     if (capturedPhotosInSession.length === 0) return;
     setIsProcessingPhotos(true);
-    const newProcessedDataUris: string[] = [];
+    const uploadedUrls: string[] = [];
     try {
       for (const photoDataUrl of capturedPhotosInSession) {
         const processedUrl = await processImageForSaving(photoDataUrl);
         if (processedUrl) {
-          newProcessedDataUris.push(processedUrl);
+           const finalUrl = await uploadToCloudinary(processedUrl);
+           if (finalUrl) {
+            uploadedUrls.push(finalUrl);
+           } else {
+             toast({ title: "Image Upload Error", description: "A photo from session failed to upload.", variant: "destructive"});
+           }
         } else {
           toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive"});
         }
       }
-      setPhotoPreviews(prev => [...prev, ...newProcessedDataUris]);
+      setPhotoPreviews(prev => [...prev, ...uploadedUrls]);
       setCapturedPhotosInSession([]);
       setIsCustomCameraOpen(false); 
     } catch (error) {
