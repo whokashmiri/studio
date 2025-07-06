@@ -30,6 +30,7 @@ export interface Folder {
   name: string;
   projectId: string;
   parentId: string | null;
+  isOffline?: boolean;
 }
 
 export interface Asset {
@@ -45,6 +46,7 @@ export interface Asset {
   updatedAt?: number; // Changed from string to number
   userId?: string;
   isUploading?: boolean;
+  isOffline?: boolean;
 }
 
 export type UserRole = 'Admin' | 'Inspector' | 'Valuation';

@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye } from 'lucide-react';
+import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, CloudOff } from 'lucide-react';
 import type { Folder } from '@/data/mock-data';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +32,8 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   t,
 }: FolderGridCardProps) {
   
+  const isOffline = !!folder.isOffline;
+
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onSelectFolder(folder);
@@ -40,11 +42,17 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   return (
     <Card
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 cursor-pointer p-1"
+        "group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 p-1",
+        isOffline ? "cursor-wait" : "cursor-pointer"
       )}
       onClick={handleCardClick}
       title={folder.name}
     >
+       {isOffline && (
+          <div className="absolute top-1.5 left-1.5 z-10 p-1 bg-background/60 rounded-full">
+            <CloudOff className="h-4 w-4 text-muted-foreground" title="Saved locally, pending sync"/>
+          </div>
+        )}
       <div className="absolute top-1 right-1 z-10">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -53,6 +61,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
               size="icon"
               className="h-8 w-8 opacity-0 group-hover:opacity-100 focus:opacity-100"
               onClick={(e) => e.stopPropagation()}
+              disabled={isOffline}
             >
               <MoreVertical className="h-4 w-4" />
               <span className="sr-only">{t('folderActions', 'Folder actions')}</span>

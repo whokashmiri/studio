@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, FolderPlus, FilePlus, Loader2 } from 'lucide-react';
+import { Home, FolderPlus, FilePlus, Loader2, CloudOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -21,6 +21,8 @@ import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useOnlineStatus } from '@/hooks/use-online-status';
+import * as OfflineService from '@/lib/offline-service';
 
 export default function ProjectPage() {
   const params = useParams();
@@ -28,11 +30,15 @@ export default function ProjectPage() {
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const currentUrlFolderId = searchParams.get('folderId');
+  const isOnline = useOnlineStatus();
 
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
   const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]);
   
+  const [offlineFolders, setOfflineFolders] = useState<FolderType[]>([]);
+  const [offlineAssets, setOfflineAssets] = useState<Asset[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
@@ -75,6 +81,17 @@ export default function ProjectPage() {
         setProject(foundProject);
         setAllProjectFolders(projectFolders);
         setAllProjectAssets(projectAssets);
+        
+        const queuedActions = OfflineService.getOfflineQueue();
+        const localFolders = queuedActions
+          .filter(a => a.type === 'add-folder' && a.projectId === projectId)
+          .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
+        const localAssets = queuedActions
+          .filter(a => a.type === 'add-asset' && a.projectId === projectId)
+          .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
+
+        setOfflineFolders(localFolders);
+        setOfflineAssets(localAssets);
 
       } catch (error) {
         console.error("Error loading project data:", error);
@@ -90,15 +107,33 @@ export default function ProjectPage() {
     loadAllProjectData();
   }, [loadAllProjectData]);
 
-  const foldersMap = useMemo(() => new Map(allProjectFolders.map(f => [f.id, f])), [allProjectFolders]);
+  useEffect(() => {
+    if (isOnline) {
+      OfflineService.syncOfflineActions().then(({ syncedCount }) => {
+        if (syncedCount > 0) {
+          toast({
+            title: "Data Synced",
+            description: `${syncedCount} offline item(s) have been successfully synced.`,
+            variant: "success-yellow"
+          });
+          loadAllProjectData(); 
+        }
+      });
+    }
+  }, [isOnline, loadAllProjectData, toast]);
+
+  const combinedFolders = useMemo(() => [...allProjectFolders, ...offlineFolders], [allProjectFolders, offlineFolders]);
+  const combinedAssets = useMemo(() => [...allProjectAssets, ...offlineAssets], [allProjectAssets, offlineAssets]);
+
+  const foldersMap = useMemo(() => new Map(combinedFolders.map(f => [f.id, f])), [combinedFolders]);
   const selectedFolder = useMemo(() => currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null, [currentUrlFolderId, foldersMap]);
   
   useEffect(() => {
-    if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
+    if (!isLoading && currentUrlFolderId && combinedFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
         toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
         router.push(`/project/${projectId}`);
     }
-  }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, t, toast, allProjectFolders.length]);
+  }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, t, toast, combinedFolders.length]);
 
   const getFolderPath = useCallback((folderId: string | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
     const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
@@ -122,12 +157,12 @@ export default function ProjectPage() {
   }, [project, currentUrlFolderId, getFolderPath]);
   
   const foldersToDisplay = useMemo(() => {
-    return allProjectFolders.filter(folder => folder.parentId === (currentUrlFolderId || null));
-  }, [allProjectFolders, currentUrlFolderId]);
+    return combinedFolders.filter(folder => folder.parentId === (currentUrlFolderId || null));
+  }, [combinedFolders, currentUrlFolderId]);
 
   const assetsToDisplay = useMemo(() => {
-    return allProjectAssets.filter(asset => asset.folderId === (currentUrlFolderId || null));
-  }, [allProjectAssets, currentUrlFolderId]);
+    return combinedAssets.filter(asset => asset.folderId === (currentUrlFolderId || null));
+  }, [combinedAssets, currentUrlFolderId]);
 
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
@@ -138,32 +173,40 @@ export default function ProjectPage() {
     if (!newFolderName.trim() || !project) return;
 
     setIsCreatingFolder(true);
-    try {
-      const newFolderData: Omit<FolderType, 'id'> = {
-        name: newFolderName,
-        projectId: project.id,
-        parentId: newFolderParentContext ? newFolderParentContext.id : null,
-      };
+    const newFolderData: Omit<FolderType, 'id'> = {
+      name: newFolderName,
+      projectId: project.id,
+      parentId: newFolderParentContext ? newFolderParentContext.id : null,
+    };
 
-      const createdFolder = await FirestoreService.addFolder(newFolderData);
-
-      if (createdFolder) {
-        await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
-        
-        toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
-        
+    if (isOnline) {
+      try {
+        const createdFolder = await FirestoreService.addFolder(newFolderData);
+        if (createdFolder) {
+          await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
+          toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
+          await loadAllProjectData();
+        } else {
+          toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
+        }
+      } finally {
+        setIsCreatingFolder(false);
         setNewFolderName('');
         setIsNewFolderDialogOpen(false);
         setNewFolderParentContext(null);
-        
-        await loadAllProjectData();
-      } else {
-        toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
       }
-    } finally {
+    } else {
+      const { localId } = OfflineService.queueOfflineAction('add-folder', newFolderData, project.id);
+      const optimisticFolder: FolderType = { ...newFolderData, id: localId, isOffline: true };
+      setOfflineFolders(prev => [...prev, optimisticFolder]);
+      toast({ title: "Working Offline", description: `Folder "${newFolderName}" saved locally. It will sync when you're back online.` });
+      
       setIsCreatingFolder(false);
+      setNewFolderName('');
+      setIsNewFolderDialogOpen(false);
+      setNewFolderParentContext(null);
     }
-  }, [newFolderName, project, newFolderParentContext, loadAllProjectData, t, toast]);
+  }, [newFolderName, project, newFolderParentContext, loadAllProjectData, t, toast, isOnline]);
 
   const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
@@ -171,9 +214,13 @@ export default function ProjectPage() {
   }, []); 
 
   const handleOpenEditFolderModal = useCallback((folderToEdit: FolderType) => {
+    if (folderToEdit.isOffline) {
+      toast({ title: "Action Not Available", description: "Cannot edit an item that is pending sync.", variant: "default" });
+      return;
+    }
     setEditingFolder(folderToEdit);
     setIsEditFolderModalOpen(true);
-  }, []);
+  }, [toast]);
 
   const handleFolderDeleted = useCallback(async () => {
     await loadAllProjectData(); 
@@ -189,11 +236,19 @@ export default function ProjectPage() {
   }, [loadAllProjectData, project]);
 
   const handleEditAsset = useCallback((asset: Asset) => {
+    if (asset.isOffline) {
+      toast({ title: "Action Not Available", description: "Cannot edit an item that is pending sync.", variant: "default" });
+      return;
+    }
     const editUrl = `/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
     router.push(editUrl); 
-  }, [projectId, router]);
+  }, [projectId, router, toast]);
 
   const handleDeleteAsset = useCallback(async (assetToDelete: Asset) => {
+    if (assetToDelete.isOffline) {
+      toast({ title: "Action Not Available", description: "Cannot delete an item that is pending sync.", variant: "default" });
+      return;
+    }
     if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
       const success = await FirestoreService.deleteAsset(assetToDelete.id);
       if (success) {
@@ -206,6 +261,21 @@ export default function ProjectPage() {
   }, [loadAllProjectData, t, toast]);
 
   const handleAssetCreatedInModal = useCallback(async (assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!isOnline) {
+      const { localId } = OfflineService.queueOfflineAction('add-asset', assetData, projectId);
+      const optimisticAsset: Asset = {
+          ...assetData,
+          id: localId,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          isOffline: true,
+          isUploading: false,
+      };
+      setOfflineAssets(prev => [...prev, optimisticAsset]);
+      toast({ title: "Working Offline", description: `Asset "${assetData.name}" saved locally. It will sync when you're back online.` });
+      return;
+    }
+
     const tempId = `temp_${Date.now()}`;
     const optimisticAsset: Asset = {
       ...assetData,
@@ -244,7 +314,7 @@ export default function ProjectPage() {
       toast({ title: "Error", description: `An error occurred while saving "${assetData.name}".`, variant: "destructive" });
       setAllProjectAssets(prev => prev.filter(asset => asset.id !== tempId));
     }
-  }, [toast, t]);
+  }, [isOnline, projectId, toast, t]);
 
 
   const handleOpenImagePreviewModal = useCallback((asset: Asset) => {
@@ -292,7 +362,10 @@ export default function ProjectPage() {
               )}
               {t('backToDashboard', 'Back to Dashboard')}
             </Button>
-            <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1">{project.name}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1 flex items-center gap-2">
+              {project.name}
+              {!isOnline && <CloudOff className="h-6 w-6 text-muted-foreground" title="You are currently offline." />}
+            </h1>
           </div>
         </div>
 
