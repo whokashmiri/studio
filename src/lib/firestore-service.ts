@@ -748,34 +748,46 @@ export async function getAllAssetsForCompany(companyId: string): Promise<AssetWi
 
 export async function searchAssets(
   projectId: string,
-  searchField: 'name' | 'serialNumber',
   searchTerm: string,
   pageSize: number,
-  startAfterDoc?: DocumentData
+  startAfterDoc?: DocumentData | null
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
   try {
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
+    const isSerialSearch = /^\d+$/.test(searchTerm) && searchTerm.length > 0;
 
-    const constraints: any[] = [
-      where("projectId", "==", projectId),
-      where(searchField, '>=', searchTerm),
-      where(searchField, '<=', searchTerm + '\uf8ff'),
-      orderBy(searchField),
-      limit(pageSize)
-    ];
-
-    if (startAfterDoc) {
-      constraints.push(startAfter(startAfterDoc));
+    let q;
+    if (isSerialSearch) {
+      // This query is efficient and doesn't require a custom index.
+      const constraints: any[] = [
+          where("projectId", "==", projectId),
+          where("serialNumber", "==", searchTerm),
+          orderBy(documentId()),
+          limit(pageSize)
+      ];
+      if (startAfterDoc) constraints.push(startAfter(startAfterDoc));
+      q = query(assetsCollectionRef, ...constraints);
+    } else {
+        // This requires a composite index on (projectId, name) for ordering.
+        // Firestore will provide a link to create it if it doesn't exist.
+        const constraints: any[] = [
+            where("projectId", "==", projectId),
+            where("name", ">=", searchTerm),
+            where("name", "<=", searchTerm + '\uf8ff'),
+            orderBy("name"),
+            limit(pageSize),
+        ];
+        if (startAfterDoc) constraints.push(startAfter(startAfterDoc));
+        q = query(assetsCollectionRef, ...constraints);
     }
 
-    const q = query(assetsCollectionRef, ...constraints);
     const snapshot = await getDocs(q);
     const assets = processSnapshot<Asset>(snapshot);
     const lastDoc = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
 
     return { assets, lastDoc };
   } catch (error) {
-    console.error(`Error searching assets by ${searchField}: `, error);
+    console.error(`Error searching assets by term "${searchTerm}": `, error);
     return { assets: [], lastDoc: null };
   }
 }
