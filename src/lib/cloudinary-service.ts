@@ -16,10 +16,10 @@
 
 /**
  * Uploads a file (as a Data URI) to Cloudinary if in a server context,
- * otherwise simulates the upload on the client by returning the Data URI.
+ * otherwise simulates the upload on the client by returning a placeholder URL.
  * 
  * @param fileDataUrl The file to upload, as a base64 Data URI.
- * @returns A promise that resolves to the Cloudinary URL (on server success) or the original fileDataUrl (for client simulation).
+ * @returns A promise that resolves to the Cloudinary URL (on server success) or a placeholder URL (for client simulation).
  */
 export async function uploadToCloudinary(fileDataUrl: string): Promise<string | null> {
   // --- SERVER-SIDE LOGIC ---
@@ -31,7 +31,7 @@ export async function uploadToCloudinary(fileDataUrl: string): Promise<string | 
       const cloudinary = require('cloudinary').v2;
 
       if (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET || !process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) {
-        console.error('Cloudinary API Key, Secret, or Cloud Name is not configured on the server. Falling back to client simulation for prototype. Image will be a data URI.');
+        console.error('Cloudinary API Key, Secret, or Cloud Name is not configured on the server. Falling back to client simulation for prototype.');
         // In a real server-only scenario, you'd throw an error or return a proper error response here.
         // For prototype consistency when server config is missing, we fall through to client-side simulation.
       } else {
@@ -63,9 +63,14 @@ export async function uploadToCloudinary(fileDataUrl: string): Promise<string | 
   await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
 
   if (!fileDataUrl || !fileDataUrl.startsWith('data:')) {
-    console.warn('Simulated upload (client-side): Input does not appear to be a valid Data URI. This might cause display issues.');
+    console.warn('Simulated upload (client-side): Input does not appear to be a valid Data URI.');
+    return null;
   }
   
-  console.log('Client-side simulation complete. URL to be stored (Data URI):', fileDataUrl.substring(0, 100) + (fileDataUrl.length > 100 ? '...' : '')); // Log a snippet for brevity
-  return fileDataUrl; 
+  // Create a placeholder URL that represents the uploaded image.
+  // This avoids storing large data URIs in the database and fixes document size errors.
+  const placeholderUrl = 'https://placehold.co/800x600.png';
+
+  console.log(`Client-side simulation complete. Returning placeholder URL: ${placeholderUrl}`);
+  return placeholderUrl; 
 }
