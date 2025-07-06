@@ -39,6 +39,7 @@ export interface Asset {
   projectId: string;
   folderId: string | null;
   photos: string[];
+  videos?: string[];
   voiceDescription?: string; // Text transcript
   recordedAudioDataUrl?: string; // Data URI of the actual recorded audio
   textDescription?: string;

@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useLanguage } from '@/contexts/language-context';
-import { PlayCircle, PauseCircle, Text, Edit, ImageOff, Volume2, ArrowLeft, ArrowRight } from 'lucide-react';
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { PlayCircle, PauseCircle, Text, Edit, ImageOff, Volume2, ArrowLeft, ArrowRight, Video } from 'lucide-react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRouter } from 'next/navigation';
 
@@ -15,30 +15,39 @@ interface AssetDetailDisplayProps {
   onBack: () => void;
 }
 
+type MediaItem = {
+  type: 'image' | 'video';
+  url: string;
+};
+
 export function AssetDetailDisplay({ asset, onBack }: AssetDetailDisplayProps) {
   const { t } = useLanguage();
   const router = useRouter();
 
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const photos = asset.photos || [];
-  const currentPhoto = photos.length > 0 ? photos[currentPhotoIndex] : null;
+  const mediaItems: MediaItem[] = useMemo(() => [
+    ...(asset.photos || []).map(url => ({ type: 'image' as const, url })),
+    ...(asset.videos || []).map(url => ({ type: 'video' as const, url }))
+  ], [asset.photos, asset.videos]);
+  
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const currentMedia = mediaItems.length > 0 ? mediaItems[currentMediaIndex] : null;
 
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   
-  // Reset photo index when asset changes
+  // Reset index when asset changes
   useEffect(() => {
-    setCurrentPhotoIndex(0);
+    setCurrentMediaIndex(0);
   }, [asset.id]);
 
-  const handleNextPhoto = (e: React.MouseEvent) => {
+  const handleNextMedia = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentPhotoIndex((prevIndex) => (prevIndex + 1) % photos.length);
+    setCurrentMediaIndex((prevIndex) => (prevIndex + 1) % mediaItems.length);
   };
 
-  const handlePrevPhoto = (e: React.MouseEvent) => {
+  const handlePrevMedia = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentPhotoIndex((prevIndex) => (prevIndex - 1 + photos.length) % photos.length);
+    setCurrentMediaIndex((prevIndex) => (prevIndex - 1 + mediaItems.length) % mediaItems.length);
   };
 
   const handlePlayRecordedAudio = useCallback(() => {
@@ -117,24 +126,34 @@ export function AssetDetailDisplay({ asset, onBack }: AssetDetailDisplayProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {currentPhoto ? (
+        {currentMedia ? (
           <div className="relative w-full max-w-2xl mx-auto aspect-[4/3] rounded-lg overflow-hidden bg-muted border shadow-inner group">
-            <Image
-              key={currentPhoto}
-              src={currentPhoto}
-              alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
-              layout="fill"
-              objectFit="contain"
-              data-ai-hint="asset photo detail"
-              className="p-1"
-            />
-            {photos.length > 1 && (
+             {currentMedia.type === 'image' ? (
+              <Image
+                key={currentMedia.url}
+                src={currentMedia.url}
+                alt={t('assetPhotoAlt', `Photo of ${asset.name}`, { assetName: asset.name })}
+                layout="fill"
+                objectFit="contain"
+                data-ai-hint="asset photo detail"
+                className="p-1"
+              />
+            ) : (
+              <video
+                key={currentMedia.url}
+                src={currentMedia.url}
+                controls
+                autoPlay
+                className="w-full h-full object-contain"
+              />
+            )}
+            {mediaItems.length > 1 && (
               <>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/30 text-white hover:bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
-                  onClick={handlePrevPhoto}
+                  onClick={handlePrevMedia}
                 >
                   <ArrowLeft className="h-6 w-6" />
                 </Button>
@@ -142,12 +161,12 @@ export function AssetDetailDisplay({ asset, onBack }: AssetDetailDisplayProps) {
                   variant="ghost"
                   size="icon"
                   className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/30 text-white hover:bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
-                  onClick={handleNextPhoto}
+                  onClick={handleNextMedia}
                 >
                   <ArrowRight className="h-6 w-6" />
                 </Button>
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs font-medium rounded-full px-2.5 py-1 pointer-events-none">
-                  {currentPhotoIndex + 1} / {photos.length}
+                  {currentMediaIndex + 1} / {mediaItems.length}
                 </div>
               </>
             )}

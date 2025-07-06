@@ -4,7 +4,7 @@ import type { Asset } from '@/data/mock-data';
 import React from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2, CloudOff } from 'lucide-react';
+import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2, CloudOff, Video } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,17 +26,14 @@ interface AssetCardProps {
 export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewAsset, displayMode = 'grid' }: AssetCardProps) {
   const { t } = useLanguage();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
+  const hasVideo = asset.videos && asset.videos.length > 0;
   const isUploading = !!asset.isUploading;
   const isOffline = !!asset.isOffline;
 
   if (displayMode === 'grid') {
     const mainAction = () => {
       if (isUploading) return;
-      if (primaryPhoto) {
-        onPreviewAsset(asset);
-      } else {
-        onEditAsset(asset);
-      }
+      onPreviewAsset(asset);
     };
 
     return (
@@ -58,6 +55,11 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
             <CloudOff className="h-4 w-4 text-muted-foreground" title="Saved locally, pending sync"/>
           </div>
         )}
+        {hasVideo && (
+           <div className="absolute bottom-1.5 left-1.5 z-10 p-1 bg-background/60 rounded-full">
+            <Video className="h-4 w-4 text-muted-foreground" title="Contains video"/>
+          </div>
+        )}
         <div className="absolute top-1 right-1 z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -73,12 +75,10 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              {primaryPhoto && (
-                <DropdownMenuItem onClick={() => onPreviewAsset(asset)}>
+              <DropdownMenuItem onClick={() => onPreviewAsset(asset)}>
                   <Expand className="mr-2 h-4 w-4" />
-                  {t('viewImage', 'View Image')}
-                </DropdownMenuItem>
-              )}
+                  {t('viewImage', 'Preview Media')}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEditAsset(asset)}>
                 <Edit3 className="mr-2 h-4 w-4" />
                 {t('editAssetButton', 'Edit Asset')}
@@ -134,12 +134,12 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
         )}
         <div 
           className="flex items-center gap-3 flex-grow min-w-0"
-          onClick={() => (isUploading || isOffline) ? null : (primaryPhoto ? onPreviewAsset(asset) : onEditAsset(asset))}
+          onClick={() => (isUploading || isOffline) ? null : onPreviewAsset(asset)}
         >
           {isOffline && !isUploading && (
             <CloudOff className="h-5 w-5 text-muted-foreground shrink-0" title="Saved locally, pending sync"/>
           )}
-          <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted">
+          <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center">
             {primaryPhoto ? (
               <Image
                 src={primaryPhoto}
@@ -149,7 +149,15 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
                 data-ai-hint="asset photo"
               />
             ) : (
-              <FileArchive className="w-6 h-6 text-muted-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <FileArchive className="w-6 h-6 text-muted-foreground" />
+            )}
+            {hasVideo && !primaryPhoto && (
+                 <Video className="w-6 h-6 text-muted-foreground" />
+            )}
+             {hasVideo && primaryPhoto && (
+                 <div className="absolute bottom-0.5 right-0.5 z-10 p-0.5 bg-background/60 rounded-full">
+                    <Video className="h-3 w-3 text-white"/>
+                </div>
             )}
           </div>
           <div className="flex-grow min-w-0">
@@ -174,12 +182,10 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              {primaryPhoto && (
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); if(primaryPhoto) onPreviewAsset(asset);}}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onPreviewAsset(asset);}}>
                   <Expand className="mr-2 h-4 w-4" />
-                  {t('viewImage', 'View Image')}
-                </DropdownMenuItem>
-              )}
+                  {t('viewImage', 'Preview Media')}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEditAsset(asset)}>
                 <Edit3 className="mr-2 h-4 w-4" />
                 {t('editAssetButton', 'Edit Asset')}

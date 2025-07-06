@@ -11,16 +11,18 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info, Loader2 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info, Loader2, Video, Film, Flashlight, FlashlightOff, Upload } from 'lucide-react';
 import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { processImageForSaving } from '@/lib/image-handler-service';
-import { uploadImage } from '@/actions/cloudinary-actions';
+import { uploadMedia } from '@/actions/cloudinary-actions';
 import { useAuth } from '@/contexts/auth-context';
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
+type CaptureMode = 'photo' | 'video';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1';
 
 export default function NewAssetPage() {
@@ -42,18 +44,27 @@ export default function NewAssetPage() {
   const [assetVoiceDescription, setAssetVoiceDescription] = useState('');
   const [assetTextDescription, setAssetTextDescription] = useState('');
   
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); 
-  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false); 
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [videoUrls, setVideoUrls] = useState<string[]>([]);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false); 
   
   const [isCustomCameraOpen, setIsCustomCameraOpen] = useState(false);
+  const [captureMode, setCaptureMode] = useState<CaptureMode>('photo');
   const [capturedPhotosInSession, setCapturedPhotosInSession] = useState<string[]>([]);
+  const [capturedVideosInSession, setCapturedVideosInSession] = useState<string[]>([]);
+  
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isFlashOn, setFlashOn] = useState(false);
+
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
+  const [isProcessingMedia, setIsProcessingMedia] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null); 
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoChunksRef = useRef<Blob[]>([]);
 
   const [isListening, setIsListening] = useState(false);
   const [speechRecognitionAvailable, setSpeechRecognitionAvailable] = useState(false);
@@ -92,7 +103,8 @@ export default function NewAssetPage() {
             setAssetName(foundAsset.name);
             setAssetVoiceDescription(foundAsset.voiceDescription || '');
             setAssetTextDescription(foundAsset.textDescription || '');
-            setPhotoPreviews(foundAsset.photos || []); 
+            setPhotoUrls(foundAsset.photos || []);
+            setVideoUrls(foundAsset.videos || []);
             setCurrentStep('descriptions'); 
           } else {
             toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
@@ -119,7 +131,10 @@ export default function NewAssetPage() {
       if (isCustomCameraOpen) {
         setHasCameraPermission(null); 
         try {
-          streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          streamInstance = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" },
+            audio: captureMode === 'video' // request audio only when in video mode
+          });
           setMediaStream(streamInstance);
           setHasCameraPermission(true);
           if (typeof window !== 'undefined') {
@@ -150,8 +165,9 @@ export default function NewAssetPage() {
         videoRef.current.srcObject = null;
       }
       setMediaStream(null);
+      setFlashOn(false);
     };
-  }, [isCustomCameraOpen]);
+  }, [isCustomCameraOpen, captureMode]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -192,17 +208,19 @@ export default function NewAssetPage() {
   }, [language]);
 
 
-  const handlePhotoUploadFromGallery = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaUploadFromGallery = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      setIsProcessingPhotos(true);
+      setIsProcessingMedia(true);
       const newFiles = Array.from(event.target.files);
       if (newFiles.length === 0) {
-        setIsProcessingPhotos(false);
+        setIsProcessingMedia(false);
         return;
       }
-      const uploadedUrls: string[] = [];
+      const uploadedPhotoUrls: string[] = [];
+      const uploadedVideoUrls: string[] = [];
       try {
         for (const file of newFiles) {
+          const isVideo = file.type.startsWith('video/');
           const reader = new FileReader();
           const dataUrl = await new Promise<string>((resolve, reject) => {
             reader.onload = (loadEvent) => {
@@ -212,28 +230,35 @@ export default function NewAssetPage() {
             reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
             reader.readAsDataURL(file);
           });
-          const processedUrl = await processImageForSaving(dataUrl);
-          if (processedUrl) {
-            const finalUrl = await uploadImage(processedUrl);
-            if (finalUrl) {
-              uploadedUrls.push(finalUrl);
-            } else {
-              toast({ title: "Image Upload Error", description: `Failed to upload ${file.name}.`, variant: "destructive" });
-            }
+
+          let finalUrl;
+          if (isVideo) {
+             finalUrl = await uploadMedia(dataUrl);
           } else {
-            toast({ title: "Image Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive" });
+            const processedUrl = await processImageForSaving(dataUrl);
+            if (processedUrl) {
+                finalUrl = await uploadMedia(processedUrl);
+            }
+          }
+          
+          if (finalUrl) {
+            if (isVideo) uploadedVideoUrls.push(finalUrl);
+            else uploadedPhotoUrls.push(finalUrl);
+          } else {
+            toast({ title: "Media Upload Error", description: `Failed to upload ${file.name}.`, variant: "destructive" });
           }
         }
-        setPhotoPreviews(prev => [...prev, ...uploadedUrls]);
-        if (!isPhotoModalOpen) setIsPhotoModalOpen(true);
+        setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
+        setVideoUrls(prev => [...prev, ...uploadedVideoUrls]);
+        if (!isMediaModalOpen) setIsMediaModalOpen(true);
       } catch (error: any) {
-        toast({ title: "Error", description: error.message || "An error occurred processing gallery photos.", variant: "destructive" });
+        toast({ title: "Error", description: error.message || "An error occurred processing gallery files.", variant: "destructive" });
       } finally {
-        setIsProcessingPhotos(false);
+        setIsProcessingMedia(false);
       }
     }
     if (event.target) event.target.value = '';
-  }, [toast, isPhotoModalOpen]);
+  }, [toast, isMediaModalOpen]);
 
   const handleCapturePhotoFromStream = () => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream) {
@@ -251,54 +276,126 @@ export default function NewAssetPage() {
       }
     }
   };
+  
+  const handleToggleVideoRecording = () => {
+    if (isRecording) {
+      // Stop recording
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+        setIsRecording(false);
+      }
+    } else {
+      // Start recording
+      if (mediaStream) {
+        videoChunksRef.current = [];
+        try {
+          const options = { mimeType: 'video/webm; codecs=vp9' };
+          mediaRecorderRef.current = new MediaRecorder(mediaStream, options);
+        } catch (e) {
+          console.warn("Could not create MediaRecorder with vp9, falling back.", e);
+          mediaRecorderRef.current = new MediaRecorder(mediaStream);
+        }
+        
+        mediaRecorderRef.current.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            videoChunksRef.current.push(event.data);
+          }
+        };
 
-  const removePhotoFromSession = (indexToRemove: number) => {
-    setCapturedPhotosInSession(prev => prev.filter((_, index) => index !== indexToRemove));
+        mediaRecorderRef.current.onstop = () => {
+          const videoBlob = new Blob(videoChunksRef.current, { type: 'video/webm' });
+          const reader = new FileReader();
+          reader.readAsDataURL(videoBlob);
+          reader.onloadend = () => {
+            const base64data = reader.result as string;
+            setCapturedVideosInSession(prev => [...prev, base64data]);
+          };
+        };
+
+        mediaRecorderRef.current.start();
+        setIsRecording(true);
+      }
+    }
   };
 
-  const handleAddSessionPhotosToBatch = useCallback(async () => {
-    if (capturedPhotosInSession.length === 0) return;
-    setIsProcessingPhotos(true);
-    const uploadedUrls: string[] = [];
+  const handleToggleFlash = async () => {
+    if (!mediaStream) return;
+    const videoTrack = mediaStream.getVideoTracks()[0];
+    if (videoTrack && videoTrack.getCapabilities().torch) {
+      try {
+        await videoTrack.applyConstraints({ advanced: [{ torch: !isFlashOn }] });
+        setFlashOn(!isFlashOn);
+      } catch (error) {
+        toast({ title: "Flash Error", description: "Could not toggle flash.", variant: "destructive" });
+        console.error("Failed to toggle flash:", error);
+      }
+    } else {
+      toast({ title: "Flash Not Supported", description: "Your device camera does not support flash control." });
+    }
+  };
+
+  const removeMediaFromSession = (indexToRemove: number, type: 'photo' | 'video') => {
+    if (type === 'photo') {
+      setCapturedPhotosInSession(prev => prev.filter((_, index) => index !== indexToRemove));
+    } else {
+      setCapturedVideosInSession(prev => prev.filter((_, index) => index !== indexToRemove));
+    }
+  };
+
+  const handleAddSessionMediaToBatch = useCallback(async () => {
+    if (capturedPhotosInSession.length === 0 && capturedVideosInSession.length === 0) return;
+    setIsProcessingMedia(true);
+    const uploadedPhotoUrls: string[] = [];
+    const uploadedVideoUrls: string[] = [];
     try {
       for (const photoDataUrl of capturedPhotosInSession) {
         const processedUrl = await processImageForSaving(photoDataUrl);
         if (processedUrl) {
-           const finalUrl = await uploadImage(processedUrl);
-           if (finalUrl) {
-             uploadedUrls.push(finalUrl);
-           } else {
-             toast({ title: "Image Upload Error", description: "A photo from session failed to upload.", variant: "destructive" });
-           }
+           const finalUrl = await uploadMedia(processedUrl);
+           if (finalUrl) uploadedPhotoUrls.push(finalUrl);
+           else toast({ title: "Image Upload Error", description: "A photo from session failed to upload.", variant: "destructive" });
         } else {
           toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive" });
         }
       }
-      setPhotoPreviews(prev => [...prev, ...uploadedUrls]);
+      for (const videoDataUrl of capturedVideosInSession) {
+         const finalUrl = await uploadMedia(videoDataUrl);
+         if (finalUrl) uploadedVideoUrls.push(finalUrl);
+         else toast({ title: "Video Upload Error", description: "A video from session failed to upload.", variant: "destructive" });
+      }
+      
+      setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
+      setVideoUrls(prev => [...prev, ...uploadedVideoUrls]);
       setCapturedPhotosInSession([]);
+      setCapturedVideosInSession([]);
       setIsCustomCameraOpen(false);
-      if (!isPhotoModalOpen && photoPreviews.length + uploadedUrls.length > 0) {
-        setIsPhotoModalOpen(true);
+      if (!isMediaModalOpen && (photoUrls.length + videoUrls.length + uploadedPhotoUrls.length + uploadedVideoUrls.length > 0)) {
+        setIsMediaModalOpen(true);
       }
     } catch (error) {
-      toast({ title: "Error", description: "Failed to process session photos.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to process session media.", variant: "destructive" });
     } finally {
-      setIsProcessingPhotos(false);
+      setIsProcessingMedia(false);
     }
-  }, [capturedPhotosInSession, toast, isPhotoModalOpen, photoPreviews.length]);
+  }, [capturedPhotosInSession, capturedVideosInSession, toast, isMediaModalOpen, photoUrls.length, videoUrls.length]);
 
   const handleCancelCustomCamera = () => {
     setCapturedPhotosInSession([]);
+    setCapturedVideosInSession([]);
     setIsCustomCameraOpen(false);
   };
   
-  const removePhotoFromPreviews = (indexToRemove: number) => { 
-    setPhotoPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
+  const removeMediaFromPreviews = (indexToRemove: number, type: 'photo' | 'video') => { 
+    if (type === 'photo') {
+      setPhotoUrls(prev => prev.filter((_, index) => index !== indexToRemove));
+    } else {
+      setVideoUrls(prev => prev.filter((_, index) => index !== indexToRemove));
+    }
   };
 
   const handleNextToDescriptions = () => {
-    if (photoPreviews.length === 0) {
-      toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
+    if (photoUrls.length === 0 && videoUrls.length === 0) {
+      toast({ title: t('photosRequiredTitle', "Media Required"), description: t('photosRequiredDesc', "Please add at least one photo or video for the asset."), variant: "destructive" });
       return;
     }
     if (!assetName.trim()) {
@@ -306,7 +403,7 @@ export default function NewAssetPage() {
       return;
     }
     setCurrentStep('descriptions');
-    setIsPhotoModalOpen(false);
+    setIsMediaModalOpen(false);
   };
 
   const toggleListening = () => {
@@ -343,8 +440,8 @@ export default function NewAssetPage() {
       setCurrentStep('photos_and_name'); 
       return;
     }
-    if (photoPreviews.length === 0 && !isEditMode) { 
-      toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo for the asset."), variant: "destructive" });
+    if (photoUrls.length === 0 && videoUrls.length === 0 && !isEditMode) { 
+      toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo or video for the asset."), variant: "destructive" });
       setCurrentStep('photos_and_name');
       return;
     }
@@ -357,7 +454,8 @@ export default function NewAssetPage() {
       name: assetName,
       projectId: project.id,
       folderId: folderId,
-      photos: photoPreviews,
+      photos: photoUrls,
+      videos: videoUrls,
     };
 
     if (assetVoiceDescription.trim()) {
@@ -417,6 +515,7 @@ export default function NewAssetPage() {
 
 
   const pageTitle = isEditMode ? t('editAssetTitle', "Edit Asset") : t('newAsset', 'Create New Asset');
+  const totalMediaCount = photoUrls.length + videoUrls.length;
   
   const renderStepContent = () => {
     switch (currentStep) {
@@ -426,46 +525,52 @@ export default function NewAssetPage() {
             <CardHeader>
               <CardTitle className="text-xl sm:text-2xl font-headline">{pageTitle} {t('forProject', 'for')} {project.name}</CardTitle>
               {currentFolder && <CardDescription>{t('inFolder', 'In folder:')} {currentFolder.name}</CardDescription>}
-              <CardDescription>{t('stepPhotosAndNameTitle', 'Step 1: Photos & Asset Name')}</CardDescription>
+              <CardDescription>{t('stepPhotosAndNameTitle', 'Step 1: Media & Asset Name')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label>{t('addPhotosSectionTitle', 'Add Photos')}</Label>
+                <Label>{t('addPhotosSectionTitle', 'Add Photos & Videos')}</Label>
                 <div className="flex flex-col sm:flex-row gap-2 mt-1">
-                    <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1" disabled={isProcessingPhotos}>
-                        <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
+                    <Button variant="outline" onClick={() => setIsCustomCameraOpen(true)} className="flex-1" disabled={isProcessingMedia}>
+                        <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Open Camera')}
                     </Button>
-                    <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1" disabled={isProcessingPhotos}>
-                        {isProcessingPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
-                        {isProcessingPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
+                    <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="flex-1" disabled={isProcessingMedia}>
+                        {isProcessingMedia ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                        {isProcessingMedia ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
                     </Button>
                     <input
                         type="file"
-                        accept="image/*"
+                        accept="image/*,video/*"
                         multiple
                         id="gallery-input-main"
                         ref={galleryInputRef}
                         className="hidden"
-                        onChange={handlePhotoUploadFromGallery}
-                        disabled={isProcessingPhotos}
+                        onChange={handleMediaUploadFromGallery}
+                        disabled={isProcessingMedia}
                     />
                 </div>
-                {photoPreviews.length > 0 && (
+                {totalMediaCount > 0 && (
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between items-center">
-                      <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                      <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)} disabled={isProcessingPhotos}>
-                         <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
+                      <Label>{t('photosAdded', 'Media Added')} ({totalMediaCount})</Label>
+                      <Button variant="outline" size="sm" onClick={() => setIsMediaModalOpen(true)} disabled={isProcessingMedia}>
+                         <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Media')}
                       </Button>
                     </div>
                     <div className="grid grid-cols-6 gap-1.5">
-                      {photoPreviews.slice(0, 6).map((src, index) => ( 
-                          <div key={`main-preview-${index}-${src.substring(0,20)}`} className="relative group">
+                      {photoUrls.slice(0, 6).map((src, index) => ( 
+                          <div key={`main-preview-photo-${index}-${src.substring(0,20)}`} className="relative group">
                             <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
                           </div>
                       ))}
+                       {videoUrls.slice(0, 6 - photoUrls.length).map((src, index) => ( 
+                          <div key={`main-preview-video-${index}-${src.substring(0,20)}`} className="relative group bg-black rounded-md flex items-center justify-center">
+                            <video src={src} className="rounded-md object-cover aspect-square" />
+                            <Film className="absolute h-6 w-6 text-white/80" />
+                          </div>
+                      ))}
                     </div>
-                    {photoPreviews.length > 6 && <p className="text-xs text-muted-foreground text-center mt-1">{t('morePhotosInModal', `+${photoPreviews.length - 6} more. Click "Manage Photos" to see all.`, {count: photoPreviews.length - 6})}</p>}
+                    {totalMediaCount > 6 && <p className="text-xs text-muted-foreground text-center mt-1">{t('morePhotosInModal', `+${totalMediaCount - 6} more. Click "Manage Media" to see all.`, {count: totalMediaCount - 6})}</p>}
                   </div>
                 )}
               </div>
@@ -476,12 +581,12 @@ export default function NewAssetPage() {
                   value={assetName}
                   onChange={(e) => setAssetName(e.target.value)}
                   placeholder={t('assetNamePlaceholder', "e.g., Main Entrance Column")}
-                  disabled={isProcessingPhotos}
+                  disabled={isProcessingMedia}
                 />
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              <Button onClick={handleNextToDescriptions} disabled={photoPreviews.length === 0 || !assetName.trim() || isProcessingPhotos}>
+              <Button onClick={handleNextToDescriptions} disabled={totalMediaCount === 0 || !assetName.trim() || isProcessingMedia}>
                 {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
@@ -508,18 +613,24 @@ export default function NewAssetPage() {
                         />
                     </div>
                 )}
-                {photoPreviews.length > 0 && (
+                {totalMediaCount > 0 && (
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <Label>{t('photosAdded', 'Photos Added')} ({photoPreviews.length})</Label>
-                       <Button variant="outline" size="sm" onClick={() => setIsPhotoModalOpen(true)}>
-                          <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Photos')}
+                      <Label>{t('photosAdded', 'Media Added')} ({totalMediaCount})</Label>
+                       <Button variant="outline" size="sm" onClick={() => setIsMediaModalOpen(true)}>
+                          <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Media')}
                        </Button>
                     </div>
                     <div className="grid grid-cols-6 gap-1.5">
-                      {photoPreviews.map((src, index) => (
-                          <div key={`desc-preview-${index}-${src.substring(0,20)}`} className="relative group">
+                      {photoUrls.map((src, index) => (
+                          <div key={`desc-preview-photo-${index}-${src.substring(0,20)}`} className="relative group">
                             <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
+                          </div>
+                      ))}
+                      {videoUrls.map((src, index) => (
+                          <div key={`desc-preview-video-${index}-${src.substring(0,20)}`} className="relative group bg-black rounded-md flex items-center justify-center">
+                             <video src={src} className="rounded-md object-cover aspect-square" />
+                             <Film className="absolute h-6 w-6 text-white/80" />
                           </div>
                       ))}
                     </div>
@@ -566,7 +677,7 @@ export default function NewAssetPage() {
             </CardContent>
             <CardFooter className="flex flex-row justify-between items-center gap-2 pt-4">
               <Button variant="outline" onClick={() => setCurrentStep('photos_and_name')}>
-                {t('backToPhotosName', 'Back to Photos & Name')}
+                {t('backToPhotosName', 'Back to Media & Name')}
               </Button>
               <Button onClick={handleSaveAsset} size="lg">
                 {isEditMode ? t('updateAssetButton', "Update Asset") : t('saveAssetButton', 'Save Asset')}
@@ -593,78 +704,97 @@ export default function NewAssetPage() {
       
        {renderStepContent()}
 
-      <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
+      <Dialog open={isMediaModalOpen} onOpenChange={setIsMediaModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-headline">
-                {t('managePhotosModalTitle', 'Manage Photos for Asset:')} <span className="text-primary">{assetName || t('unnamedAsset', 'Unnamed Asset')}</span>
+                {t('managePhotosModalTitle', 'Manage Media for Asset:')} <span className="text-primary">{assetName || t('unnamedAsset', 'Unnamed Asset')}</span>
             </DialogTitle>
-            <DialogDescription>{t('managePhotosModalDesc', "Add more photos using your camera or gallery, or remove existing ones from the batch.")}</DialogDescription>
+            <DialogDescription>{t('managePhotosModalDesc', "Add more media using your camera or gallery, or remove existing ones from the batch.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4 flex-grow overflow-y-auto">
             <div className="flex flex-col sm:flex-row gap-2">
               <Button 
                 variant="outline" 
-                onClick={() => { setIsCustomCameraOpen(true); setIsPhotoModalOpen(false); }} 
+                onClick={() => { setIsCustomCameraOpen(true); setIsMediaModalOpen(false); }} 
                 className="w-full sm:w-auto"
-                disabled={isProcessingPhotos}>
-                <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Take Photos (Camera)')}
+                disabled={isProcessingMedia}>
+                <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Open Camera')}
               </Button>
-              <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto" disabled={isProcessingPhotos}>
-                {isProcessingPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageUp className="mr-2 h-4 w-4" />}
-                {isProcessingPhotos ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
+              <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto" disabled={isProcessingMedia}>
+                {isProcessingMedia ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                {isProcessingMedia ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
               </Button>
                <input 
                   type="file"
-                  accept="image/*"
+                  accept="image/*,video/*"
                   multiple
                   id="gallery-input-modal" 
                   ref={galleryInputRef} 
                   className="hidden"
-                  onChange={handlePhotoUploadFromGallery}
-                  disabled={isProcessingPhotos}
+                  onChange={handleMediaUploadFromGallery}
+                  disabled={isProcessingMedia}
                 />
             </div>
 
-            <div className="space-y-2 mt-4">
-              <Label>{t('currentPhotoBatch', 'Current Photo Batch')} ({photoPreviews.length})</Label>
-              {photoPreviews.length > 0 ? (
-                <ScrollArea className="h-[300px] pr-3">
+            <div className="space-y-4 mt-4">
+              <Label>{t('currentPhotoBatch', 'Current Photos')} ({photoUrls.length})</Label>
+              {photoUrls.length > 0 ? (
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
-                    {photoPreviews.map((src, index) => (
-                      <div key={`batch-${index}-${src.substring(0,20)}`} className="relative group">
+                    {photoUrls.map((src, index) => (
+                      <div key={`batch-photo-${index}-${src.substring(0,20)}`} className="relative group">
                         <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
                          <Button 
                             variant="destructive" 
                             size="icon" 
                             className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                            onClick={() => removePhotoFromPreviews(index)}
+                            onClick={() => removeMediaFromPreviews(index, 'photo')}
                             title={t('removePhotoTitle', "Remove photo")}
-                            disabled={isProcessingPhotos}
+                            disabled={isProcessingMedia}
                           >
                             <X className="h-3 w-3" />
                           </Button>
                       </div>
                     ))}
                   </div>
-                </ScrollArea>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">{t('noPhotosInBatch', 'No photos in the current batch yet.')}</p>
+              )}
+               <Label>{t('currentVideoBatch', 'Current Videos')} ({videoUrls.length})</Label>
+               {videoUrls.length > 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
+                    {videoUrls.map((src, index) => (
+                      <div key={`batch-video-${index}-${src.substring(0,20)}`} className="relative group bg-black rounded-md flex items-center justify-center">
+                        <video src={src} className="rounded-md object-cover aspect-square" />
+                        <Film className="absolute h-6 w-6 text-white/80" />
+                         <Button 
+                            variant="destructive" 
+                            size="icon" 
+                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                            onClick={() => removeMediaFromPreviews(index, 'video')}
+                            title={t('removeVideoTitle', "Remove video")}
+                            disabled={isProcessingMedia}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                      </div>
+                    ))}
+                  </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">{t('noVideosInBatch', 'No videos in the current batch yet.')}</p>
               )}
             </div>
           </div>
           <DialogFooter className="flex flex-row justify-end space-x-2 pt-4 border-t">
-             <Button variant="outline" onClick={() => setIsPhotoModalOpen(false)}>
-                {t('doneWithPhotos', 'Done with Photos')}
+             <Button variant="outline" onClick={() => setIsMediaModalOpen(false)}>
+                {t('doneWithPhotos', 'Done')}
              </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            // Logic for when camera is closed
-          }
+          if (!isOpen) handleCancelCustomCamera();
           setIsCustomCameraOpen(isOpen);
         }}>
          <DialogContent variant="fullscreen" className="bg-black text-white">
@@ -677,6 +807,7 @@ export default function NewAssetPage() {
                 muted 
                 playsInline 
               />
+               {isRecording && <div className="absolute top-4 right-4 bg-red-500 rounded-full h-4 w-4 animate-pulse z-20"></div>}
               {hasCameraPermission === false && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10">
                     <Alert variant="destructive" className="bg-white/5 text-white border-red-500/30 max-w-md backdrop-blur-sm">
@@ -693,29 +824,45 @@ export default function NewAssetPage() {
                   </div>
               )}
             </div>
+            
+             <div className="absolute top-4 left-4 z-20">
+               <Tabs value={captureMode} onValueChange={(v) => setCaptureMode(v as CaptureMode)} className="w-auto">
+                <TabsList>
+                  <TabsTrigger value="photo"><Camera className="mr-2 h-4 w-4" />Photo</TabsTrigger>
+                  <TabsTrigger value="video"><Video className="mr-2 h-4 w-4" />Video</TabsTrigger>
+                </TabsList>
+              </Tabs>
+             </div>
+              <Button onClick={handleToggleFlash} variant="ghost" size="icon" className="absolute top-4 right-4 z-20 h-10 w-10 rounded-full bg-black/30 hover:bg-black/50 text-white" disabled={!hasCameraPermission || captureMode==='video'}>
+                  {isFlashOn ? <FlashlightOff/> : <Flashlight />}
+              </Button>
 
             <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
-              {isProcessingPhotos && (
+              {isProcessingMedia && (
                 <div className="absolute inset-x-0 top-0 flex justify-center pt-2">
                   <Loader2 className="h-6 w-6 animate-spin text-white" />
                 </div>
               )}
-              {capturedPhotosInSession.length > 0 && (
+              {(capturedPhotosInSession.length > 0 || capturedVideosInSession.length > 0) && (
                 <ScrollArea className="w-full mb-3 sm:mb-4 max-h-[70px] sm:max-h-[80px] whitespace-nowrap">
                   <div className="flex space-x-2 pb-1">
                     {capturedPhotosInSession.map((src, index) => (
-                      <div key={`session-preview-${index}`} className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-md overflow-hidden border-2 border-neutral-600">
+                      <div key={`session-preview-photo-${index}`} className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-md overflow-hidden border-2 border-neutral-600">
                         <img src={src} alt={t('sessionPhotoPreviewAlt', `Session Preview ${index + 1}`, {number: index + 1})} data-ai-hint="session photo" className="h-full w-full object-cover" />
                         <Button 
-                          variant="destructive" 
-                          size="icon" 
-                          className="absolute -top-1 -right-1 h-5 w-5 bg-black/60 hover:bg-red-600/80 border-none p-0"
-                          onClick={() => removePhotoFromSession(index)}
-                          aria-label={t('removePhotoTitle', "Remove photo")}
-                          disabled={isProcessingPhotos}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                          variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 bg-black/60 hover:bg-red-600/80 border-none p-0"
+                          onClick={() => removeMediaFromSession(index, 'photo')} aria-label={t('removePhotoTitle', "Remove photo")} disabled={isProcessingMedia}
+                        > <X className="h-3 w-3" /> </Button>
+                      </div>
+                    ))}
+                     {capturedVideosInSession.map((src, index) => (
+                      <div key={`session-preview-video-${index}`} className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-md overflow-hidden border-2 border-neutral-600 bg-black">
+                        <video src={src} className="h-full w-full object-cover" />
+                        <Film className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-white/80" />
+                        <Button 
+                          variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 bg-black/60 hover:bg-red-600/80 border-none p-0"
+                          onClick={() => removeMediaFromSession(index, 'video')} aria-label={t('removeVideoTitle', "Remove video")} disabled={isProcessingMedia}
+                        > <X className="h-3 w-3" /> </Button>
                       </div>
                     ))}
                   </div>
@@ -723,25 +870,25 @@ export default function NewAssetPage() {
               )}
 
               <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/10 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base" disabled={isProcessingPhotos}>
+                <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/10 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base" disabled={isProcessingMedia}>
                   {t('cancel', 'Cancel')}
                 </Button>
                 <Button 
-                  onClick={handleCapturePhotoFromStream} 
-                  disabled={!hasCameraPermission || mediaStream === null || isProcessingPhotos}
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white text-black hover:bg-neutral-200 focus:ring-4 focus:ring-white/50 flex items-center justify-center p-0 border-2 border-neutral-700 shadow-xl disabled:bg-neutral-600 disabled:opacity-70"
-                  aria-label={t('capturePhoto', 'Capture Photo')}
+                  onClick={captureMode === 'photo' ? handleCapturePhotoFromStream : handleToggleVideoRecording} 
+                  disabled={!hasCameraPermission || mediaStream === null || isProcessingMedia}
+                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full focus:ring-4 focus:ring-white/50 flex items-center justify-center p-0 border-2 border-neutral-700 shadow-xl disabled:bg-neutral-600 disabled:opacity-70 ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-white hover:bg-neutral-200'}`}
+                  aria-label={t('capturePhoto', 'Capture Media')}
                 >
-                  <Camera className="w-7 h-7 sm:w-9 sm:h-9" />
+                  {captureMode === 'photo' ? <Camera className="w-7 h-7 sm:w-9 sm:h-9 text-black" /> : <div className={`h-8 w-8 rounded-md transition-all ${isRecording ? 'bg-white' : 'bg-red-500'}`} />}
                 </Button>
                 <Button 
-                  variant={capturedPhotosInSession.length > 0 ? "default" : "ghost"}
-                  onClick={handleAddSessionPhotosToBatch} 
-                  disabled={capturedPhotosInSession.length === 0 || isProcessingPhotos}
-                  className={`py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base transition-colors duration-150 ${capturedPhotosInSession.length > 0 ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'text-white hover:bg-white/10'}`}
+                  variant={(capturedPhotosInSession.length + capturedVideosInSession.length) > 0 ? "default" : "ghost"}
+                  onClick={handleAddSessionMediaToBatch} 
+                  disabled={(capturedPhotosInSession.length + capturedVideosInSession.length) === 0 || isProcessingMedia || isRecording}
+                  className={`py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base transition-colors duration-150 ${ (capturedPhotosInSession.length + capturedVideosInSession.length) > 0 ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'text-white hover:bg-white/10'}`}
                 >
-                   {isProcessingPhotos ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null }
-                   {isProcessingPhotos ? t('saving', 'Processing...') : t('doneWithSessionAddPhotos', 'Add ({count})', { count: capturedPhotosInSession.length })}
+                   {isProcessingMedia ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null }
+                   {isProcessingMedia ? t('saving', 'Processing...') : t('doneWithSessionAddPhotos', 'Add ({count})', { count: capturedPhotosInSession.length + capturedVideosInSession.length })}
                 </Button>
               </div>
             </div>

@@ -3,8 +3,8 @@
 import { v2 as cloudinary } from 'cloudinary';
 
 /**
- * @fileOverview Server Action for handling image uploads to Cloudinary.
- * This file contains the secure, server-side logic for uploading images.
+ * @fileOverview Server Action for handling media uploads to Cloudinary.
+ * This file contains the secure, server-side logic for uploading images and videos.
  */
 
 // Configure Cloudinary using environment variables.
@@ -20,14 +20,15 @@ cloudinary.config({
 /**
  * Uploads a file (as a Data URI) to Cloudinary.
  * This function is a Server Action and should only be called from client components.
+ * It automatically detects the resource type (image/video).
  * 
  * @param fileDataUrl The file to upload, as a base64 Data URI.
- * @returns A promise that resolves to the secure Cloudinary URL of the uploaded image.
+ * @returns A promise that resolves to the secure Cloudinary URL of the uploaded media.
  * @throws An error if the upload fails or if environment variables are not set.
  */
-export async function uploadImage(fileDataUrl: string): Promise<string> {
+export async function uploadMedia(fileDataUrl: string): Promise<string> {
   if (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET || !process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) {
-    throw new Error('Cloudinary environment variables are not configured. Cannot upload image.');
+    throw new Error('Cloudinary environment variables are not configured. Cannot upload media.');
   }
 
   try {
@@ -38,6 +39,6 @@ export async function uploadImage(fileDataUrl: string): Promise<string> {
     return result.secure_url;
   } catch (error) {
     console.error("Cloudinary Upload Error:", error);
-    throw new Error('Failed to upload image to Cloudinary.');
+    throw new Error('Failed to upload media to Cloudinary.');
   }
 }
