@@ -192,8 +192,8 @@ export default function ProjectPage() {
           project.id,
           term,
           10,
-          loadMore ? lastSearchedDoc : null
-          // folderId is intentionally omitted for project-wide search
+          loadMore ? lastSearchedDoc : null,
+          currentUrlFolderId // Pass folder context
       );
   
       if (loadMore) {
@@ -206,7 +206,7 @@ export default function ProjectPage() {
       setHasMoreSearchResults(lastDoc !== null);
       setIsSearchLoading(false);
   
-  }, [project, lastSearchedDoc]);
+  }, [project, lastSearchedDoc, currentUrlFolderId]);
   
   useEffect(() => {
       const term = deferredSearchTerm.trim();
@@ -766,7 +766,11 @@ export default function ProjectPage() {
                 <div className="relative w-full max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder={t('searchByNameOrSerial', 'Search by name or serial...')}
+                        placeholder={
+                            currentUrlFolderId 
+                                ? t('searchByNameOrSerial', 'Search by name or serial...')
+                                : t('searchBySerialInProject', 'Search by Serial Number in project...')
+                        }
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10"

@@ -758,24 +758,30 @@ export async function searchAssets(
   try {
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     const isSerialSearch = /^\d+$/.test(searchTerm) && searchTerm.length > 0;
-
+    
     const constraints: any[] = [where("projectId", "==", projectId)];
 
+    // If inside a folder, search by name or serial within that folder
     if (folderId !== undefined && folderId !== null) {
       constraints.push(where("folderId", "==", folderId));
+      if (isSerialSearch) {
+        constraints.push(where("serialNumber", "==", Number(searchTerm)));
+      } else {
+        // Name search (exact, case-insensitive) is only allowed inside a folder
+        constraints.push(where("name_lowercase", "==", searchTerm.toLowerCase()));
+      }
+    } 
+    // If at the root, only allow serial number search across the whole project
+    else {
+      if (isSerialSearch) {
+        constraints.push(where("serialNumber", "==", Number(searchTerm)));
+      } else {
+        // If not a serial search at root, return no results as per new logic
+        return { assets: [], lastDoc: null };
+      }
     }
 
-    if (isSerialSearch) {
-      constraints.push(where("serialNumber", "==", Number(searchTerm)));
-      constraints.push(orderBy(documentId())); // Use doc ID for stable pagination on exact match
-    } else {
-      const lowerCaseSearchTerm = searchTerm.toLowerCase();
-      // To avoid a composite index requirement, we'll perform an exact match on the lowercase name.
-      constraints.push(where("name_lowercase", "==", lowerCaseSearchTerm));
-      // Order by document ID for consistent pagination.
-      constraints.push(orderBy(documentId()));
-    }
-    
+    constraints.push(orderBy(documentId())); // Use doc ID for stable pagination
     constraints.push(limit(pageSize));
 
     if (startAfterDoc) {
