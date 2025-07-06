@@ -1,22 +1,20 @@
 
 "use client";
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useDeferredValue } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, Edit3, Image as ImageIcon } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { EditFolderModal } from '@/components/modals/edit-folder-modal';
-import { NewAssetModal } from '@/components/modals/new-asset-modal'; 
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -24,6 +22,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import * as OfflineService from '@/lib/offline-service';
 import * as XLSX from 'xlsx';
+import Image from 'next/image';
+
+// Lazy load modals to improve initial page load time
+const EditFolderModal = React.lazy(() => import('@/components/modals/edit-folder-modal').then(module => ({ default: module.EditFolderModal })));
+const NewAssetModal = React.lazy(() => import('@/components/modals/new-asset-modal').then(module => ({ default: module.NewAssetModal })));
+
 
 export default function ProjectPage() {
   const params = useParams();
@@ -36,17 +40,14 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
   
-  // State for all assets, used for counts. Fetched in background.
-  const [allAssetsForCount, setAllAssetsForCount] = useState<Asset[]>([]);
-  // State for assets in the current folder/view. Fetched on demand.
+  const [allAssetsForProject, setAllAssetsForProject] = useState<Asset[]>([]);
   const [currentViewAssets, setCurrentViewAssets] = useState<Asset[]>([]);
 
   const [offlineFolders, setOfflineFolders] = useState<FolderType[]>([]);
   const [offlineAssets, setOfflineAssets] = useState<Asset[]>([]);
 
-  const [isLoading, setIsLoading] = useState(true); // For initial page structure
-  const [isContentLoading, setIsContentLoading] = useState(false); // For folder/asset content
-  
+  const [isLoading, setIsLoading] = useState(true); 
+  const [isContentLoading, setIsContentLoading] = useState(false); 
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
 
   const [newFolderName, setNewFolderName] = useState('');
@@ -67,7 +68,13 @@ export default function ProjectPage() {
   const [fileToImport, setFileToImport] = useState<File | null>(null);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
 
+  // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<Asset[]>([]);
+  const [visibleResultCount, setVisibleResultCount] = useState(10);
+  
 
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -79,9 +86,10 @@ export default function ProjectPage() {
     if (projectId) {
       setIsLoading(true);
       try {
-        const [foundProject, projectFolders] = await Promise.all([
+        const [foundProject, projectFolders, allAssets] = await Promise.all([
           FirestoreService.getProjectById(projectId),
           FirestoreService.getFolders(projectId),
+          FirestoreService.getAllAssetsForProject(projectId), // Fetch all assets upfront
         ]);
 
         if (!foundProject) {
@@ -92,12 +100,11 @@ export default function ProjectPage() {
         
         setProject(foundProject);
         setAllProjectFolders(projectFolders);
+        setAllAssetsForProject(allAssets); // Store all assets
         
         const queuedActions = OfflineService.getOfflineQueue();
         setOfflineFolders(queuedActions.filter(a => a.type === 'add-folder' && a.projectId === projectId).map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType)));
         setOfflineAssets(queuedActions.filter(a => a.type === 'add-asset' && a.projectId === projectId).map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset)));
-
-        FirestoreService.getAllAssetsForProject(projectId).then(setAllAssetsForCount);
 
       } catch (error) {
         console.error("Error loading project structure:", error);
@@ -109,21 +116,16 @@ export default function ProjectPage() {
     }
   }, [projectId, router, t, toast]);
 
-  const loadCurrentViewAssets = useCallback(async () => {
+  const loadCurrentViewAssets = useCallback(() => {
     if (!projectId || isLoading) return;
 
     setIsContentLoading(true);
-    try {
-        const assets = await FirestoreService.getAssets(projectId, currentUrlFolderId);
-        setCurrentViewAssets(assets);
-    } catch(error) {
-        console.error("Error loading view assets:", error);
-        toast({ title: "Error", description: "Failed to load folder contents.", variant: "destructive" });
-        setCurrentViewAssets([]);
-    } finally {
-        setIsContentLoading(false);
-    }
-  }, [projectId, currentUrlFolderId, isLoading, toast]);
+    // Filter from the already fetched allAssetsForProject state
+    const assetsForView = allAssetsForProject.filter(asset => asset.folderId === currentUrlFolderId);
+    setCurrentViewAssets(assetsForView);
+    setIsContentLoading(false);
+
+  }, [projectId, currentUrlFolderId, isLoading, allAssetsForProject]);
 
   useEffect(() => {
     loadInitialStructure();
@@ -135,7 +137,7 @@ export default function ProjectPage() {
   
   const reloadAllData = useCallback(async () => {
     await loadInitialStructure();
-    await loadCurrentViewAssets();
+    loadCurrentViewAssets(); // This will now use the new state
   }, [loadInitialStructure, loadCurrentViewAssets]);
 
   useEffect(() => {
@@ -183,20 +185,33 @@ export default function ProjectPage() {
     return [...currentViewAssets, ...offlineForView];
   }, [currentViewAssets, offlineAssets, currentUrlFolderId]);
 
-  const filteredAssetsToDisplay = useMemo(() => {
-    if (!searchTerm) {
-      return combinedCurrentViewAssets;
-    }
-    const lowercasedSearch = searchTerm.toLowerCase();
-    return combinedCurrentViewAssets.filter(asset => 
-      asset.name.toLowerCase().includes(lowercasedSearch) ||
-      (asset.serialNumber && asset.serialNumber.toLowerCase().includes(lowercasedSearch))
-    );
-  }, [combinedCurrentViewAssets, searchTerm]);
-  
   const foldersToDisplay = useMemo(() => {
     return combinedFolders.filter(folder => folder.parentId === (currentUrlFolderId || null));
   }, [combinedFolders, currentUrlFolderId]);
+
+  // Project-wide search logic
+  useEffect(() => {
+    if (deferredSearchTerm) {
+      setIsSearching(true);
+      const isNumericSearch = /^\d+$/.test(deferredSearchTerm);
+      const lowercasedSearch = deferredSearchTerm.toLowerCase();
+
+      const results = allAssetsForProject.filter(asset => {
+        if (isNumericSearch) {
+          return asset.serialNumber?.includes(deferredSearchTerm);
+        } else {
+          return asset.name.toLowerCase().includes(lowercasedSearch);
+        }
+      });
+      
+      setSearchResults(results);
+      setVisibleResultCount(10); // Reset pagination on new search
+      setIsSearching(false);
+    } else {
+      setSearchResults([]);
+    }
+  }, [deferredSearchTerm, allAssetsForProject]);
+
 
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && combinedFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
@@ -478,7 +493,96 @@ export default function ProjectPage() {
     );
   }
 
-  const isCurrentLocationEmpty = foldersToDisplay.length === 0 && filteredAssetsToDisplay.length === 0;
+  const isDisplayingSearchResults = deferredSearchTerm.length > 0;
+  const assetsForFolderTree = combinedCurrentViewAssets;
+  const foldersForFolderTree = foldersToDisplay;
+
+  const renderSearchResults = () => (
+    <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Search Results for &quot;{deferredSearchTerm}&quot;</h2>
+        {isSearching && (
+            <div className="flex justify-center items-center h-40">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        )}
+        {!isSearching && searchResults.length === 0 && (
+            <div className="text-center py-8">
+                <p className="text-muted-foreground">{t('noSearchResults', 'No assets found matching your search.')}</p>
+            </div>
+        )}
+        {!isSearching && searchResults.length > 0 && (
+            <div className="space-y-2">
+                {searchResults.slice(0, visibleResultCount).map(asset => {
+                    const path = getFolderPath(asset.folderId).map(p => p.name).join(' > ');
+                    return (
+                        <Card key={asset.id} className="flex items-center p-3 gap-4 hover:bg-muted/50">
+                             <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                                {asset.photos?.[0] ? (
+                                    <Image src={asset.photos[0]} alt={asset.name} layout="fill" className="object-cover"/>
+                                ) : (
+                                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                )}
+                            </div>
+                            <div className="flex-grow min-w-0">
+                                <p className="font-semibold truncate">{asset.name}</p>
+                                <p className="text-xs text-muted-foreground truncate" title={path}>{path}</p>
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => handleEditAsset(asset)}>
+                                <Edit3 className="mr-2 h-4 w-4"/>
+                                {t('edit', 'Edit')}
+                            </Button>
+                        </Card>
+                    )
+                })}
+            </div>
+        )}
+        {searchResults.length > visibleResultCount && (
+            <div className="text-center mt-4">
+                <Button variant="outline" onClick={() => setVisibleResultCount(count => count + 10)}>
+                    Load More
+                </Button>
+            </div>
+        )}
+    </div>
+  );
+
+  const renderFolderView = () => {
+    const isCurrentLocationEmpty = foldersForFolderTree.length === 0 && assetsForFolderTree.length === 0;
+    return (
+        <>
+            {isContentLoading ? (
+                <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : (
+                <FolderTreeDisplay
+                    foldersToDisplay={foldersForFolderTree}
+                    assetsToDisplay={assetsForFolderTree}
+                    allProjectAssets={allAssetsForProject}
+                    projectId={project.id}
+                    onSelectFolder={handleSelectFolder}
+                    onAddSubfolder={openNewFolderDialog}
+                    onEditFolder={handleOpenEditFolderModal}
+                    onDeleteFolder={handleFolderDeleted}
+                    onEditAsset={handleEditAsset} 
+                    onDeleteAsset={handleDeleteAsset}
+                    onPreviewAsset={handleOpenImagePreviewModal}
+                    currentSelectedFolderId={selectedFolder?.id || null}
+                    displayMode="grid"
+                    deletingAssetId={deletingAssetId}
+                />
+            )}
+            
+            {isCurrentLocationEmpty && !isContentLoading && (
+                <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">
+                        {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
+                    </p>
+                </div>
+            )}
+        </>
+    );
+  };
 
   return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24">
@@ -510,27 +614,29 @@ export default function ProjectPage() {
 
         <Card>
           <CardHeader className="pt-3 px-4 pb-0 md:pt-4 md:px-6 md:pb-0">
-              <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
-              {breadcrumbItems.map((item, index) => (
-                  <React.Fragment key={item.id || `project_root_${project.id}`}>
-                  <span
-                      className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                      onClick={() => {
-                      if (item.type === 'project') {
-                          handleSelectFolder(null);
-                      } else if (item.id) {
-                          const folderToSelect = foldersMap.get(item.id); 
-                          if (folderToSelect) handleSelectFolder(folderToSelect);
-                      }
-                      }}
-                      title={t('clickToNavigateTo', 'Click to navigate to {name}', { name: item.name })}
-                  >
-                      {item.name}
-                  </span>
-                  {index < breadcrumbItems.length - 1 && <span className="mx-1.5 text-muted-foreground">{t('breadcrumbSeparator', '>')}</span>}
-                  </React.Fragment>
-              ))}
-              </CardTitle>
+             {!isDisplayingSearchResults && (
+                <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
+                    {breadcrumbItems.map((item, index) => (
+                        <React.Fragment key={item.id || `project_root_${project.id}`}>
+                        <span
+                            className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                            onClick={() => {
+                            if (item.type === 'project') {
+                                handleSelectFolder(null);
+                            } else if (item.id) {
+                                const folderToSelect = foldersMap.get(item.id); 
+                                if (folderToSelect) handleSelectFolder(folderToSelect);
+                            }
+                            }}
+                            title={t('clickToNavigateTo', 'Click to navigate to {name}', { name: item.name })}
+                        >
+                            {item.name}
+                        </span>
+                        {index < breadcrumbItems.length - 1 && <span className="mx-1.5 text-muted-foreground">{t('breadcrumbSeparator', '>')}</span>}
+                        </React.Fragment>
+                    ))}
+                </CardTitle>
+             )}
           </CardHeader>
           <CardContent className={cn("transition-colors rounded-b-lg p-2 md:p-4")}>
              <div className="flex justify-end mb-4">
@@ -541,49 +647,12 @@ export default function ProjectPage() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10"
-                        disabled={isContentLoading}
+                        disabled={isContentLoading || isLoading}
                     />
                 </div>
             </div>
             <ScrollArea className="h-[calc(100vh-28rem)] pr-3">
-              {isContentLoading ? (
-                <div className="flex justify-center items-center h-40">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                <FolderTreeDisplay
-                    foldersToDisplay={foldersToDisplay}
-                    assetsToDisplay={filteredAssetsToDisplay}
-                    allProjectAssets={allAssetsForCount}
-                    projectId={project.id}
-                    onSelectFolder={handleSelectFolder}
-                    onAddSubfolder={openNewFolderDialog}
-                    onEditFolder={handleOpenEditFolderModal}
-                    onDeleteFolder={handleFolderDeleted}
-                    onEditAsset={handleEditAsset} 
-                    onDeleteAsset={handleDeleteAsset}
-                    onPreviewAsset={handleOpenImagePreviewModal}
-                    currentSelectedFolderId={selectedFolder?.id || null}
-                    displayMode="grid"
-                    deletingAssetId={deletingAssetId}
-                />
-              )}
-              
-              {isCurrentLocationEmpty && !isContentLoading && searchTerm && (
-                  <div className="text-center py-8">
-                      <p className="text-muted-foreground mb-4">
-                        {t('noSearchResults', 'No assets found matching your search.')}
-                      </p>
-                  </div>
-              )}
-
-              {isCurrentLocationEmpty && !isContentLoading && !searchTerm && (
-                  <div className="text-center py-8">
-                      <p className="text-muted-foreground mb-4">
-                        {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
-                      </p>
-                  </div>
-              )}
+              {isDisplayingSearchResults ? renderSearchResults() : renderFolderView()}
             </ScrollArea>
           </CardContent>
         </Card>
@@ -682,27 +751,30 @@ export default function ProjectPage() {
           </Dialog>
         )}
 
-        {editingFolder && (
-          <EditFolderModal
-            isOpen={isEditFolderModalOpen}
-            onClose={() => {
-              setIsEditFolderModalOpen(false);
-              setEditingFolder(null);
-            }}
-            folder={editingFolder}
-            onFolderUpdated={handleFolderUpdated}
-          />
-        )}
-        
-        {project && (
-          <NewAssetModal
-              isOpen={isNewAssetModalOpen}
-              onClose={() => setIsNewAssetModalOpen(false)}
-              project={project}
-              parentFolder={selectedFolder}
-              onAssetCreated={handleAssetCreatedInModal}
-          />
-        )}
+        {/* Suspense is needed for lazy loading components */}
+        <React.Suspense fallback={null}>
+            {editingFolder && (
+            <EditFolderModal
+                isOpen={isEditFolderModalOpen}
+                onClose={() => {
+                setIsEditFolderModalOpen(false);
+                setEditingFolder(null);
+                }}
+                folder={editingFolder}
+                onFolderUpdated={handleFolderUpdated}
+            />
+            )}
+            
+            {project && (
+            <NewAssetModal
+                isOpen={isNewAssetModalOpen}
+                onClose={() => setIsNewAssetModalOpen(false)}
+                project={project}
+                parentFolder={selectedFolder}
+                onAssetCreated={handleAssetCreatedInModal}
+            />
+            )}
+        </React.Suspense>
 
         {assetToPreview && (
           <ImagePreviewModal
@@ -714,3 +786,5 @@ export default function ProjectPage() {
       </div>
   );
 }
+
+    
