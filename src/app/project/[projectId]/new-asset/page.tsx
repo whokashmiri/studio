@@ -807,7 +807,18 @@ export default function NewAssetPage() {
                 muted 
                 playsInline 
               />
-               {isRecording && <div className="absolute top-4 right-4 bg-red-500 rounded-full h-4 w-4 animate-pulse z-20"></div>}
+              <div className="absolute top-4 left-4 z-20">
+                <Tabs value={captureMode} onValueChange={(v) => setCaptureMode(v as CaptureMode)} className="w-auto">
+                  <TabsList>
+                    <TabsTrigger value="photo"><Camera className="mr-2 h-4 w-4" />Photo</TabsTrigger>
+                    <TabsTrigger value="video"><Video className="mr-2 h-4 w-4" />Video</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              <Button onClick={handleToggleFlash} variant="ghost" size="icon" className="absolute top-4 right-4 z-20 h-10 w-10 rounded-full bg-black/30 hover:bg-black/50 text-white" disabled={!hasCameraPermission || captureMode==='video'}>
+                  {isFlashOn ? <FlashlightOff/> : <Flashlight />}
+              </Button>
+              {isRecording && <div className="absolute top-6 right-16 bg-red-500 rounded-full h-4 w-4 animate-pulse z-20"></div>}
               {hasCameraPermission === false && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10">
                     <Alert variant="destructive" className="bg-white/5 text-white border-red-500/30 max-w-md backdrop-blur-sm">
@@ -825,18 +836,6 @@ export default function NewAssetPage() {
               )}
             </div>
             
-             <div className="absolute top-4 left-4 z-20">
-               <Tabs value={captureMode} onValueChange={(v) => setCaptureMode(v as CaptureMode)} className="w-auto">
-                <TabsList>
-                  <TabsTrigger value="photo"><Camera className="mr-2 h-4 w-4" />Photo</TabsTrigger>
-                  <TabsTrigger value="video"><Video className="mr-2 h-4 w-4" />Video</TabsTrigger>
-                </TabsList>
-              </Tabs>
-             </div>
-              <Button onClick={handleToggleFlash} variant="ghost" size="icon" className="absolute top-4 right-4 z-20 h-10 w-10 rounded-full bg-black/30 hover:bg-black/50 text-white" disabled={!hasCameraPermission || captureMode==='video'}>
-                  {isFlashOn ? <FlashlightOff/> : <Flashlight />}
-              </Button>
-
             <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
               {isProcessingMedia && (
                 <div className="absolute inset-x-0 top-0 flex justify-center pt-2">
