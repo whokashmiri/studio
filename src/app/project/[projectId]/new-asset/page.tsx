@@ -1,6 +1,6 @@
 
 "use client";
-import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type ChangeEvent, type FC } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,239 @@ import { useAuth } from '@/contexts/auth-context';
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
 type CaptureMode = 'photo' | 'video';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1';
+
+// Extracted Dialog Component for Media Management
+const MediaManagerDialog: FC<any> = ({
+  isOpen,
+  onClose,
+  assetName,
+  isProcessingMedia,
+  handleMediaUploadFromGallery,
+  photoUrls,
+  videoUrls,
+  removeMediaFromPreviews,
+  setIsCustomCameraOpen,
+  galleryInputRef,
+  t
+}) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-xl sm:text-2xl font-headline">
+            {t('managePhotosModalTitle', 'Manage Media for Asset:')} <span className="text-primary">{assetName || t('unnamedAsset', 'Unnamed Asset')}</span>
+          </DialogTitle>
+          <DialogDescription>{t('managePhotosModalDesc', "Add more media using your camera or gallery, or remove existing ones from the batch.")}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4 flex-grow overflow-y-auto">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setIsCustomCameraOpen(true); onClose(); }}
+              className="w-full sm:w-auto"
+              disabled={isProcessingMedia}>
+              <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Open Camera')}
+            </Button>
+            <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto" disabled={isProcessingMedia}>
+              {isProcessingMedia ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              {isProcessingMedia ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
+            </Button>
+            <input
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              id="gallery-input-modal"
+              ref={galleryInputRef}
+              className="hidden"
+              onChange={handleMediaUploadFromGallery}
+              disabled={isProcessingMedia}
+            />
+          </div>
+
+          <div className="space-y-4 mt-4">
+            <Label>{t('currentPhotoBatch', 'Current Photos')} ({photoUrls.length})</Label>
+            {photoUrls.length > 0 ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
+                {photoUrls.map((src: string, index: number) => (
+                  <div key={`batch-photo-${index}-${src.substring(0, 20)}`} className="relative group">
+                    <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      onClick={() => removeMediaFromPreviews(index, 'photo')}
+                      title={t('removePhotoTitle', "Remove photo")}
+                      disabled={isProcessingMedia}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">{t('noPhotosInBatch', 'No photos in the current batch yet.')}</p>
+            )}
+            <Label>{t('currentVideoBatch', 'Current Videos')} ({videoUrls.length})</Label>
+            {videoUrls.length > 0 ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
+                {videoUrls.map((src: string, index: number) => (
+                  <div key={`batch-video-${index}-${src.substring(0, 20)}`} className="relative group bg-black rounded-md flex items-center justify-center">
+                    <video src={src} className="rounded-md object-cover aspect-square" />
+                    <Film className="absolute h-6 w-6 text-white/80" />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      onClick={() => removeMediaFromPreviews(index, 'video')}
+                      title={t('removeVideoTitle', "Remove video")}
+                      disabled={isProcessingMedia}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">{t('noVideosInBatch', 'No videos in the current batch yet.')}</p>
+            )}
+          </div>
+        </div>
+        <DialogFooter className="flex flex-row justify-end space-x-2 pt-4 border-t">
+          <Button variant="outline" onClick={onClose}>
+            {t('doneWithPhotos', 'Done')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Extracted Dialog Component for Custom Camera
+const CustomCameraDialog: FC<any> = ({
+  isOpen,
+  onOpenChange,
+  handleCancelCustomCamera,
+  captureMode,
+  setCaptureMode,
+  hasCameraPermission,
+  isRecording,
+  isFlashOn,
+  handleToggleFlash,
+  videoRef,
+  isProcessingMedia,
+  capturedPhotosInSession,
+  capturedVideosInSession,
+  removeMediaFromSession,
+  handleCapturePhotoFromStream,
+  handleToggleVideoRecording,
+  handleAddSessionMediaToBatch,
+  mediaStream,
+  t
+}) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={(openState) => {
+      if (!openState) handleCancelCustomCamera();
+      onOpenChange(openState);
+    }}>
+      <DialogContent variant="fullscreen" className="bg-black text-white">
+        <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
+        <div className="flex-1 relative bg-neutral-900 overflow-hidden">
+          <video
+            ref={videoRef}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hasCameraPermission === true ? 'opacity-100' : 'opacity-0'}`}
+            autoPlay
+            muted
+            playsInline
+          />
+          <div className="absolute top-4 left-4 z-20">
+            <Tabs value={captureMode} onValueChange={(v) => setCaptureMode(v as CaptureMode)} className="w-auto">
+              <TabsList>
+                <TabsTrigger value="photo"><Camera className="mr-2 h-4 w-4" />Photo</TabsTrigger>
+                <TabsTrigger value="video"><Video className="mr-2 h-4 w-4" />Video</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          <Button onClick={handleToggleFlash} variant="ghost" size="icon" className="absolute top-4 right-4 z-20 h-10 w-10 rounded-full bg-black/30 hover:bg-black/50 text-white" disabled={!hasCameraPermission || captureMode === 'video'}>
+            {isFlashOn ? <FlashlightOff /> : <Flashlight />}
+          </Button>
+          {isRecording && <div className="absolute top-6 right-16 bg-red-500 rounded-full h-4 w-4 animate-pulse z-20"></div>}
+          {hasCameraPermission === false && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10">
+              <Alert variant="destructive" className="bg-white/5 text-white border-red-500/30 max-w-md backdrop-blur-sm">
+                <AlertTitle>{t('cameraAccessDeniedTitle', 'Camera Access Denied')}</AlertTitle>
+                <AlertDescription>{t('cameraAccessDeniedEnableSettings', 'Please enable camera permissions in your browser settings and refresh.')}</AlertDescription>
+              </Alert>
+            </div>
+          )}
+          {hasCameraPermission === null && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 text-center">
+              <CircleDotDashed className="w-12 h-12 sm:w-16 sm:h-16 animate-spin mb-3 sm:mb-4 text-neutral-400" />
+              <p className="text-base sm:text-lg text-neutral-300">{t('initializingCamera', 'Initializing Camera...')}</p>
+              <p className="text-xs sm:text-sm text-neutral-500">{t('allowCameraAccessPrompt', 'Please allow camera access when prompted.')}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
+          {isProcessingMedia && (
+            <div className="absolute inset-x-0 top-0 flex justify-center pt-2">
+              <Loader2 className="h-6 w-6 animate-spin text-white" />
+            </div>
+          )}
+          {(capturedPhotosInSession.length > 0 || capturedVideosInSession.length > 0) && (
+            <ScrollArea className="w-full mb-3 sm:mb-4 max-h-[70px] sm:max-h-[80px] whitespace-nowrap">
+              <div className="flex space-x-2 pb-1">
+                {capturedPhotosInSession.map((src: string, index: number) => (
+                  <div key={`session-preview-photo-${index}`} className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-md overflow-hidden border-2 border-neutral-600">
+                    <img src={src} alt={t('sessionPhotoPreviewAlt', `Session Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="session photo" className="h-full w-full object-cover" />
+                    <Button
+                      variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 bg-black/60 hover:bg-red-600/80 border-none p-0"
+                      onClick={() => removeMediaFromSession(index, 'photo')} aria-label={t('removePhotoTitle', "Remove photo")} disabled={isProcessingMedia}
+                    > <X className="h-3 w-3" /> </Button>
+                  </div>
+                ))}
+                {capturedVideosInSession.map((src: string, index: number) => (
+                  <div key={`session-preview-video-${index}`} className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-md overflow-hidden border-2 border-neutral-600 bg-black">
+                    <video src={src} className="h-full w-full object-cover" />
+                    <Film className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-white/80" />
+                    <Button
+                      variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 bg-black/60 hover:bg-red-600/80 border-none p-0"
+                      onClick={() => removeMediaFromSession(index, 'video')} aria-label={t('removeVideoTitle', "Remove video")} disabled={isProcessingMedia}
+                    > <X className="h-3 w-3" /> </Button>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+
+          <div className="flex items-center justify-between">
+            <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/10 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base" disabled={isProcessingMedia}>
+              {t('cancel', 'Cancel')}
+            </Button>
+            <Button
+              onClick={captureMode === 'photo' ? handleCapturePhotoFromStream : handleToggleVideoRecording}
+              disabled={!hasCameraPermission || mediaStream === null || isProcessingMedia}
+              className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full focus:ring-4 focus:ring-white/50 flex items-center justify-center p-0 border-2 border-neutral-700 shadow-xl disabled:bg-neutral-600 disabled:opacity-70 ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-white hover:bg-neutral-200'}`}
+              aria-label={t('capturePhoto', 'Capture Media')}
+            >
+              {captureMode === 'photo' ? <Camera className="w-7 h-7 sm:w-9 sm:h-9 text-black" /> : <div className={`h-8 w-8 rounded-md transition-all ${isRecording ? 'bg-white' : 'bg-red-500'}`} />}
+            </Button>
+            <Button
+              variant={(capturedPhotosInSession.length + capturedVideosInSession.length) > 0 ? "default" : "ghost"}
+              onClick={handleAddSessionMediaToBatch}
+              disabled={(capturedPhotosInSession.length + capturedVideosInSession.length) === 0 || isProcessingMedia || isRecording}
+              className={`py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base transition-colors duration-150 ${ (capturedPhotosInSession.length + capturedVideosInSession.length) > 0 ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'text-white hover:bg-white/10'}`}
+            >
+              {isProcessingMedia ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isProcessingMedia ? t('saving', 'Processing...') : t('doneWithSessionAddPhotos', 'Add ({count})', { count: capturedPhotosInSession.length + capturedVideosInSession.length })}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 
 export default function NewAssetPage() {
   const params = useParams();
@@ -878,199 +1111,41 @@ export default function NewAssetPage() {
       
        {renderStepContent()}
 
-      {isMediaModalOpen && (
-        <Dialog open={isMediaModalOpen} onOpenChange={setIsMediaModalOpen}>
-          <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle className="text-xl sm:text-2xl font-headline">
-                  {t('managePhotosModalTitle', 'Manage Media for Asset:')} <span className="text-primary">{assetName || t('unnamedAsset', 'Unnamed Asset')}</span>
-              </DialogTitle>
-              <DialogDescription>{t('managePhotosModalDesc', "Add more media using your camera or gallery, or remove existing ones from the batch.")}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4 flex-grow overflow-y-auto">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => { setIsCustomCameraOpen(true); setIsMediaModalOpen(false); }} 
-                  className="w-full sm:w-auto"
-                  disabled={isProcessingMedia}>
-                  <Camera className="mr-2 h-4 w-4" /> {t('takePhotosCustomCamera', 'Open Camera')}
-                </Button>
-                <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="w-full sm:w-auto" disabled={isProcessingMedia}>
-                  {isProcessingMedia ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                  {isProcessingMedia ? t('saving', 'Processing...') : t('uploadFromGallery', 'Upload from Gallery')}
-                </Button>
-                 <input 
-                    type="file"
-                    accept="image/*,video/*"
-                    multiple
-                    id="gallery-input-modal" 
-                    ref={galleryInputRef} 
-                    className="hidden"
-                    onChange={handleMediaUploadFromGallery}
-                    disabled={isProcessingMedia}
-                  />
-              </div>
+      <MediaManagerDialog
+        isOpen={isMediaModalOpen}
+        onClose={() => setIsMediaModalOpen(false)}
+        assetName={assetName}
+        isProcessingMedia={isProcessingMedia}
+        handleMediaUploadFromGallery={handleMediaUploadFromGallery}
+        photoUrls={photoUrls}
+        videoUrls={videoUrls}
+        removeMediaFromPreviews={removeMediaFromPreviews}
+        setIsCustomCameraOpen={setIsCustomCameraOpen}
+        galleryInputRef={galleryInputRef}
+        t={t}
+      />
 
-              <div className="space-y-4 mt-4">
-                <Label>{t('currentPhotoBatch', 'Current Photos')} ({photoUrls.length})</Label>
-                {photoUrls.length > 0 ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
-                      {photoUrls.map((src, index) => (
-                        <div key={`batch-photo-${index}-${src.substring(0,20)}`} className="relative group">
-                          <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
-                           <Button 
-                              variant="destructive" 
-                              size="icon" 
-                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                              onClick={() => removeMediaFromPreviews(index, 'photo')}
-                              title={t('removePhotoTitle', "Remove photo")}
-                              disabled={isProcessingMedia}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                        </div>
-                      ))}
-                    </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">{t('noPhotosInBatch', 'No photos in the current batch yet.')}</p>
-                )}
-                 <Label>{t('currentVideoBatch', 'Current Videos')} ({videoUrls.length})</Label>
-                 {videoUrls.length > 0 ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
-                      {videoUrls.map((src, index) => (
-                        <div key={`batch-video-${index}-${src.substring(0,20)}`} className="relative group bg-black rounded-md flex items-center justify-center">
-                          <video src={src} className="rounded-md object-cover aspect-square" />
-                          <Film className="absolute h-6 w-6 text-white/80" />
-                           <Button 
-                              variant="destructive" 
-                              size="icon" 
-                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                              onClick={() => removeMediaFromPreviews(index, 'video')}
-                              title={t('removeVideoTitle', "Remove video")}
-                              disabled={isProcessingMedia}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                        </div>
-                      ))}
-                    </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">{t('noVideosInBatch', 'No videos in the current batch yet.')}</p>
-                )}
-              </div>
-            </div>
-            <DialogFooter className="flex flex-row justify-end space-x-2 pt-4 border-t">
-               <Button variant="outline" onClick={() => setIsMediaModalOpen(false)}>
-                  {t('doneWithPhotos', 'Done')}
-               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {isCustomCameraOpen && (
-        <Dialog open={isCustomCameraOpen} onOpenChange={(isOpen) => {
-            if (!isOpen) handleCancelCustomCamera();
-            setIsCustomCameraOpen(isOpen);
-          }}>
-           <DialogContent variant="fullscreen" className="bg-black text-white">
-             <DialogTitle className="sr-only">{t('customCameraDialogTitle', 'Camera')}</DialogTitle>
-              <div className="flex-1 relative bg-neutral-900 overflow-hidden"> 
-                <video 
-                  ref={videoRef} 
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hasCameraPermission === true ? 'opacity-100' : 'opacity-0'}`} 
-                  autoPlay 
-                  muted 
-                  playsInline 
-                />
-                <div className="absolute top-4 left-4 z-20">
-                  <Tabs value={captureMode} onValueChange={(v) => setCaptureMode(v as CaptureMode)} className="w-auto">
-                    <TabsList>
-                      <TabsTrigger value="photo"><Camera className="mr-2 h-4 w-4" />Photo</TabsTrigger>
-                      <TabsTrigger value="video"><Video className="mr-2 h-4 w-4" />Video</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
-                 <Button onClick={handleToggleFlash} variant="ghost" size="icon" className="absolute top-4 right-4 z-20 h-10 w-10 rounded-full bg-black/30 hover:bg-black/50 text-white" disabled={!hasCameraPermission || captureMode==='video'}>
-                    {isFlashOn ? <FlashlightOff/> : <Flashlight />}
-                </Button>
-                {isRecording && <div className="absolute top-6 right-16 bg-red-500 rounded-full h-4 w-4 animate-pulse z-20"></div>}
-                {hasCameraPermission === false && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10">
-                      <Alert variant="destructive" className="bg-white/5 text-white border-red-500/30 max-w-md backdrop-blur-sm">
-                          <AlertTitle>{t('cameraAccessDeniedTitle', 'Camera Access Denied')}</AlertTitle>
-                          <AlertDescription>{t('cameraAccessDeniedEnableSettings', 'Please enable camera permissions in your browser settings and refresh.')}</AlertDescription>
-                      </Alert>
-                  </div>
-                )}
-                {hasCameraPermission === null && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 text-center">
-                        <CircleDotDashed className="w-12 h-12 sm:w-16 sm:h-16 animate-spin mb-3 sm:mb-4 text-neutral-400" />
-                        <p className="text-base sm:text-lg text-neutral-300">{t('initializingCamera', 'Initializing Camera...')}</p>
-                        <p className="text-xs sm:text-sm text-neutral-500">{t('allowCameraAccessPrompt', 'Please allow camera access when prompted.')}</p>
-                    </div>
-                )}
-              </div>
-              
-              <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
-                {isProcessingMedia && (
-                  <div className="absolute inset-x-0 top-0 flex justify-center pt-2">
-                    <Loader2 className="h-6 w-6 animate-spin text-white" />
-                  </div>
-                )}
-                {(capturedPhotosInSession.length > 0 || capturedVideosInSession.length > 0) && (
-                  <ScrollArea className="w-full mb-3 sm:mb-4 max-h-[70px] sm:max-h-[80px] whitespace-nowrap">
-                    <div className="flex space-x-2 pb-1">
-                      {capturedPhotosInSession.map((src, index) => (
-                        <div key={`session-preview-photo-${index}`} className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-md overflow-hidden border-2 border-neutral-600">
-                          <img src={src} alt={t('sessionPhotoPreviewAlt', `Session Preview ${index + 1}`, {number: index + 1})} data-ai-hint="session photo" className="h-full w-full object-cover" />
-                          <Button 
-                            variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 bg-black/60 hover:bg-red-600/80 border-none p-0"
-                            onClick={() => removeMediaFromSession(index, 'photo')} aria-label={t('removePhotoTitle', "Remove photo")} disabled={isProcessingMedia}
-                          > <X className="h-3 w-3" /> </Button>
-                        </div>
-                      ))}
-                       {capturedVideosInSession.map((src, index) => (
-                        <div key={`session-preview-video-${index}`} className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-md overflow-hidden border-2 border-neutral-600 bg-black">
-                          <video src={src} className="h-full w-full object-cover" />
-                          <Film className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-white/80" />
-                          <Button 
-                            variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 bg-black/60 hover:bg-red-600/80 border-none p-0"
-                            onClick={() => removeMediaFromSession(index, 'video')} aria-label={t('removeVideoTitle', "Remove video")} disabled={isProcessingMedia}
-                          > <X className="h-3 w-3" /> </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <Button variant="ghost" onClick={handleCancelCustomCamera} className="text-white hover:bg-white/10 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base" disabled={isProcessingMedia}>
-                    {t('cancel', 'Cancel')}
-                  </Button>
-                  <Button 
-                    onClick={captureMode === 'photo' ? handleCapturePhotoFromStream : handleToggleVideoRecording} 
-                    disabled={!hasCameraPermission || mediaStream === null || isProcessingMedia}
-                    className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full focus:ring-4 focus:ring-white/50 flex items-center justify-center p-0 border-2 border-neutral-700 shadow-xl disabled:bg-neutral-600 disabled:opacity-70 ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-white hover:bg-neutral-200'}`}
-                    aria-label={t('capturePhoto', 'Capture Media')}
-                  >
-                    {captureMode === 'photo' ? <Camera className="w-7 h-7 sm:w-9 sm:h-9 text-black" /> : <div className={`h-8 w-8 rounded-md transition-all ${isRecording ? 'bg-white' : 'bg-red-500'}`} />}
-                  </Button>
-                  <Button 
-                    variant={(capturedPhotosInSession.length + capturedVideosInSession.length) > 0 ? "default" : "ghost"}
-                    onClick={handleAddSessionMediaToBatch} 
-                    disabled={(capturedPhotosInSession.length + capturedVideosInSession.length) === 0 || isProcessingMedia || isRecording}
-                    className={`py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base transition-colors duration-150 ${ (capturedPhotosInSession.length + capturedVideosInSession.length) > 0 ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'text-white hover:bg-white/10'}`}
-                  >
-                     {isProcessingMedia ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null }
-                     {isProcessingMedia ? t('saving', 'Processing...') : t('doneWithSessionAddPhotos', 'Add ({count})', { count: capturedPhotosInSession.length + capturedVideosInSession.length })}
-                  </Button>
-                </div>
-              </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <CustomCameraDialog
+        isOpen={isCustomCameraOpen}
+        onOpenChange={setIsCustomCameraOpen}
+        handleCancelCustomCamera={handleCancelCustomCamera}
+        captureMode={captureMode}
+        setCaptureMode={setCaptureMode}
+        hasCameraPermission={hasCameraPermission}
+        isRecording={isRecording}
+        isFlashOn={isFlashOn}
+        handleToggleFlash={handleToggleFlash}
+        videoRef={videoRef}
+        mediaStream={mediaStream}
+        isProcessingMedia={isProcessingMedia}
+        capturedPhotosInSession={capturedPhotosInSession}
+        capturedVideosInSession={capturedVideosInSession}
+        removeMediaFromSession={removeMediaFromSession}
+        handleCapturePhotoFromStream={handleCapturePhotoFromStream}
+        handleToggleVideoRecording={handleToggleVideoRecording}
+        handleAddSessionMediaToBatch={handleAddSessionMediaToBatch}
+        t={t}
+      />
     </div>
   );
 }
