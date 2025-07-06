@@ -1,7 +1,7 @@
 
 "use client";
 import type { Folder, Asset } from '@/data/mock-data';
-import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, FileArchive } from 'lucide-react';
+import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, FileArchive, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
-import React, { useCallback, useMemo } from 'react'; 
+import React, { useCallback, useMemo, useRef, useEffect } from 'react'; 
 import { AssetCard } from '@/components/asset-card';
 import { FolderGridCard } from '@/components/folder-grid-card';
 
@@ -112,6 +112,9 @@ interface FolderTreeDisplayProps {
   currentSelectedFolderId: string | null;
   displayMode?: 'grid' | 'list';
   deletingAssetId?: string | null;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export function FolderTreeDisplay({ 
@@ -129,9 +132,38 @@ export function FolderTreeDisplay({
   currentSelectedFolderId,
   displayMode = 'list',
   deletingAssetId,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
+  const loaderRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!onLoadMore) return;
+
+    const observer = new IntersectionObserver(
+        (entries) => {
+            const firstEntry = entries[0];
+            if (firstEntry.isIntersecting && hasMore && !isLoadingMore) {
+                onLoadMore();
+            }
+        },
+        { threshold: 1.0 }
+    );
+
+    const currentLoader = loaderRef.current;
+    if (currentLoader) {
+        observer.observe(currentLoader);
+    }
+
+    return () => {
+        if (currentLoader) {
+            observer.unobserve(currentLoader);
+        }
+    };
+  }, [hasMore, isLoadingMore, onLoadMore]);
 
   const assetCountsByFolder = useMemo(() => {
     if (!allProjectAssets) return new Map<string, number>();
@@ -173,61 +205,64 @@ export function FolderTreeDisplay({
     }
   }, [toast, t, onDeleteFolder]); 
   
+  const combinedItems = useMemo(() => [
+    ...foldersToDisplay.map(f => ({ type: 'folder' as const, data: f })),
+    ...assetsToDisplay.map(a => ({ type: 'asset' as const, data: a })),
+  ], [foldersToDisplay, assetsToDisplay]);
+
+  const infiniteScrollTrigger = (
+     <div ref={loaderRef} className="h-14 mt-4 flex items-center justify-center col-span-full">
+        {isLoadingMore ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        ) : (
+            !hasMore && assetsToDisplay.length > 0 && <p className="text-sm text-muted-foreground">{t('noMoreAssets', 'End of list.')}</p>
+        )}
+    </div>
+  );
+
   if (displayMode === 'grid') {
-    const combinedItems = [
-      ...foldersToDisplay.map(f => ({ type: 'folder' as const, data: f })),
-      ...assetsToDisplay.map(a => ({ type: 'asset' as const, data: a })),
-    ];
-
-    if (combinedItems.length === 0) {
-      return null;
-    }
-
     return (
-      <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
-        {combinedItems.map(item => {
-          if (item.type === 'folder') {
-            return (
-              <FolderGridCard
-                key={`item-folder-${item.data.id}`}
-                folder={item.data}
-                assetCount={assetCountsByFolder.get(item.data.id)}
-                onSelectFolder={onSelectFolder}
-                onAddSubfolder={onAddSubfolder}
-                onEditFolder={onEditFolder}
-                onActualDeleteFolder={handleDeleteClick}
-                t={t}
-              />
-            );
-          }
-          if (item.type === 'asset') {
-            return (
-              <AssetCard
-                key={`item-asset-${item.data.id}`}
-                asset={item.data}
-                onEditAsset={onEditAsset}
-                onDeleteAsset={onDeleteAsset}
-                onPreviewAsset={onPreviewAsset}
-                displayMode="grid"
-                isDeleting={deletingAssetId === item.data.id}
-              />
-            );
-          }
-          return null;
-        })}
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
+          {combinedItems.map(item => {
+            if (item.type === 'folder') {
+              return (
+                <FolderGridCard
+                  key={`item-folder-${item.data.id}`}
+                  folder={item.data}
+                  assetCount={assetCountsByFolder.get(item.data.id)}
+                  onSelectFolder={onSelectFolder}
+                  onAddSubfolder={onAddSubfolder}
+                  onEditFolder={onEditFolder}
+                  onActualDeleteFolder={handleDeleteClick}
+                  t={t}
+                />
+              );
+            }
+            if (item.type === 'asset') {
+              return (
+                <AssetCard
+                  key={`item-asset-${item.data.id}`}
+                  asset={item.data}
+                  onEditAsset={onEditAsset}
+                  onDeleteAsset={onDeleteAsset}
+                  onPreviewAsset={onPreviewAsset}
+                  displayMode="grid"
+                  isDeleting={deletingAssetId === item.data.id}
+                />
+              );
+            }
+            return null;
+          })}
+        </div>
+        {onLoadMore && infiniteScrollTrigger}
       </div>
     );
   }
 
   // --- LIST MODE LOGIC ---
   if (foldersToDisplay.length === 0 && assetsToDisplay.length === 0) {
-    return (
-       <div className="text-center py-8">
-            <p className="text-muted-foreground mb-4">
-              {currentSelectedFolderId ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
-            </p>
-        </div>
-    ); 
+    return null; 
   }
 
   const folderList = (
@@ -279,6 +314,7 @@ export function FolderTreeDisplay({
           </div>
         </div>
       )}
+       {onLoadMore && infiniteScrollTrigger}
     </div>
   );
 }

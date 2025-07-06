@@ -23,6 +23,7 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import * as OfflineService from '@/lib/offline-service';
 import * as XLSX from 'xlsx';
 import Image from 'next/image';
+import type { DocumentData } from 'firebase/firestore';
 
 // Lazy load modals to improve initial page load time
 const EditFolderModal = React.lazy(() => import('@/components/modals/edit-folder-modal').then(module => ({ default: module.EditFolderModal })));
@@ -40,14 +41,17 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
   
-  const [allAssetsForProject, setAllAssetsForProject] = useState<Asset[]>([]);
   const [currentViewAssets, setCurrentViewAssets] = useState<Asset[]>([]);
 
   const [offlineFolders, setOfflineFolders] = useState<FolderType[]>([]);
   const [offlineAssets, setOfflineAssets] = useState<Asset[]>([]);
 
   const [isLoading, setIsLoading] = useState(true); 
-  const [isContentLoading, setIsContentLoading] = useState(false); 
+  const [isContentLoading, setIsContentLoading] = useState(true); 
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreAssets, setHasMoreAssets] = useState(true);
+  const [lastVisibleAssetDoc, setLastVisibleAssetDoc] = useState<DocumentData | null>(null);
+  
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
 
   const [newFolderName, setNewFolderName] = useState('');
@@ -71,11 +75,7 @@ export default function ProjectPage() {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<Asset[]>([]);
-  const [visibleResultCount, setVisibleResultCount] = useState(10);
   
-
   const { toast } = useToast();
   const { t } = useLanguage();
   const { currentUser } = useAuth();
@@ -86,10 +86,9 @@ export default function ProjectPage() {
     if (projectId) {
       setIsLoading(true);
       try {
-        const [foundProject, projectFolders, allAssets] = await Promise.all([
+        const [foundProject, projectFolders] = await Promise.all([
           FirestoreService.getProjectById(projectId),
           FirestoreService.getFolders(projectId),
-          FirestoreService.getAllAssetsForProject(projectId), // Fetch all assets upfront
         ]);
 
         if (!foundProject) {
@@ -100,11 +99,9 @@ export default function ProjectPage() {
         
         setProject(foundProject);
         setAllProjectFolders(projectFolders);
-        setAllAssetsForProject(allAssets); // Store all assets
         
         const queuedActions = OfflineService.getOfflineQueue();
         setOfflineFolders(queuedActions.filter(a => a.type === 'add-folder' && a.projectId === projectId).map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType)));
-        setOfflineAssets(queuedActions.filter(a => a.type === 'add-asset' && a.projectId === projectId).map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset)));
 
       } catch (error) {
         console.error("Error loading project structure:", error);
@@ -115,31 +112,56 @@ export default function ProjectPage() {
       }
     }
   }, [projectId, router, t, toast]);
-
-  const loadCurrentViewAssets = useCallback(() => {
-    if (!projectId || isLoading) return;
-
+  
+  const fetchFirstPageOfAssets = useCallback(async (pId: string, fId: string | null) => {
     setIsContentLoading(true);
-    // Filter from the already fetched allAssetsForProject state
-    const assetsForView = allAssetsForProject.filter(asset => asset.folderId === currentUrlFolderId);
-    setCurrentViewAssets(assetsForView);
-    setIsContentLoading(false);
+    setCurrentViewAssets([]); // Clear previous assets
+    
+    const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(pId, fId, 15);
+    
+    setCurrentViewAssets(assets);
+    setLastVisibleAssetDoc(lastDoc);
+    setHasMoreAssets(lastDoc !== null);
+    
+    // Also fetch offline assets for this folder
+    const queuedActions = OfflineService.getOfflineQueue();
+    const offlineForView = queuedActions
+        .filter(a => a.type === 'add-asset' && a.projectId === pId && a.folderId === fId)
+        .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
+    setOfflineAssets(offlineForView);
 
-  }, [projectId, currentUrlFolderId, isLoading, allAssetsForProject]);
+    setIsContentLoading(false);
+  }, []);
+
+  const loadMoreAssets = useCallback(async () => {
+    if (isLoadingMore || !hasMoreAssets || !project) return;
+    
+    setIsLoadingMore(true);
+    const { assets: newAssets, lastDoc } = await FirestoreService.getAssetsPaginated(project.id, currentUrlFolderId, 15, lastVisibleAssetDoc);
+
+    setCurrentViewAssets(prev => [...prev, ...newAssets]);
+    setLastVisibleAssetDoc(lastDoc);
+    setHasMoreAssets(lastDoc !== null);
+    setIsLoadingMore(false);
+  }, [isLoadingMore, hasMoreAssets, project, currentUrlFolderId, lastVisibleAssetDoc]);
+
 
   useEffect(() => {
     loadInitialStructure();
   }, [loadInitialStructure]);
-  
+
+  // Load folder content when project is loaded or folderId changes
   useEffect(() => {
-    loadCurrentViewAssets();
-  }, [loadCurrentViewAssets]);
-  
+    if (!isLoading && project) {
+      fetchFirstPageOfAssets(project.id, currentUrlFolderId);
+    }
+  }, [isLoading, project, currentUrlFolderId, fetchFirstPageOfAssets]);
+
   const reloadAllData = useCallback(async () => {
     await loadInitialStructure();
-    loadCurrentViewAssets(); // This will now use the new state
-  }, [loadInitialStructure, loadCurrentViewAssets]);
-
+    // The useEffect above will trigger the asset reload for the current folder
+  }, [loadInitialStructure]);
+  
   useEffect(() => {
     if (isOnline) {
       OfflineService.syncOfflineActions().then(({ syncedCount }) => {
@@ -181,37 +203,30 @@ export default function ProjectPage() {
   }, [project, currentUrlFolderId, getFolderPath]);
 
   const combinedCurrentViewAssets = useMemo(() => {
-    const offlineForView = offlineAssets.filter(asset => asset.folderId === currentUrlFolderId);
-    return [...currentViewAssets, ...offlineForView];
-  }, [currentViewAssets, offlineAssets, currentUrlFolderId]);
+    return [...currentViewAssets, ...offlineAssets];
+  }, [currentViewAssets, offlineAssets]);
 
-  const foldersToDisplay = useMemo(() => {
-    return combinedFolders.filter(folder => folder.parentId === (currentUrlFolderId || null));
-  }, [combinedFolders, currentUrlFolderId]);
 
-  // Project-wide search logic
-  useEffect(() => {
-    if (deferredSearchTerm) {
-      setIsSearching(true);
-      const isNumericSearch = /^\d+$/.test(deferredSearchTerm);
-      const lowercasedSearch = deferredSearchTerm.toLowerCase();
+  // Client-side filtering logic
+  const isSearching = deferredSearchTerm.trim().length > 0;
 
-      const results = allAssetsForProject.filter(asset => {
-        if (isNumericSearch) {
-          return asset.serialNumber?.includes(deferredSearchTerm);
-        } else {
-          return asset.name.toLowerCase().includes(lowercasedSearch);
-        }
-      });
-      
-      setSearchResults(results);
-      setVisibleResultCount(10); // Reset pagination on new search
-      setIsSearching(false);
-    } else {
-      setSearchResults([]);
-    }
-  }, [deferredSearchTerm, allAssetsForProject]);
+  const finalAssetsToDisplay = useMemo(() => {
+    if (!isSearching) return combinedCurrentViewAssets;
+    
+    const lowercasedSearch = deferredSearchTerm.toLowerCase();
+    return combinedCurrentViewAssets.filter(asset => 
+        asset.name.toLowerCase().includes(lowercasedSearch) || 
+        (asset.serialNumber && asset.serialNumber.toLowerCase().includes(lowercasedSearch))
+    );
+  }, [isSearching, deferredSearchTerm, combinedCurrentViewAssets]);
+  
+  const finalFoldersToDisplay = useMemo(() => {
+     const foldersForCurrentParent = combinedFolders.filter(folder => folder.parentId === (currentUrlFolderId || null));
+     if (!isSearching) return foldersForCurrentParent;
 
+     const lowercasedSearch = deferredSearchTerm.toLowerCase();
+     return foldersForCurrentParent.filter(folder => folder.name.toLowerCase().includes(lowercasedSearch));
+  }, [isSearching, deferredSearchTerm, combinedFolders, currentUrlFolderId]);
 
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && combinedFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
@@ -352,7 +367,7 @@ export default function ProjectPage() {
       folderId: assetData.folderId || null,
     };
 
-    setCurrentViewAssets(prev => [...prev, optimisticAsset]);
+    setCurrentViewAssets(prev => [optimisticAsset, ...prev]);
 
     toast({
       title: t('saving', 'Saving...'),
@@ -493,61 +508,8 @@ export default function ProjectPage() {
     );
   }
 
-  const isDisplayingSearchResults = deferredSearchTerm.length > 0;
-  const assetsForFolderTree = combinedCurrentViewAssets;
-  const foldersForFolderTree = foldersToDisplay;
-
-  const renderSearchResults = () => (
-    <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Search Results for &quot;{deferredSearchTerm}&quot;</h2>
-        {isSearching && (
-            <div className="flex justify-center items-center h-40">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        )}
-        {!isSearching && searchResults.length === 0 && (
-            <div className="text-center py-8">
-                <p className="text-muted-foreground">{t('noSearchResults', 'No assets found matching your search.')}</p>
-            </div>
-        )}
-        {!isSearching && searchResults.length > 0 && (
-            <div className="space-y-2">
-                {searchResults.slice(0, visibleResultCount).map(asset => {
-                    const path = getFolderPath(asset.folderId).map(p => p.name).join(' > ');
-                    return (
-                        <Card key={asset.id} className="flex items-center p-3 gap-4 hover:bg-muted/50">
-                             <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                                {asset.photos?.[0] ? (
-                                    <Image src={asset.photos[0]} alt={asset.name} layout="fill" className="object-cover"/>
-                                ) : (
-                                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                                )}
-                            </div>
-                            <div className="flex-grow min-w-0">
-                                <p className="font-semibold truncate">{asset.name}</p>
-                                <p className="text-xs text-muted-foreground truncate" title={path}>{path}</p>
-                            </div>
-                            <Button variant="ghost" size="sm" onClick={() => handleEditAsset(asset)}>
-                                <Edit3 className="mr-2 h-4 w-4"/>
-                                {t('edit', 'Edit')}
-                            </Button>
-                        </Card>
-                    )
-                })}
-            </div>
-        )}
-        {searchResults.length > visibleResultCount && (
-            <div className="text-center mt-4">
-                <Button variant="outline" onClick={() => setVisibleResultCount(count => count + 10)}>
-                    Load More
-                </Button>
-            </div>
-        )}
-    </div>
-  );
-
   const renderFolderView = () => {
-    const isCurrentLocationEmpty = foldersForFolderTree.length === 0 && assetsForFolderTree.length === 0;
+    const isCurrentLocationEmpty = finalFoldersToDisplay.length === 0 && finalAssetsToDisplay.length === 0;
     return (
         <>
             {isContentLoading ? (
@@ -556,9 +518,9 @@ export default function ProjectPage() {
                 </div>
             ) : (
                 <FolderTreeDisplay
-                    foldersToDisplay={foldersForFolderTree}
-                    assetsToDisplay={assetsForFolderTree}
-                    allProjectAssets={allAssetsForProject}
+                    foldersToDisplay={finalFoldersToDisplay}
+                    assetsToDisplay={finalAssetsToDisplay}
+                    allProjectAssets={[]}
                     projectId={project.id}
                     onSelectFolder={handleSelectFolder}
                     onAddSubfolder={openNewFolderDialog}
@@ -570,13 +532,23 @@ export default function ProjectPage() {
                     currentSelectedFolderId={selectedFolder?.id || null}
                     displayMode="grid"
                     deletingAssetId={deletingAssetId}
+                    onLoadMore={loadMoreAssets}
+                    hasMore={hasMoreAssets && !isSearching}
+                    isLoadingMore={isLoadingMore}
                 />
             )}
             
-            {isCurrentLocationEmpty && !isContentLoading && (
+            {isCurrentLocationEmpty && !isContentLoading && !isSearching && (
                 <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">
                         {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
+                    </p>
+                </div>
+            )}
+             {isCurrentLocationEmpty && isSearching && (
+                <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">
+                       {t('noSearchResults', 'No assets found matching your search.')}
                     </p>
                 </div>
             )}
@@ -614,29 +586,27 @@ export default function ProjectPage() {
 
         <Card>
           <CardHeader className="pt-3 px-4 pb-0 md:pt-4 md:px-6 md:pb-0">
-             {!isDisplayingSearchResults && (
-                <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
-                    {breadcrumbItems.map((item, index) => (
-                        <React.Fragment key={item.id || `project_root_${project.id}`}>
-                        <span
-                            className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                            onClick={() => {
-                            if (item.type === 'project') {
-                                handleSelectFolder(null);
-                            } else if (item.id) {
-                                const folderToSelect = foldersMap.get(item.id); 
-                                if (folderToSelect) handleSelectFolder(folderToSelect);
-                            }
-                            }}
-                            title={t('clickToNavigateTo', 'Click to navigate to {name}', { name: item.name })}
-                        >
-                            {item.name}
-                        </span>
-                        {index < breadcrumbItems.length - 1 && <span className="mx-1.5 text-muted-foreground">{t('breadcrumbSeparator', '>')}</span>}
-                        </React.Fragment>
-                    ))}
-                </CardTitle>
-             )}
+             <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
+                {breadcrumbItems.map((item, index) => (
+                    <React.Fragment key={item.id || `project_root_${project.id}`}>
+                    <span
+                        className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                        onClick={() => {
+                        if (item.type === 'project') {
+                            handleSelectFolder(null);
+                        } else if (item.id) {
+                            const folderToSelect = foldersMap.get(item.id); 
+                            if (folderToSelect) handleSelectFolder(folderToSelect);
+                        }
+                        }}
+                        title={t('clickToNavigateTo', 'Click to navigate to {name}', { name: item.name })}
+                    >
+                        {item.name}
+                    </span>
+                    {index < breadcrumbItems.length - 1 && <span className="mx-1.5 text-muted-foreground">{t('breadcrumbSeparator', '>')}</span>}
+                    </React.Fragment>
+                ))}
+            </CardTitle>
           </CardHeader>
           <CardContent className={cn("transition-colors rounded-b-lg p-2 md:p-4")}>
              <div className="flex justify-end mb-4">
@@ -652,7 +622,7 @@ export default function ProjectPage() {
                 </div>
             </div>
             <ScrollArea className="h-[calc(100vh-28rem)] pr-3">
-              {isDisplayingSearchResults ? renderSearchResults() : renderFolderView()}
+              {renderFolderView()}
             </ScrollArea>
           </CardContent>
         </Card>
@@ -786,5 +756,3 @@ export default function ProjectPage() {
       </div>
   );
 }
-
-    

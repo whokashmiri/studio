@@ -19,7 +19,10 @@ import {
   getCountFromServer,
   or, 
   and, 
-  documentId
+  documentId,
+  orderBy,
+  limit,
+  startAfter,
 } from 'firebase/firestore';
 import type { Project, Folder, Asset, Company, MockStoredUser, AuthenticatedUser, UserRole } from '@/data/mock-data';
 import { mockCompanies as initialMockCompanies } from '@/data/mock-data';
@@ -453,6 +456,41 @@ export async function getAssets(projectId: string, folderId: string | null): Pro
       console.error("Error getting assets: ", error);
       return [];
     }
+}
+
+export async function getAssetsPaginated(
+  projectId: string,
+  folderId: string | null,
+  pageSize: number,
+  startAfterDoc?: DocumentData
+): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
+  try {
+    const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
+    
+    // Base query constraints
+    const constraints: any[] = [
+      where("projectId", "==", projectId),
+      where("folderId", "==", folderId),
+      orderBy("name"), // Order by name for consistent pagination
+      limit(pageSize)
+    ];
+
+    // Add startAfter constraint if a cursor is provided
+    if (startAfterDoc) {
+      constraints.push(startAfter(startAfterDoc));
+    }
+    
+    const q = query(assetsCollectionRef, ...constraints);
+    
+    const snapshot = await getDocs(q);
+    const assets = processSnapshot<Asset>(snapshot);
+    const lastDoc = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
+
+    return { assets, lastDoc };
+  } catch (error) {
+    console.error("Error getting paginated assets: ", error);
+    return { assets: [], lastDoc: null };
+  }
 }
 
 export async function getAllAssetsForProject(projectId: string): Promise<Asset[]> {
