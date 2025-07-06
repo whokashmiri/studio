@@ -624,7 +624,7 @@ export default function ProjectPage() {
                     />
                 </div>
             </div>
-            <ScrollArea className="h-[calc(100vh-28rem)] pr-3">
+            <ScrollArea className="h-[calc(100vh-24rem)] pr-3">
               {renderFolderView()}
             </ScrollArea>
           </CardContent>
