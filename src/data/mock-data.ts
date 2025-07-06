@@ -44,6 +44,7 @@ export interface Asset {
   voiceDescription?: string; // Text transcript
   recordedAudioDataUrl?: string; // Data URI of the actual recorded audio
   textDescription?: string;
+  miscellaneous?: Record<string, any>;
   createdAt: number; // Changed from string to number
   updatedAt?: number; // Changed from string to number
   userId?: string;

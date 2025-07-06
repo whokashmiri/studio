@@ -375,6 +375,9 @@ export default function ProjectPage() {
             const serialHeader = findHeader(['serial number', 'serial']);
             const descHeader = findHeader(['description', 'desc']);
 
+            const knownHeaderStrings = [nameHeader, quantityHeader, serialHeader, descHeader].filter(Boolean) as string[];
+            const miscellaneousHeaders = headers.filter(h => !knownHeaderStrings.includes(h));
+
             if (!nameHeader) {
                 toast({ title: t('importErrorTitle', "Import Error"), description: t('importErrorMissingNameColumn', "The Excel file must contain a 'Name' column."), variant: "destructive" });
                 return;
@@ -389,6 +392,13 @@ export default function ProjectPage() {
                 const serial = row[serialHeader as string] ? String(row[serialHeader as string]) : undefined;
                 const description = row[descHeader as string] ? String(row[descHeader as string]) : undefined;
 
+                const miscellaneousData: Record<string, any> = {};
+                miscellaneousHeaders.forEach(header => {
+                    if (row[header] !== undefined && row[header] !== null && row[header] !== '') {
+                        miscellaneousData[header] = row[header];
+                    }
+                });
+
                 for (let i = 1; i <= quantity; i++) {
                     assetsToCreate.push({
                         name: quantity > 1 ? `${baseName} ${i}` : baseName,
@@ -399,6 +409,7 @@ export default function ProjectPage() {
                         photos: [],
                         videos: [],
                         userId: currentUser.id,
+                        miscellaneous: Object.keys(miscellaneousData).length > 0 ? miscellaneousData : undefined,
                     });
                 }
             }

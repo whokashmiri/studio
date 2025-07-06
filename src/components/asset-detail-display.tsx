@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useLanguage } from '@/contexts/language-context';
-import { PlayCircle, PauseCircle, Text, Edit, ImageOff, Volume2, ArrowLeft, ArrowRight, Video, Hash } from 'lucide-react';
+import { PlayCircle, PauseCircle, Text, Edit, ImageOff, Volume2, ArrowLeft, ArrowRight, Video, Hash, Layers } from 'lucide-react';
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRouter } from 'next/navigation';
@@ -185,6 +185,25 @@ export function AssetDetailDisplay({ asset, onBack }: AssetDetailDisplayProps) {
                  <p className="text-sm text-foreground p-3 border rounded-md bg-background mt-2">
                   {asset.serialNumber}
                 </p>
+            </div>
+        )}
+
+        {asset.miscellaneous && Object.keys(asset.miscellaneous).length > 0 && (
+            <div className="p-4 border rounded-lg bg-card/60">
+                 <h3 className="text-lg font-semibold flex items-center text-foreground/90">
+                    <Layers className="mr-2 h-5 w-5 text-accent" />
+                    {t('miscellaneousData', 'Additional Data')}
+                </h3>
+                 <ScrollArea className="max-h-40 p-0.5 mt-2">
+                    <div className="space-y-2 p-3 border rounded-md bg-background">
+                        {Object.entries(asset.miscellaneous).map(([key, value]) => (
+                            <div key={key} className="text-sm grid grid-cols-1 sm:grid-cols-3 gap-2 border-b last:border-b-0 pb-1">
+                                <strong className="font-medium text-muted-foreground sm:col-span-1 truncate" title={key}>{key}:</strong>
+                                <p className="sm:col-span-2 break-words">{String(value)}</p>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
             </div>
         )}
 
