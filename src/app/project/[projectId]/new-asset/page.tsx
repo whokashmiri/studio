@@ -77,7 +77,7 @@ const MediaManagerDialog: FC<any> = ({
           <div className="space-y-4 mt-4">
             <Label>{t('currentPhotoBatch', 'Current Photos')} ({photoUrls.length})</Label>
             {photoUrls.length > 0 ? (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
+              <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-1.5">
                 {photoUrls.map((src: string, index: number) => (
                   <div key={`batch-photo-${index}-${src.substring(0, 20)}`} className="relative group">
                     <img src={src} alt={t('previewBatchPhotoAlt', `Batch Preview ${index + 1}`, { number: index + 1 })} data-ai-hint="asset photo batch" className="rounded-md object-cover aspect-square" />
@@ -99,7 +99,7 @@ const MediaManagerDialog: FC<any> = ({
             )}
             <Label>{t('currentVideoBatch', 'Current Videos')} ({videoUrls.length})</Label>
             {videoUrls.length > 0 ? (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
+              <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-1.5">
                 {videoUrls.map((src: string, index: number) => (
                   <div key={`batch-video-${index}-${src.substring(0, 20)}`} className="relative group bg-black rounded-md flex items-center justify-center">
                     <video src={src} className="rounded-md object-cover aspect-square" />
@@ -939,20 +939,21 @@ export default function NewAssetPage() {
                          <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Media')}
                       </Button>
                     </div>
-                    <div className="grid grid-cols-6 gap-1.5">
-                      {photoUrls.slice(0, 6).map((src, index) => ( 
+                    <ScrollArea className="h-auto max-h-[200px] pr-2 border rounded-md p-2">
+                      <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-1.5">
+                        {photoUrls.map((src, index) => (
                           <div key={`main-preview-photo-${index}-${src.substring(0,20)}`} className="relative group">
                             <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
                           </div>
-                      ))}
-                       {videoUrls.slice(0, 6 - photoUrls.length).map((src, index) => ( 
+                        ))}
+                        {videoUrls.map((src, index) => (
                           <div key={`main-preview-video-${index}-${src.substring(0,20)}`} className="relative group bg-black rounded-md flex items-center justify-center">
                             <video src={src} className="rounded-md object-cover aspect-square" />
                             <Film className="absolute h-6 w-6 text-white/80" />
                           </div>
-                      ))}
-                    </div>
-                    {totalMediaCount > 6 && <p className="text-xs text-muted-foreground text-center mt-1">{t('morePhotosInModal', `+${totalMediaCount - 6} more. Click "Manage Media" to see all.`, {count: totalMediaCount - 6})}</p>}
+                        ))}
+                      </div>
+                    </ScrollArea>
                   </div>
                 )}
               </div>
@@ -1017,19 +1018,21 @@ export default function NewAssetPage() {
                           <Edit3 className="mr-2 h-4 w-4" /> {t('managePhotosButton', 'Manage Media')}
                        </Button>
                     </div>
-                    <div className="grid grid-cols-6 gap-1.5">
-                      {photoUrls.map((src, index) => (
+                    <ScrollArea className="h-auto max-h-[150px] pr-2 border rounded-md p-2">
+                      <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-1.5">
+                        {photoUrls.map((src, index) => (
                           <div key={`desc-preview-photo-${index}-${src.substring(0,20)}`} className="relative group">
                             <img src={src} alt={t('previewPhotoAlt', `Preview ${index + 1}`, {number: index + 1})} data-ai-hint="asset photo" className="rounded-md object-cover aspect-square" />
                           </div>
-                      ))}
-                      {videoUrls.map((src, index) => (
+                        ))}
+                        {videoUrls.map((src, index) => (
                           <div key={`desc-preview-video-${index}-${src.substring(0,20)}`} className="relative group bg-black rounded-md flex items-center justify-center">
                              <video src={src} className="rounded-md object-cover aspect-square" />
                              <Film className="absolute h-6 w-6 text-white/80" />
                           </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
                   </div>
                 )}
                 
