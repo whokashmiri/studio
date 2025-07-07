@@ -20,6 +20,7 @@ import { useLanguage } from '@/contexts/language-context';
 import { processImageForSaving } from '@/lib/image-handler-service';
 import { uploadMedia } from '@/actions/cloudinary-actions';
 import { useAuth } from '@/contexts/auth-context';
+import { Switch } from '@/components/ui/switch';
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
 type CaptureMode = 'photo' | 'video';
@@ -278,6 +279,7 @@ export default function NewAssetPage() {
   const [assetVoiceDescription, setAssetVoiceDescription] = useState('');
   const [recordedAudioDataUrl, setRecordedAudioDataUrl] = useState<string | null>(null);
   const [assetTextDescription, setAssetTextDescription] = useState('');
+  const [isDone, setIsDone] = useState(false);
   
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
@@ -347,7 +349,8 @@ export default function NewAssetPage() {
             setAssetTextDescription(foundAsset.textDescription || '');
             setPhotoUrls(foundAsset.photos || []);
             setVideoUrls(foundAsset.videos || []);
-            setCurrentStep('descriptions'); 
+            setIsDone(foundAsset.isDone || false);
+            setCurrentStep('photos_and_name'); 
           } else {
             toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
             router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
@@ -843,6 +846,7 @@ export default function NewAssetPage() {
         voiceDescription: assetVoiceDescription.trim() || undefined,
         recordedAudioDataUrl: recordedAudioDataUrl || undefined,
         textDescription: assetTextDescription.trim() || undefined,
+        isDone: isDone,
       };
       
       let success = false;
@@ -1079,6 +1083,21 @@ export default function NewAssetPage() {
                     className="resize-y"
                   />
                 </div>
+                 {isEditMode && (
+                    <div className="flex items-center space-x-3 rounded-lg border p-4 bg-muted/50">
+                        <Switch
+                            id="is-done-switch"
+                            checked={isDone}
+                            onCheckedChange={setIsDone}
+                        />
+                        <div className="flex flex-col">
+                            <Label htmlFor="is-done-switch" className="cursor-pointer">
+                                {t('markAssetAsDone', 'Mark Asset as Done')}
+                            </Label>
+                            <p className="text-xs text-muted-foreground">{t('markAssetAsDoneDesc', 'A "Done" asset will be hidden from lists and searches.')}</p>
+                        </div>
+                    </div>
+                )}
             </CardContent>
             <CardFooter className="flex flex-row justify-between items-center gap-2 pt-4">
               <Button variant="outline" onClick={() => setCurrentStep('photos_and_name')}>
@@ -1111,41 +1130,45 @@ export default function NewAssetPage() {
       
        {renderStepContent()}
 
-      <MediaManagerDialog
-        isOpen={isMediaModalOpen}
-        onClose={() => setIsMediaModalOpen(false)}
-        assetName={assetName}
-        isProcessingMedia={isProcessingMedia}
-        handleMediaUploadFromGallery={handleMediaUploadFromGallery}
-        photoUrls={photoUrls}
-        videoUrls={videoUrls}
-        removeMediaFromPreviews={removeMediaFromPreviews}
-        setIsCustomCameraOpen={setIsCustomCameraOpen}
-        galleryInputRef={galleryInputRef}
-        t={t}
-      />
-
-      <CustomCameraDialog
-        isOpen={isCustomCameraOpen}
-        onOpenChange={setIsCustomCameraOpen}
-        handleCancelCustomCamera={handleCancelCustomCamera}
-        captureMode={captureMode}
-        setCaptureMode={setCaptureMode}
-        hasCameraPermission={hasCameraPermission}
-        isRecording={isRecording}
-        isFlashOn={isFlashOn}
-        handleToggleFlash={handleToggleFlash}
-        videoRef={videoRef}
-        mediaStream={mediaStream}
-        isProcessingMedia={isProcessingMedia}
-        capturedPhotosInSession={capturedPhotosInSession}
-        capturedVideosInSession={capturedVideosInSession}
-        removeMediaFromSession={removeMediaFromSession}
-        handleCapturePhotoFromStream={handleCapturePhotoFromStream}
-        handleToggleVideoRecording={handleToggleVideoRecording}
-        handleAddSessionMediaToBatch={handleAddSessionMediaToBatch}
-        t={t}
-      />
+      {isMediaModalOpen && (
+         <MediaManagerDialog
+          isOpen={isMediaModalOpen}
+          onClose={() => setIsMediaModalOpen(false)}
+          assetName={assetName}
+          isProcessingMedia={isProcessingMedia}
+          handleMediaUploadFromGallery={handleMediaUploadFromGallery}
+          photoUrls={photoUrls}
+          videoUrls={videoUrls}
+          removeMediaFromPreviews={removeMediaFromPreviews}
+          setIsCustomCameraOpen={setIsCustomCameraOpen}
+          galleryInputRef={galleryInputRef}
+          t={t}
+        />
+      )}
+     
+      {isCustomCameraOpen && (
+        <CustomCameraDialog
+          isOpen={isCustomCameraOpen}
+          onOpenChange={setIsCustomCameraOpen}
+          handleCancelCustomCamera={handleCancelCustomCamera}
+          captureMode={captureMode}
+          setCaptureMode={setCaptureMode}
+          hasCameraPermission={hasCameraPermission}
+          isRecording={isRecording}
+          isFlashOn={isFlashOn}
+          handleToggleFlash={handleToggleFlash}
+          videoRef={videoRef}
+          mediaStream={mediaStream}
+          isProcessingMedia={isProcessingMedia}
+          capturedPhotosInSession={capturedPhotosInSession}
+          capturedVideosInSession={capturedVideosInSession}
+          removeMediaFromSession={removeMediaFromSession}
+          handleCapturePhotoFromStream={handleCapturePhotoFromStream}
+          handleToggleVideoRecording={handleToggleVideoRecording}
+          handleAddSessionMediaToBatch={handleAddSessionMediaToBatch}
+          t={t}
+        />
+      )}
     </div>
   );
 }

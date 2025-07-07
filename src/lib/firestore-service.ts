@@ -445,10 +445,10 @@ export async function getAssets(projectId: string, folderId: string | null): Pro
       let q;
       if (folderId === null) {
           // If folderId is null, fetch assets at the root of the project
-          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null));
+          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null), where("isDone", "!=", true));
       } else {
           // If folderId is provided, fetch assets within that specific folder
-          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId));
+          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId), where("isDone", "!=", true));
       }
       const snapshot = await getDocs(q);
       return processSnapshot<Asset>(snapshot);
@@ -471,6 +471,7 @@ export async function getAssetsPaginated(
     const constraints: any[] = [
       where("projectId", "==", projectId),
       where("folderId", "==", folderId),
+      where("isDone", "!=", true),
       orderBy(documentId()), // Use document ID for consistent pagination, which requires no special index.
       limit(pageSize)
     ];
@@ -532,6 +533,7 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
       name_lowercase: assetData.name.toLowerCase(),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      isDone: false, // Explicitly set to false for new assets
     });
 
     if (localId) {
@@ -626,7 +628,7 @@ export async function getUserAccessibleData(userId: string, companyId: string): 
           const foldersSnapshot = await getDocs(foldersQuery);
           result.folders.push(...processSnapshot<Folder>(foldersSnapshot));
           
-          const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", batchProjectIds));
+          const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", batchProjectIds), where("isDone", "!=", true));
           const assetsSnapshot = await getDocs(assetsQuery);
           result.assets.push(...processSnapshot<Asset>(assetsSnapshot));
         }
@@ -759,43 +761,47 @@ export async function searchAssets(
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     const isSerialSearch = /^\d+$/.test(searchTerm) && searchTerm.length > 0;
     
-    const baseConstraints: any[] = [where("projectId", "==", projectId)];
-    let finalConstraints: any[] = [];
+    const baseConstraints: any[] = [
+        where("projectId", "==", projectId),
+        where("isDone", "!=", true)
+    ];
 
     if (folderId !== undefined && folderId !== null) {
-      // --- SEARCHING INSIDE A FOLDER ---
       baseConstraints.push(where("folderId", "==", folderId));
-      if (isSerialSearch) {
-        finalConstraints = [
-          ...baseConstraints,
-          where("serialNumber", "==", Number(searchTerm)),
-          orderBy(documentId()), // Order by doc ID for pagination
-          limit(pageSize),
-        ];
-      } else {
-        // Name search (prefix search)
-        const lowerCaseTerm = searchTerm.toLowerCase();
-        finalConstraints = [
-          ...baseConstraints,
-          where("name_lowercase", ">=", lowerCaseTerm),
-          where("name_lowercase", "<=", lowerCaseTerm + '\uf8ff'),
-          orderBy("name_lowercase"), // Must order by the inequality field
-          limit(pageSize),
-        ];
-      }
-    } 
-    else {
-      // --- SEARCHING AT PROJECT ROOT (SERIAL ONLY) ---
-      if (isSerialSearch) {
-        finalConstraints = [
-          ...baseConstraints,
-          where("serialNumber", "==", Number(searchTerm)),
-          orderBy(documentId()),
-          limit(pageSize),
-        ];
-      } else {
-        return { assets: [], lastDoc: null };
-      }
+    }
+    
+    let finalConstraints: any[] = [];
+
+    if (folderId !== undefined) { // Search inside a specific folder (or root) by name or serial
+        if (isSerialSearch) {
+             finalConstraints = [
+                ...baseConstraints,
+                where("serialNumber", "==", Number(searchTerm)),
+                orderBy(documentId()),
+                limit(pageSize),
+            ];
+        } else {
+             const lowerCaseTerm = searchTerm.toLowerCase();
+             finalConstraints = [
+                ...baseConstraints,
+                where("name_lowercase", ">=", lowerCaseTerm),
+                where("name_lowercase", "<=", lowerCaseTerm + '\uf8ff'),
+                orderBy("name_lowercase"),
+                limit(pageSize),
+            ];
+        }
+    } else { // Project-wide search (serial only for now to avoid complex indexes)
+        if (isSerialSearch) {
+            finalConstraints = [
+                ...baseConstraints,
+                where("serialNumber", "==", Number(searchTerm)),
+                orderBy(documentId()),
+                limit(pageSize),
+            ];
+        } else {
+            // Project-wide name search requires a composite index, returning empty for now
+            return { assets: [], lastDoc: null };
+        }
     }
 
     if (startAfterDoc) {

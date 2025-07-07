@@ -51,6 +51,7 @@ export interface Asset {
   userId?: string;
   isUploading?: boolean;
   isOffline?: boolean;
+  isDone?: boolean;
 }
 
 export type UserRole = 'Admin' | 'Inspector' | 'Valuation';

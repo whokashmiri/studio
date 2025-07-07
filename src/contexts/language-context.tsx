@@ -78,16 +78,17 @@ const translations: Record<Language, Record<string, string>> = {
     photosRequiredDesc: "Please add at least one photo or video for the asset.",
     
     stepNameInputTitle: "Step 1: Asset Name", 
+    stepPhotosAndNameTitle: "Step 1: Media & Asset Name",
     stepPhotosCaptureTitle: "Step 2: Photos", 
-    stepDescriptionsTitle: "Step 3: Descriptions",
+    stepDescriptionsTitle: "Step 2: Descriptions",
 
     nextStepAddPhotos: "Next: Add Photos", 
     nextStepDescriptions: "Next: Add Descriptions", 
     
     addPhotosForAssetTitle: "Add Photos for:",
-    addPhotosSectionTitle: "Add Photos",
-    managePhotosButton: "Manage Photos",
-    morePhotosInModal: "+{count} more. Click \"Manage Photos\" to see all.",
+    addPhotosSectionTitle: "Add Photos & Videos",
+    managePhotosButton: "Manage Media",
+    morePhotosInModal: "+{count} more. Click \"Manage Media\" to see all.",
 
     addDetailsForAssetTitle: "Add Details for:",
     voiceDescriptionLabel: "Voice Description",
@@ -101,17 +102,21 @@ const translations: Record<Language, Record<string, string>> = {
     
     backToPhotoCapture: "Back", 
     backToAssetNameModal: "Back", 
-    saveAssetButton: "Finish", 
+    backToPhotosName: "Back to Media & Name",
+    saveAssetButton: "Save Asset", 
 
     descriptionRequiredForSaveTitle: "Description Required",
     descriptionRequiredForSaveDesc: "Please provide at least one form of description (voice or text).",
     unnamedAsset: "Unnamed Asset",
-    managePhotosModalTitle: "Manage Photos for Asset:",
-    managePhotosModalDesc: "Add more photos using your camera or gallery, or remove existing ones from the batch.",
+    managePhotosModalTitle: "Manage Media for Asset:",
+    managePhotosModalDesc: "Add more media using your camera or gallery, or remove existing ones from the batch.",
 
     photosAdded: "Media Added",
     editPhotos: "Add/Edit Photos",
     removePhotoTitle: "Remove photo",
+    removeVideoTitle: "Remove video",
+    currentVideoBatch: "Current Videos",
+    noVideosInBatch: "No videos in the current batch yet.",
 
     backTo: "Back to",
     backToProject: "Back to Project",
@@ -170,7 +175,7 @@ const translations: Record<Language, Record<string, string>> = {
     editAssetDetailsTitle: "Edit Details for:",
     updateDetailsPrompt: "Update the details for this asset.",
 
-    doneWithPhotos: 'Done with Photos',
+    doneWithPhotos: 'Done',
 
     deleteAssetTitle: "Delete Asset",
     editFolderTitle: "Edit folder {folderName}",
@@ -220,14 +225,14 @@ const translations: Record<Language, Record<string, string>> = {
     collapseFolder: "Collapse folder",
     viewAssetsInFolder: "View assets in {folderName}",
 
-    takePhotosCustomCamera: "Take Photos (Camera)",
+    takePhotosCustomCamera: "Open Camera",
     initializingCamera: "Initializing Camera...",
     allowCameraAccessPrompt: "Please allow camera access when prompted.",
-    capturePhoto: "Capture Photo",
+    capturePhoto: "Capture Media",
     sessionPhotoPreviewAlt: "Session Preview {number}",
     doneWithSession: "Done", 
     doneWithSessionAddPhotos: "Add ({count})",
-    currentPhotoBatch: "Current Photo Batch",
+    currentPhotoBatch: "Current Photos",
     customCameraViewTitle: "Custom Camera View",
     customCameraDialogTitle: "Camera",
 
@@ -242,6 +247,7 @@ const translations: Record<Language, Record<string, string>> = {
     speechNoVoiceToPlayDesc: "Speech synthesis is not available or no voice description to play.", 
     speechPlaybackNotAvailableTitle: "Speech Playback Not Available", 
     speechPlaybackNotAvailableDesc: "Your browser does not support speech playback.", 
+    pauseAudio: "Pause",
 
     assetsInFolder: "Assets in \"{folderName}\"",
     noAssetsInFolder: "No assets in this folder.",
@@ -365,9 +371,9 @@ const translations: Record<Language, Record<string, string>> = {
     cancelAssetCreation: "Cancel Asset Creation", 
     backToDashboard: "Back to Dashboard",
 
-    viewImage: "View Image",
+    viewImage: "Preview Media",
     clickToViewImage: "Click to view full image",
-    fullSizePreviewAlt: "Full-size asset image preview",
+    fullSizePreviewAlt: "Full-size asset media preview",
     imagePreviewTitle: "Image Preview",
     close: "Close",
 
@@ -461,6 +467,8 @@ const translations: Record<Language, Record<string, string>> = {
     importSuccessDesc: "{count} assets have been created.",
     importSuccessDescInFolder: "{count} assets have been created in folder '{folderName}'.",
     miscellaneousData: "Additional Data",
+    markAssetAsDone: "Mark Asset as Done",
+    markAssetAsDoneDesc: "A \"Done\" asset will be hidden from lists and searches.",
   },
   ar: {
     appName: "فالتيك للتقييم",
@@ -525,41 +533,46 @@ const translations: Record<Language, Record<string, string>> = {
     photosRequiredTitle: "الصور مطلوبة",
     photosRequiredDesc: "الرجاء إضافة صورة واحدة على الأقل للأصل.",
     
-    stepNameInputTitle: "الخطوة ١: اسم الأصل", 
+    stepNameInputTitle: "الخطوة ١: اسم الأصل",
+    stepPhotosAndNameTitle: "الخطوة ١: الوسائط واسم الأصل",
     stepPhotosCaptureTitle: "الخطوة ٢: الصور", 
-    stepDescriptionsTitle: "الخطوة ٣: الأوصاف",
+    stepDescriptionsTitle: "الخطوة ٢: الأوصاف",
 
     nextStepAddPhotos: "التالي: إضافة الصور", 
     nextStepDescriptions: "التالي: إضافة الأوصاف", 
     
     addPhotosForAssetTitle: "إضافة صور لـ:",
-    addPhotosSectionTitle: "إضافة صور",
-    managePhotosButton: "إدارة الصور",
-    morePhotosInModal: "+{count} أخرى. انقر فوق \"إدارة الصور\" لرؤية الكل.",
+    addPhotosSectionTitle: "إضافة الصور والفيديوهات",
+    managePhotosButton: "إدارة الوسائط",
+    morePhotosInModal: "+{count} أخرى. انقر فوق \"إدارة الوسائط\" لرؤية الكل.",
 
     addDetailsForAssetTitle: "إضافة تفاصيل لـ:",
     voiceDescriptionLabel: "الوصف الصوتي",
     recordVoiceDescriptionButton: "تسجيل صوتي", 
     playVoiceDescriptionButton: "تشغيل التسجيل الصوتي", // Clarified
-    pauseAudio: "إيقاف التسجيل الصوتي مؤقتًا", // Clarified
+    pauseAudio: "إيقاف مؤقت", // Clarified
     finishRecording: "إنهاء التسجيل",
     voiceTranscriptPlaceholder: "سيظهر النص الصوتي هنا...",
     textDescriptionLabel: "الوصف المكتوب",
     textDescriptionPlaceholder: "اكتب وصفًا مكتوبًا مفصلاً هنا...",
     
     backToPhotoCapture: "رجوع", 
-    backToAssetNameModal: "رجوع", 
+    backToAssetNameModal: "رجوع",
+    backToPhotosName: "العودة إلى الوسائط والاسم",
     saveAssetButton: "حفظ الأصل", 
 
     descriptionRequiredForSaveTitle: "الوصف مطلوب",
     descriptionRequiredForSaveDesc: "يرجى تقديم شكل واحد على الأقل من الوصف (صوتي أو نصي).",
     unnamedAsset: "أصل غير مسمى",
-    managePhotosModalTitle: "إدارة صور الأصل:",
-    managePhotosModalDesc: "أضف المزيد من الصور باستخدام الكاميرا أو المعرض، أو قم بإزالة الموجودة من الدفعة.",
+    managePhotosModalTitle: "إدارة وسائط الأصل:",
+    managePhotosModalDesc: "أضف المزيد من الوسائط باستخدام الكاميرا أو المعرض، أو قم بإزالة الموجودة من الدفعة.",
 
-    photosAdded: "الصور المضافة",
+    photosAdded: "الوسائط المضافة",
     editPhotos: "إضافة/تعديل الصور",
     removePhotoTitle: "إزالة الصورة",
+    removeVideoTitle: "إزالة الفيديو",
+    currentVideoBatch: "مقاطع الفيديو الحالية",
+    noVideosInBatch: "لا توجد مقاطع فيديو في الدفعة الحالية بعد.",
 
     backTo: "العودة إلى",
     backToProject: "العودة إلى المشروع",
@@ -617,7 +630,7 @@ const translations: Record<Language, Record<string, string>> = {
     editAssetDetailsTitle: "تعديل تفاصيل لـ:",
     updateDetailsPrompt: "قم بتحديث تفاصيل هذا الأصل.",
 
-    doneWithPhotos: 'تم الانتهاء من الصور',
+    doneWithPhotos: 'تم',
 
     deleteAssetTitle: "حذف الأصل",
     editFolderTitle: "تعديل المجلد {folderName}",
@@ -669,14 +682,14 @@ const translations: Record<Language, Record<string, string>> = {
     collapseFolder: "طي المجلد",
     viewAssetsInFolder: "عرض الأصول في {folderName}",
 
-    takePhotosCustomCamera: "التقاط صور (كاميرا)",
+    takePhotosCustomCamera: "فتح الكاميرا",
     initializingCamera: "جاري تهيئة الكاميرا...",
     allowCameraAccessPrompt: "يرجى السماح بالوصول إلى الكاميرا عند الطلب.",
-    capturePhoto: "التقاط صورة",
+    capturePhoto: "التقاط وسائط",
     sessionPhotoPreviewAlt: "معاينة صورة الجلسة {number}",
     doneWithSession: "تم", 
     doneWithSessionAddPhotos: "إضافة ({count})",
-    currentPhotoBatch: "دفعة الصور الحالية",
+    currentPhotoBatch: "الصور الحالية",
     customCameraViewTitle: "عرض الكاميرا المخصص",
     customCameraDialogTitle: "الكاميرا",
 
@@ -690,7 +703,8 @@ const translations: Record<Language, Record<string, string>> = {
     speechSynthesisErrorTitle: "خطأ في تشغيل الكلام",
     speechNoVoiceToPlayDesc: "ميزة نطق النص غير متوفرة أو لا يوجد وصف صوتي لتشغيله.",
     speechPlaybackNotAvailableTitle: "تشغيل الكلام غير متوفر",
-    speechPlaybackNotAvailableDesc: "متصفحك لا يدعم تشغيل الكلام.",
+    speechPlaybackNotAvailableDesc: "متصفحك لا يدعم تشغيل الكلام.", 
+    pauseAudio: "إيقاف مؤقت",
 
     assetsInFolder: "الأصول في \"{folderName}\"",
     noAssetsInFolder: "لا توجد أصول في هذا المجلد.",
@@ -811,7 +825,7 @@ const translations: Record<Language, Record<string, string>> = {
     cancelAssetCreation: "إلغاء إنشاء الأصل", 
     backToDashboard: "العودة إلى لوحة التحكم",
 
-    viewImage: "عرض الصورة",
+    viewImage: "معاينة الوسائط",
     clickToViewImage: "انقر لعرض الصورة بالحجم الكامل",
     fullSizePreviewAlt: "معاينة صورة الأصل بالحجم الكامل",
     imagePreviewTitle: "معاينة الصورة",
@@ -907,6 +921,8 @@ const translations: Record<Language, Record<string, string>> = {
     importSuccessDesc: "تم إنشاء {count} من الأصول.",
     importSuccessDescInFolder: "تم إنشاء {count} من الأصول في المجلد '{folderName}'.",
     miscellaneousData: "بيانات إضافية",
+    markAssetAsDone: "وضع علامة على الأصل كمكتمل",
+    markAssetAsDoneDesc: "سيتم إخفاء الأصل \"المكتمل\" من القوائم والبحث.",
   },
 };
 
