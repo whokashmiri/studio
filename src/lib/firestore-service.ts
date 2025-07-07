@@ -518,7 +518,7 @@ export async function getAssetById(assetId: string): Promise<Asset | null> {
     }
 }
 
-export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase'>, localId?: string): Promise<Asset | null> {
+export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase' | 'name_lowercase_with_status'>, localId?: string): Promise<Asset | null> {
   try {
     const dataWithNullForOptionalAudio = {
       ...assetData,
@@ -569,10 +569,7 @@ export async function updateAsset(assetId: string, assetData: Partial<Asset>): P
     }
 
     // Rebuild composite key if name or isDone is part of the update
-    if (assetData.name !== undefined && assetData.isDone !== undefined) {
-        dataToUpdate.name_lowercase_with_status = `${assetData.isDone}_${assetData.name.toLowerCase()}`;
-    } else if (assetData.name !== undefined || assetData.isDone !== undefined) {
-        // Handle partial update case: requires fetching original doc
+    if (assetData.name !== undefined || assetData.isDone !== undefined) {
         const originalAsset = await getAssetById(assetId);
         if (originalAsset) {
             const newName = assetData.name ?? originalAsset.name;
@@ -770,62 +767,62 @@ export async function searchAssets(
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     const isSerialSearch = /^\d+$/.test(searchTerm) && searchTerm.length > 0;
     
-    const baseConstraints: any[] = [
-        where("projectId", "==", projectId)
-    ];
-
-    if (folderId !== undefined && folderId !== null) {
-      baseConstraints.push(where("folderId", "==", folderId));
-    }
-    
     let finalConstraints: any[] = [];
-
-    if (folderId !== undefined) { // Search inside a specific folder (or root)
-        if (isSerialSearch) {
-             finalConstraints = [
-                ...baseConstraints,
-                where("isDone", "==", false),
-                where("serialNumber", "==", Number(searchTerm)),
-                orderBy(documentId()),
-                limit(pageSize),
-            ];
-        } else { // Name search
-             const lowerCaseTerm = searchTerm.toLowerCase();
-             const prefix = `false_${lowerCaseTerm}`;
-             finalConstraints = [
-                ...baseConstraints,
-                where("name_lowercase_with_status", ">=", prefix),
-                where("name_lowercase_with_status", "<=", prefix + '\uf8ff'),
-                orderBy("name_lowercase_with_status"),
-                limit(pageSize),
-            ];
-        }
-    } else { // Project-wide search (serial only)
-        if (isSerialSearch) {
-            finalConstraints = [
-                ...baseConstraints,
-                where("isDone", "==", false),
-                where("serialNumber", "==", Number(searchTerm)),
-                orderBy(documentId()),
-                limit(pageSize),
-            ];
-        } else {
-            // Project-wide name search is disabled to avoid needing complex indexes.
-            return { assets: [], lastDoc: null };
-        }
+    
+    if (folderId !== undefined) { // In a folder (or root)
+      if (isSerialSearch) {
+        finalConstraints = [
+          where("projectId", "==", projectId),
+          where("folderId", "==", folderId),
+          where("serialNumber", "==", Number(searchTerm)),
+          where("isDone", "==", false),
+          limit(pageSize),
+        ];
+      } else { // Name search
+        const lowerCaseTerm = searchTerm.toLowerCase();
+        // The prefix contains the 'isDone' status and the search term
+        const prefix = `false_${lowerCaseTerm}`;
+        
+        // FIX: The query that requires an index has a filter on folderId and a range on name_lowercase_with_status.
+        // To fix this without an index, we remove the folderId filter from the query and apply it after fetching.
+        finalConstraints = [
+          where("projectId", "==", projectId), // Filter by project...
+          where("name_lowercase_with_status", ">=", prefix), // ...and do a range search on the composite key
+          where("name_lowercase_with_status", "<=", prefix + '\uf8ff'),
+          orderBy("name_lowercase_with_status"),
+          limit(pageSize) // We will fetch one page and filter. Pagination might be imperfect.
+        ];
+      }
+    } else { // Project-wide serial search
+      if (isSerialSearch) {
+        finalConstraints = [
+          where("projectId", "==", projectId),
+          where("serialNumber", "==", Number(searchTerm)),
+          where("isDone", "==", false),
+          limit(pageSize),
+        ];
+      } else {
+        return { assets: [], lastDoc: null };
+      }
     }
 
     if (startAfterDoc) {
       finalConstraints.push(startAfter(startAfterDoc));
     }
-
-    const q = query(assetsCollectionRef, ...finalConstraints);
     
+    const q = query(assetsCollectionRef, ...finalConstraints);
     const snapshot = await getDocs(q);
-    const assets = processSnapshot<Asset>(snapshot);
+    let assets = processSnapshot<Asset>(snapshot);
+    
+    // Client-side filter for name search if inside a folder
+    if (folderId !== undefined && !isSerialSearch) {
+      assets = assets.filter(asset => asset.folderId === folderId);
+    }
+    
     const lastDoc = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
 
-    return { assets, lastDoc };
+    return { assets: assets, lastDoc };
+
   } catch (error) {
     console.error(`Error searching assets by term "${searchTerm}": `, error);
     if (error instanceof Error && error.message.includes("query requires an index")) {

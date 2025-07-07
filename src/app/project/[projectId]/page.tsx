@@ -429,7 +429,7 @@ export default function ProjectPage() {
     });
 
     try {
-      const newAssetFromDb = await FirestoreService.addAsset(assetData);
+      const newAssetFromDb = await FirestoreService.addAsset(assetData as Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase' | 'name_lowercase_with_status'>);
       if (newAssetFromDb) {
         toast({
           title: t('assetSavedTitle', "Asset Saved"),
@@ -516,7 +516,7 @@ export default function ProjectPage() {
                 return;
             }
 
-            const assetsToCreate: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase'>[] = [];
+            const assetsToCreate: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase' | 'name_lowercase_with_status'>[] = [];
             for (const row of jsonData) {
                 const baseName = row[nameHeader];
                 if (!baseName || typeof baseName !== 'string') continue;
@@ -785,11 +785,11 @@ export default function ProjectPage() {
                 </div>
             </div>
             {isSearching ? (
-                <div className="h-[calc(100vh-22rem)]">
+                <div className="h-[calc(100vh-28rem)]">
                     {renderSearchResults()}
                 </div>
             ) : (
-                <div className="h-[calc(100vh-22rem)]" ref={scrollAreaRef}>
+                <div className="h-[calc(100vh-28rem)]" ref={scrollAreaRef}>
                   <ScrollArea className="h-full pr-3">
                       {renderFolderView()}
                   </ScrollArea>
