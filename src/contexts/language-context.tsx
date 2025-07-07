@@ -104,7 +104,7 @@ const translations: Record<Language, Record<string, string>> = {
     
     backToPhotoCapture: "Back", 
     backToAssetNameModal: "Back", 
-    backToPhotosName: "Back to Media & Name",
+    backToPhotosName: "Back",
     saveAssetButton: "Finish", 
 
     descriptionRequiredForSaveTitle: "Description Required",
@@ -561,7 +561,7 @@ const translations: Record<Language, Record<string, string>> = {
     
     backToPhotoCapture: "رجوع", 
     backToAssetNameModal: "رجوع",
-    backToPhotosName: "العودة إلى الوسائط والاسم",
+    backToPhotosName: "رجوع",
     saveAssetButton: "إنهاء", 
 
     descriptionRequiredForSaveTitle: "الوصف مطلوب",
