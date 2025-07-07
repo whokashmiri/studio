@@ -19,7 +19,6 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import * as OfflineService from '@/lib/offline-service';
-import Image from 'next/image';
 import type { DocumentData } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { uploadMedia } from '@/actions/cloudinary-actions';
@@ -29,6 +28,7 @@ const EditFolderModal = React.lazy(() => import('@/components/modals/edit-folder
 const NewAssetModal = React.lazy(() => import('@/components/modals/new-asset-modal').then(module => ({ default: module.NewAssetModal })));
 const FolderTreeDisplay = React.lazy(() => import('@/components/folder-tree').then(module => ({ default: module.FolderTreeDisplay })));
 const ImagePreviewModal = React.lazy(() => import('@/components/modals/image-preview-modal').then(module => ({ default: module.ImagePreviewModal })));
+const ProjectSearchResults = React.lazy(() => import('@/components/project-search-results').then(module => ({ default: module.ProjectSearchResults })));
 
 
 export default function ProjectPage() {
@@ -72,13 +72,8 @@ export default function ProjectPage() {
   // State for new project-wide search
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
-  const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isSearchLoading, setIsSearchLoading] = useState(false);
-  const [hasMoreSearchResults, setHasMoreSearchResults] = useState(true);
-  const [lastSearchedDoc, setLastSearchedDoc] = useState<DocumentData | null>(null);
-  const searchLoaderRef = useRef<HTMLDivElement>(null);
-
+  
   const { toast } = useToast();
   const { t } = useLanguage();
   const { currentUser } = useAuth();
@@ -184,76 +179,15 @@ export default function ProjectPage() {
     }
   }, [isOnline, reloadAllData, toast]);
 
-  // --- Search Logic ---
-  const handleSearch = useCallback(async (term: string, loadMore = false) => {
-      if (!project) return;
-      
-      setIsSearchLoading(true);
-  
-      const { assets: newAssets, lastDoc } = await FirestoreService.searchAssets(
-          project.id,
-          term,
-          10,
-          loadMore ? lastSearchedDoc : null
-      );
-  
-      // Client-side filtering for the current folder view
-      const assetsForCurrentView = newAssets.filter(asset => {
-        if (currentUrlFolderId === null) return true; // Show all if in root
-        return asset.folderId === currentUrlFolderId;
-      });
-
-      if (loadMore) {
-          setSearchedAssets(prev => [...prev, ...assetsForCurrentView]);
-      } else {
-          setSearchedAssets(assetsForCurrentView);
-      }
-      
-      setLastSearchedDoc(lastDoc);
-      setHasMoreSearchResults(lastDoc !== null);
-      setIsSearchLoading(false);
-  
-  }, [project, lastSearchedDoc, currentUrlFolderId]);
-  
+  // --- Search Activation ---
   useEffect(() => {
       const term = deferredSearchTerm.trim();
       if (term) {
           setIsSearching(true);
-          // Reset previous search state for a new search
-          setSearchedAssets([]);
-          setLastSearchedDoc(null);
-          setHasMoreSearchResults(true);
-          handleSearch(term);
       } else {
           setIsSearching(false);
-          setSearchedAssets([]);
       }
-  }, [deferredSearchTerm, handleSearch]);
-  
-  // Infinite scroll for search results
-  useEffect(() => {
-      if (!isSearching || !searchLoaderRef.current || !hasMoreSearchResults || isSearchLoading) return;
-  
-      const observer = new IntersectionObserver(
-          (entries) => {
-              if (entries[0].isIntersecting) {
-                  handleSearch(deferredSearchTerm.trim(), true);
-              }
-          },
-          { root: null, rootMargin: '0px', threshold: 1.0 }
-      );
-  
-      const currentLoader = searchLoaderRef.current;
-      if (currentLoader) {
-          observer.observe(currentLoader);
-      }
-  
-      return () => {
-          if (currentLoader) {
-              observer.unobserve(currentLoader);
-          }
-      };
-  }, [isSearching, isSearchLoading, hasMoreSearchResults, deferredSearchTerm, handleSearch]);
+  }, [deferredSearchTerm]);
 
   // --- Memoized Data and Folder Logic ---
   const combinedFolders = useMemo(() => [...allProjectFolders, ...offlineFolders], [allProjectFolders, offlineFolders]);
@@ -666,89 +600,6 @@ export default function ProjectPage() {
     );
   };
   
-  const renderSearchResults = () => {
-    return (
-        <ScrollArea className="h-full pr-3" viewportRef={scrollAreaRef}>
-            {(isSearchLoading && searchedAssets.length === 0) && (
-                <div className="flex justify-center items-center h-40">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-            )}
-            
-            {searchedAssets.length > 0 && (
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-foreground/90">
-                        {t('searchResultsTitle', 'Search Results')}
-                    </h3>
-                    <div className="flex flex-col border rounded-md">
-                        {searchedAssets.map(asset => {
-                            const path = getFolderPath(asset.folderId);
-                            const pathString = path.map(p => p.name).join(' > ');
-                            const isLoading = loadingAssetId === asset.id;
-                            return (
-                                <Card 
-                                    key={asset.id} 
-                                    className={cn(
-                                        "group relative flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md",
-                                        isLoading ? "cursor-wait" : "cursor-pointer"
-                                    )}
-                                    onClick={() => !isLoading && handleEditAsset(asset)}
-                                >
-                                    {isLoading && (
-                                        <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 rounded-md">
-                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                        </div>
-                                    )}
-                                    <div className={cn("flex items-center gap-3 flex-grow min-w-0", isLoading && "opacity-50")}>
-                                        <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                                            {asset.photos && asset.photos.length > 0 ? (
-                                                <Image src={asset.photos[0]} alt={asset.name} fill className="object-cover" />
-                                            ) : (
-                                                <FileArchive className="w-6 h-6 text-muted-foreground" />
-                                            )}
-                                        </div>
-                                        <div className="flex-grow min-w-0">
-                                            <CardTitle className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
-                                                {asset.name}
-                                            </CardTitle>
-                                            {!currentUrlFolderId && (
-                                                <CardDescription className="text-xs text-muted-foreground truncate" title={pathString}>
-                                                    {pathString}
-                                                </CardDescription>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className={cn("shrink-0 ml-2", isLoading && "opacity-50")}>
-                                        <Button variant="ghost" size="sm" onClick={(e) => {e.stopPropagation(); handleEditAsset(asset);}} disabled={isLoading}>{t('edit','Edit')}</Button>
-                                    </div>
-                                </Card>
-                            )
-                        })}
-                    </div>
-                </div>
-            )}
-            
-            {(!isSearchLoading && searchedAssets.length === 0 && deferredSearchTerm.trim()) && (
-                 <div className="text-center py-8">
-                    <p className="text-muted-foreground mb-4">
-                       {t('noSearchResults', 'No assets found matching your search.')}
-                    </p>
-                </div>
-            )}
-
-            <div ref={searchLoaderRef} className="h-14 mt-4 flex items-center justify-center col-span-full">
-                {isSearchLoading && searchedAssets.length > 0 && (
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                )}
-                {!hasMoreSearchResults && searchedAssets.length > 0 && (
-                    <p className="text-sm text-muted-foreground">{t('noMoreAssets', 'End of list.')}</p>
-                )}
-            </div>
-        </ScrollArea>
-    )
-  };
-
-
   return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
@@ -816,17 +667,24 @@ export default function ProjectPage() {
                     />
                 </div>
             </div>
-            {isSearching ? (
-                <div className="h-[calc(100%-4rem)]">
-                    {renderSearchResults()}
-                </div>
-            ) : (
-                <div className="h-[calc(100%-4rem)]" ref={scrollAreaRef}>
+            <div className="h-[calc(100%-4rem)]" ref={scrollAreaRef}>
+                 {isSearching ? (
+                     <React.Suspense fallback={<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                        <ProjectSearchResults
+                            project={project}
+                            searchTerm={deferredSearchTerm}
+                            onEditAsset={handleEditAsset}
+                            loadingAssetId={loadingAssetId}
+                            foldersMap={foldersMap}
+                            currentUrlFolderId={currentUrlFolderId}
+                        />
+                    </React.Suspense>
+                ) : (
                   <ScrollArea className="h-full pr-3">
                       {renderFolderView()}
                   </ScrollArea>
-                </div>
-            )}
+                )}
+            </div>
           </CardContent>
         </Card>
 
