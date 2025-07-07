@@ -750,62 +750,45 @@ export async function searchAssets(
   searchTerm: string,
   pageSize: number,
   startAfterDoc?: DocumentData | null,
-  folderId?: string | null
+  folderId?: string | null // context for search
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
   try {
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
-    const isSerialSearch = /^\d+$/.test(searchTerm) && searchTerm.length > 0;
-    
-    let finalConstraints: any[] = [];
-    
-    if (folderId !== undefined) { // In a folder (or root)
-      if (isSerialSearch) {
-        finalConstraints = [
-          where("projectId", "==", projectId),
-          where("folderId", "==", folderId),
-          where("serialNumber", "==", Number(searchTerm)),
-          limit(pageSize),
-        ];
-      } else { // Name search
-        const lowerCaseTerm = searchTerm.toLowerCase();
-        
-        finalConstraints = [
-          where("projectId", "==", projectId),
-          where("name_lowercase", ">=", lowerCaseTerm),
-          where("name_lowercase", "<=", lowerCaseTerm + '\uf8ff'),
-          orderBy("name_lowercase"),
-          limit(pageSize)
-        ];
-      }
-    } else { // Project-wide serial search
-      if (isSerialSearch) {
-        finalConstraints = [
-          where("projectId", "==", projectId),
-          where("serialNumber", "==", Number(searchTerm)),
-          limit(pageSize),
-        ];
-      } else {
-        return { assets: [], lastDoc: null };
-      }
+    const isSerialSearch = /^\d+(\.\d+)?$/.test(searchTerm.trim()) && searchTerm.trim().length > 0;
+
+    let constraints: any[] = [where("projectId", "==", projectId)];
+
+    if (isSerialSearch) {
+      constraints.push(where("serialNumber", "==", Number(searchTerm.trim())));
+    } else { // Name search
+      const lowerCaseTerm = searchTerm.toLowerCase();
+      constraints.push(where("name_lowercase", ">=", lowerCaseTerm));
+      constraints.push(where("name_lowercase", "<=", lowerCaseTerm + '\uf8ff'));
+      constraints.push(orderBy("name_lowercase"));
     }
 
+    constraints.push(limit(pageSize));
+
     if (startAfterDoc) {
-      finalConstraints.push(startAfter(startAfterDoc));
+      constraints.push(startAfter(startAfterDoc));
     }
     
-    const q = query(assetsCollectionRef, ...finalConstraints);
+    const q = query(assetsCollectionRef, ...constraints);
     const snapshot = await getDocs(q);
     let assets = processSnapshot<Asset>(snapshot);
     
-    if (folderId !== undefined && !isSerialSearch) {
-      assets = assets.filter(asset => asset.folderId === folderId);
-    }
-    
-    assets = assets.filter(asset => asset.isDone !== true);
+    // Client-side filtering
+    assets = assets.filter(asset => {
+      // If folderId is not null, we are searching within a folder.
+      // If folderId is null, it's a project-wide search, so we don't filter by folder.
+      const folderMatch = folderId !== null ? asset.folderId === folderId : true;
+      const isDoneMatch = asset.isDone !== true;
+      return folderMatch && isDoneMatch;
+    });
 
     const lastDoc = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
 
-    return { assets: assets, lastDoc };
+    return { assets, lastDoc };
 
   } catch (error) {
     console.error(`Error searching assets by term "${searchTerm}": `, error);
