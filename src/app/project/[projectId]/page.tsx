@@ -2,12 +2,11 @@
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useDeferredValue, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, Edit3, Image as ImageIcon, FileArchive } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
 import { Input } from '@/components/ui/input';
@@ -15,20 +14,18 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import * as OfflineService from '@/lib/offline-service';
 import type { DocumentData } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { uploadMedia } from '@/actions/cloudinary-actions';
 
-// Lazy load modals to improve initial page load time
+// Lazy load modals and complex components to improve initial page load time
 const EditFolderModal = React.lazy(() => import('@/components/modals/edit-folder-modal').then(module => ({ default: module.EditFolderModal })));
 const NewAssetModal = React.lazy(() => import('@/components/modals/new-asset-modal').then(module => ({ default: module.NewAssetModal })));
-const FolderTreeDisplay = React.lazy(() => import('@/components/folder-tree').then(module => ({ default: module.FolderTreeDisplay })));
 const ImagePreviewModal = React.lazy(() => import('@/components/modals/image-preview-modal').then(module => ({ default: module.ImagePreviewModal })));
 const ProjectSearchResults = React.lazy(() => import('@/components/project-search-results').then(module => ({ default: module.ProjectSearchResults })));
+const ProjectFolderView = React.lazy(() => import('@/components/project-folder-view').then(module => ({ default: module.ProjectFolderView })));
 
 
 export default function ProjectPage() {
@@ -78,7 +75,6 @@ export default function ProjectPage() {
   const { t } = useLanguage();
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'Admin';
-  const isMobile = useIsMobile();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
 
@@ -549,56 +545,6 @@ export default function ProjectPage() {
         </div>
     );
   }
-
-  // --- Render Functions ---
-  const renderFolderView = () => {
-    const isCurrentLocationEmpty = finalFoldersToDisplay.length === 0 && finalAssetsToDisplay.length === 0;
-    return (
-        <>
-            {isContentLoading ? (
-                <div className="flex justify-center items-center h-40">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-            ) : (
-                <React.Suspense fallback={
-                    <div className="flex justify-center items-center h-40">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                }>
-                    <FolderTreeDisplay
-                        foldersToDisplay={finalFoldersToDisplay}
-                        assetsToDisplay={finalAssetsToDisplay}
-                        allProjectAssets={allProjectAssets}
-                        projectId={project.id}
-                        onSelectFolder={handleSelectFolder}
-                        onAddSubfolder={openNewFolderDialog}
-                        onEditFolder={handleOpenEditFolderModal}
-                        onDeleteFolder={handleFolderDeleted}
-                        onEditAsset={handleEditAsset} 
-                        onDeleteAsset={handleDeleteAsset}
-                        onPreviewAsset={handleOpenImagePreviewModal}
-                        currentSelectedFolderId={selectedFolder?.id || null}
-                        displayMode="grid"
-                        deletingAssetId={deletingAssetId}
-                        loadingAssetId={loadingAssetId}
-                        onLoadMore={loadMoreAssets}
-                        hasMore={hasMoreAssets}
-                        isLoadingMore={isLoadingMore}
-                        scrollAreaRef={scrollAreaRef}
-                    />
-                </React.Suspense>
-            )}
-            
-            {isCurrentLocationEmpty && !isContentLoading && (
-                <div className="text-center py-8">
-                    <p className="text-muted-foreground mb-4">
-                        {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
-                    </p>
-                </div>
-            )}
-        </>
-    );
-  };
   
   return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24">
@@ -654,7 +600,7 @@ export default function ProjectPage() {
                 </CardTitle>
              )}
           </CardHeader>
-          <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
+          <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-22rem)]">
              <div className="flex justify-end mb-4">
                 <div className="relative w-full max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -667,7 +613,7 @@ export default function ProjectPage() {
                     />
                 </div>
             </div>
-            <div className="h-[calc(100%-4rem)]" ref={scrollAreaRef}>
+            <div className="h-[calc(100%-4rem)]">
                  {isSearching ? (
                      <React.Suspense fallback={<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
                         <ProjectSearchResults
@@ -679,9 +625,29 @@ export default function ProjectPage() {
                         />
                     </React.Suspense>
                 ) : (
-                  <ScrollArea className="h-full pr-3">
-                      {renderFolderView()}
-                  </ScrollArea>
+                    <React.Suspense fallback={<div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                      <ProjectFolderView
+                        project={project}
+                        isContentLoading={isContentLoading}
+                        foldersToDisplay={finalFoldersToDisplay}
+                        assetsToDisplay={finalAssetsToDisplay}
+                        allProjectAssets={allProjectAssets}
+                        selectedFolder={selectedFolder}
+                        deletingAssetId={deletingAssetId}
+                        loadingAssetId={loadingAssetId}
+                        hasMoreAssets={hasMoreAssets}
+                        isLoadingMore={isLoadingMore}
+                        scrollAreaRef={scrollAreaRef}
+                        onSelectFolder={handleSelectFolder}
+                        onAddSubfolder={openNewFolderDialog}
+                        onEditFolder={handleOpenEditFolderModal}
+                        onDeleteFolder={handleFolderDeleted}
+                        onEditAsset={handleEditAsset}
+                        onDeleteAsset={handleDeleteAsset}
+                        onPreviewAsset={handleOpenImagePreviewModal}
+                        onLoadMore={loadMoreAssets}
+                      />
+                    </React.Suspense>
                 )}
             </div>
           </CardContent>
