@@ -20,7 +20,7 @@ import { useLanguage } from '@/contexts/language-context';
 import { processImageForSaving } from '@/lib/image-handler-service';
 import { uploadMedia } from '@/actions/cloudinary-actions';
 import { useAuth } from '@/contexts/auth-context';
-import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
 type CaptureMode = 'photo' | 'video';
@@ -1080,13 +1080,13 @@ export default function NewAssetPage() {
                 </div>
                  {isEditMode && (
                     <div className="flex items-center space-x-3 rounded-lg border p-4 bg-muted/50">
-                        <Switch
-                            id="is-done-switch"
+                        <Checkbox
+                            id="is-done-checkbox"
                             checked={isDone}
-                            onCheckedChange={setIsDone}
+                            onCheckedChange={(checked) => setIsDone(!!checked)}
                         />
-                        <div className="flex flex-col">
-                            <Label htmlFor="is-done-switch" className="cursor-pointer">
+                        <div className="grid gap-1.5 leading-none">
+                            <Label htmlFor="is-done-checkbox" className="cursor-pointer">
                                 {t('markAssetAsDone', 'Mark Asset as Done')}
                             </Label>
                             <p className="text-xs text-muted-foreground">{t('markAssetAsDoneDesc', 'A "Done" asset will be hidden from lists and searches.')}</p>
