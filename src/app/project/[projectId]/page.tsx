@@ -21,6 +21,8 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import * as OfflineService from '@/lib/offline-service';
 import Image from 'next/image';
 import type { DocumentData } from 'firebase/firestore';
+import { v4 as uuidv4 } from 'uuid';
+import { uploadMedia } from '@/actions/cloudinary-actions';
 
 // Lazy load modals to improve initial page load time
 const EditFolderModal = React.lazy(() => import('@/components/modals/edit-folder-modal').then(module => ({ default: module.EditFolderModal })));
@@ -393,58 +395,74 @@ export default function ProjectPage() {
     }
   }, [reloadAllData, t, toast]);
 
-  const handleAssetCreatedInModal = useCallback(async (assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase'>) => {
+  const handleAssetCreatedInModal = useCallback(async (assetDataWithDataUris: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!isOnline) {
-      const { localId } = OfflineService.queueOfflineAction('add-asset', assetData, projectId);
-      const optimisticAsset: Asset = {
-          ...assetData,
-          id: localId,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          isOffline: true,
-          isUploading: false,
-      };
-      setOfflineAssets(prev => [...prev, optimisticAsset]);
-      toast({ title: "Working Offline", description: `Asset "${assetData.name}" saved locally. It will sync when you're back online.` });
+      toast({
+        title: "Action Not Available Offline",
+        description: "Creating new assets with media is not supported while offline. Please connect to the internet to save your asset.",
+        variant: "destructive"
+      });
       return;
     }
-
-    const tempId = `temp_${Date.now()}`;
+    
+    // --- Online optimistic UI flow ---
+    const tempId = `temp_${uuidv4()}`;
     const optimisticAsset: Asset = {
-      ...assetData,
+      ...assetDataWithDataUris,
       id: tempId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       isUploading: true,
-      photos: assetData.photos || [],
-      folderId: assetData.folderId || null,
+      photos: assetDataWithDataUris.photos || [], // These are data URIs
+      videos: assetDataWithDataUris.videos || [], // These are data URIs
+      folderId: assetDataWithDataUris.folderId || null,
     };
 
+    // Add to UI immediately
     setCurrentViewAssets(prev => [optimisticAsset, ...prev]);
 
     toast({
       title: t('saving', 'Saving...'),
-      description: `Asset "${assetData.name}" is being uploaded.`,
+      description: `Asset "${assetDataWithDataUris.name}" is being uploaded.`,
     });
 
-    try {
-      const newAssetFromDb = await FirestoreService.addAsset(assetData as Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase' | 'name_lowercase_with_status'>);
-      if (newAssetFromDb) {
-        toast({
-          title: t('assetSavedTitle', "Asset Saved"),
-          description: t('assetSavedDesc', `Asset "${newAssetFromDb.name}" has been saved.`, { assetName: newAssetFromDb.name }),
-          variant: "success-yellow"
-        });
-        await reloadAllData();
-      } else {
-        toast({ title: "Error", description: `Failed to save asset "${assetData.name}".`, variant: "destructive" });
+    // Start background upload and save
+    (async () => {
+      try {
+        // Upload all media files to Cloudinary
+        const photoUploadPromises = (assetDataWithDataUris.photos || []).map(dataUri => uploadMedia(dataUri));
+        const videoUploadPromises = (assetDataWithDataUris.videos || []).map(dataUri => uploadMedia(dataUri));
+        
+        const uploadedPhotoUrls = await Promise.all(photoUploadPromises);
+        const uploadedVideoUrls = await Promise.all(videoUploadPromises);
+
+        // Create the final asset payload with Cloudinary URLs
+        const finalAssetData = {
+          ...assetDataWithDataUris,
+          photos: uploadedPhotoUrls,
+          videos: uploadedVideoUrls,
+        };
+
+        const newAssetFromDb = await FirestoreService.addAsset(finalAssetData);
+        
+        if (newAssetFromDb) {
+          toast({
+            title: t('assetSavedTitle', "Asset Saved"),
+            description: t('assetSavedDesc', `Asset "${newAssetFromDb.name}" has been saved.`, { assetName: newAssetFromDb.name }),
+            variant: "success-yellow"
+          });
+          // Full reload to ensure consistency
+          await reloadAllData(); 
+        } else {
+           throw new Error("Failed to save asset to Firestore.");
+        }
+      } catch (error) {
+        console.error("Error saving asset in background:", error);
+        toast({ title: "Upload Error", description: `An error occurred while saving "${assetDataWithDataUris.name}".`, variant: "destructive" });
+        // Remove the failed optimistic asset from UI
         setCurrentViewAssets(prev => prev.filter(asset => asset.id !== tempId));
       }
-    } catch (error) {
-      console.error("Error saving asset in background:", error);
-      toast({ title: "Error", description: `An error occurred while saving "${assetData.name}".`, variant: "destructive" });
-      setCurrentViewAssets(prev => prev.filter(asset => asset.id !== tempId));
-    }
+    })();
   }, [isOnline, projectId, toast, t, reloadAllData]);
 
 
@@ -786,11 +804,11 @@ export default function ProjectPage() {
                 </div>
             </div>
             {isSearching ? (
-                <div className="h-[calc(100vh-28rem)]">
+                <div className="h-[calc(100vh-32rem)]">
                     {renderSearchResults()}
                 </div>
             ) : (
-                <div className="h-[calc(100vh-28rem)]" ref={scrollAreaRef}>
+                <div className="h-[calc(100vh-32rem)]" ref={scrollAreaRef}>
                   <ScrollArea className="h-full pr-3">
                       {renderFolderView()}
                   </ScrollArea>

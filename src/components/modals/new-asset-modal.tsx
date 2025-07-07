@@ -15,7 +15,6 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { processImageForSaving } from '@/lib/image-handler-service'; 
-import { uploadMedia } from '@/actions/cloudinary-actions';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -224,8 +223,8 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         setIsProcessingMedia(false);
         return;
       }
-      const uploadedPhotoUrls: string[] = [];
-      const uploadedVideoUrls: string[] = [];
+      const dataUriPhotos: string[] = [];
+      const dataUriVideos: string[] = [];
       try {
         for (const file of newFiles) {
           const isVideo = file.type.startsWith('video/');
@@ -239,25 +238,22 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             reader.readAsDataURL(file);
           });
 
-          let finalUrl;
+          let finalDataUrl;
           if (isVideo) {
-             finalUrl = await uploadMedia(dataUrl);
+             finalDataUrl = dataUrl;
           } else {
-            const processedUrl = await processImageForSaving(dataUrl);
-            if (processedUrl) {
-                finalUrl = await uploadMedia(processedUrl);
-            }
+            finalDataUrl = await processImageForSaving(dataUrl);
           }
           
-          if (finalUrl) {
-            if (isVideo) uploadedVideoUrls.push(finalUrl);
-            else uploadedPhotoUrls.push(finalUrl);
+          if (finalDataUrl) {
+            if (isVideo) dataUriVideos.push(finalDataUrl);
+            else dataUriPhotos.push(finalDataUrl);
           } else {
-            toast({ title: "Media Upload Error", description: `Failed to upload ${file.name}.`, variant: "destructive" });
+            toast({ title: "Media Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive" });
           }
         }
-        setPhotoPreviews(prev => [...prev, ...uploadedPhotoUrls]);
-        setVideoPreviews(prev => [...prev, ...uploadedVideoUrls]);
+        setPhotoPreviews(prev => [...prev, ...dataUriPhotos]);
+        setVideoPreviews(prev => [...prev, ...dataUriVideos]);
       } catch (error: any) {
         toast({ title: "Error", description: error.message || "An error occurred processing gallery files.", variant: "destructive" });
       } finally {
@@ -358,27 +354,21 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const handleAddSessionMediaToBatch = useCallback(async () => {
     if (capturedPhotosInSession.length === 0 && capturedVideosInSession.length === 0) return;
     setIsProcessingMedia(true);
-    const uploadedPhotoUrls: string[] = [];
-    const uploadedVideoUrls: string[] = [];
+    const dataUriPhotos: string[] = [];
+    const dataUriVideos: string[] = [];
     try {
       for (const photoDataUrl of capturedPhotosInSession) {
         const processedUrl = await processImageForSaving(photoDataUrl);
         if (processedUrl) {
-           const finalUrl = await uploadMedia(processedUrl);
-           if (finalUrl) uploadedPhotoUrls.push(finalUrl);
-           else toast({ title: "Image Upload Error", description: "A photo from session failed to upload.", variant: "destructive" });
+           dataUriPhotos.push(processedUrl);
         } else {
           toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive" });
         }
       }
-      for (const videoDataUrl of capturedVideosInSession) {
-         const finalUrl = await uploadMedia(videoDataUrl);
-         if (finalUrl) uploadedVideoUrls.push(finalUrl);
-         else toast({ title: "Video Upload Error", description: "A video from session failed to upload.", variant: "destructive" });
-      }
+      dataUriVideos.push(...capturedVideosInSession);
       
-      setPhotoPreviews(prev => [...prev, ...uploadedPhotoUrls]);
-      setVideoPreviews(prev => [...prev, ...uploadedVideoUrls]);
+      setPhotoPreviews(prev => [...prev, ...dataUriPhotos]);
+      setVideoPreviews(prev => [...prev, ...dataUriVideos]);
       setCapturedPhotosInSession([]);
       setCapturedVideosInSession([]);
       setIsCustomCameraOpen(false); 
@@ -589,7 +579,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     const assetDataPayload: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
       userId: currentUser.id,
       name: assetName,
-      serialNumber: serialNumber.trim() || undefined,
+      serialNumber: serialNumber.trim() ? parseFloat(serialNumber.trim()) : undefined,
       projectId: project.id,
       folderId: parentFolder ? parentFolder.id : null,
       photos: photoPreviews,
