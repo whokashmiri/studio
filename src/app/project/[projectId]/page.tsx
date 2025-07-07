@@ -53,6 +53,7 @@ export default function ProjectPage() {
   const [lastVisibleAssetDoc, setLastVisibleAssetDoc] = useState<DocumentData | null>(null);
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
+  const [loadingAssetId, setLoadingAssetId] = useState<string | null>(null);
   
   // State for modals and forms
   const [newFolderName, setNewFolderName] = useState('');
@@ -372,6 +373,7 @@ export default function ProjectPage() {
       toast({ title: "Action Not Available", description: "Cannot edit an item that is pending sync.", variant: "default" });
       return;
     }
+    setLoadingAssetId(asset.id);
     const editUrl = `/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
     router.push(editUrl); 
   }, [projectId, router, toast]);
@@ -644,6 +646,7 @@ export default function ProjectPage() {
                         currentSelectedFolderId={selectedFolder?.id || null}
                         displayMode="grid"
                         deletingAssetId={deletingAssetId}
+                        loadingAssetId={loadingAssetId}
                         onLoadMore={loadMoreAssets}
                         hasMore={hasMoreAssets}
                         isLoadingMore={isLoadingMore}
@@ -681,13 +684,22 @@ export default function ProjectPage() {
                         {searchedAssets.map(asset => {
                             const path = getFolderPath(asset.folderId);
                             const pathString = path.map(p => p.name).join(' > ');
+                            const isLoading = loadingAssetId === asset.id;
                             return (
                                 <Card 
                                     key={asset.id} 
-                                    className="group flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow cursor-pointer w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md"
-                                    onClick={() => handleEditAsset(asset)}
+                                    className={cn(
+                                        "group relative flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md",
+                                        isLoading ? "cursor-wait" : "cursor-pointer"
+                                    )}
+                                    onClick={() => !isLoading && handleEditAsset(asset)}
                                 >
-                                    <div className="flex items-center gap-3 flex-grow min-w-0">
+                                    {isLoading && (
+                                        <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 rounded-md">
+                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                        </div>
+                                    )}
+                                    <div className={cn("flex items-center gap-3 flex-grow min-w-0", isLoading && "opacity-50")}>
                                         <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center">
                                             {asset.photos && asset.photos.length > 0 ? (
                                                 <Image src={asset.photos[0]} alt={asset.name} fill className="object-cover" />
@@ -706,8 +718,8 @@ export default function ProjectPage() {
                                             )}
                                         </div>
                                     </div>
-                                    <div className="shrink-0 ml-2">
-                                        <Button variant="ghost" size="sm" onClick={(e) => {e.stopPropagation(); handleEditAsset(asset);}}>{t('edit','Edit')}</Button>
+                                    <div className={cn("shrink-0 ml-2", isLoading && "opacity-50")}>
+                                        <Button variant="ghost" size="sm" onClick={(e) => {e.stopPropagation(); handleEditAsset(asset);}} disabled={isLoading}>{t('edit','Edit')}</Button>
                                     </div>
                                 </Card>
                             )
@@ -791,7 +803,7 @@ export default function ProjectPage() {
                 </CardTitle>
              )}
           </CardHeader>
-          <CardContent className="transition-colors rounded-b-lg p-2 md:p-4">
+          <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
              <div className="flex justify-end mb-4">
                 <div className="relative w-full max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -805,11 +817,11 @@ export default function ProjectPage() {
                 </div>
             </div>
             {isSearching ? (
-                <div className="h-[calc(100vh-28rem)]">
+                <div className="h-[calc(100%-4rem)]">
                     {renderSearchResults()}
                 </div>
             ) : (
-                <div className="h-[calc(100vh-28rem)]" ref={scrollAreaRef}>
+                <div className="h-[calc(100%-4rem)]" ref={scrollAreaRef}>
                   <ScrollArea className="h-full pr-3">
                       {renderFolderView()}
                   </ScrollArea>

@@ -114,6 +114,7 @@ interface FolderTreeDisplayProps {
   currentSelectedFolderId: string | null;
   displayMode?: 'grid' | 'list';
   deletingAssetId?: string | null;
+  loadingAssetId?: string | null;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -135,6 +136,7 @@ export function FolderTreeDisplay({
   currentSelectedFolderId,
   displayMode = 'list',
   deletingAssetId,
+  loadingAssetId,
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
@@ -253,6 +255,7 @@ export function FolderTreeDisplay({
                   onPreviewAsset={onPreviewAsset}
                   displayMode="grid"
                   isDeleting={deletingAssetId === item.data.id}
+                  isLoading={loadingAssetId === item.data.id}
                 />
               );
             }
@@ -313,6 +316,7 @@ export function FolderTreeDisplay({
                 onPreviewAsset={onPreviewAsset}
                 displayMode="list"
                 isDeleting={deletingAssetId === asset.id}
+                isLoading={loadingAssetId === asset.id}
               />
             ))}
           </div>
