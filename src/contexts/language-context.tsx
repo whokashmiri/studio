@@ -28,6 +28,7 @@ const translations: Record<Language, Record<string, string>> = {
     favorite: "Favorite",
     recent: "Recent",
     new: "New",
+    next: "Next",
     edit: "Edit",
     delete: "Delete",
     createNewProject: "Create New Project",
@@ -74,7 +75,7 @@ const translations: Record<Language, Record<string, string>> = {
     assetSavedTitle: "Asset Saved",
     assetSavedDesc: "Asset \"{assetName}\" has been saved.",
 
-    photosRequiredTitle: "Photos Required",
+    photosRequiredTitle: "Media Required",
     photosRequiredDesc: "Please add at least one photo or video for the asset.",
     
     stepNameInputTitle: "Step 1: Asset Name", 
@@ -83,6 +84,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitle: "Step 2: Descriptions",
 
     nextStepAddPhotos: "Next: Add Photos", 
+    nextStepAssetName: "Next: Asset Name",
     nextStepDescriptions: "Next: Add Descriptions", 
     
     addPhotosForAssetTitle: "Add Photos for:",
@@ -103,7 +105,7 @@ const translations: Record<Language, Record<string, string>> = {
     backToPhotoCapture: "Back", 
     backToAssetNameModal: "Back", 
     backToPhotosName: "Back to Media & Name",
-    saveAssetButton: "Save Asset", 
+    saveAssetButton: "Finish", 
 
     descriptionRequiredForSaveTitle: "Description Required",
     descriptionRequiredForSaveDesc: "Please provide at least one form of description (voice or text).",
@@ -367,7 +369,6 @@ const translations: Record<Language, Record<string, string>> = {
     stepNameInputTitleModal: "Step 2: Asset Name",
     stepDescriptionsTitleModal: "Step 3: Descriptions & Save",
     provideNameForAsset: "Provide a name for your asset.",
-    nextStepAssetName: "Next: Asset Name",
     cancelAssetCreation: "Cancel Asset Creation", 
     backToDashboard: "Back to Dashboard",
 
@@ -484,6 +485,7 @@ const translations: Record<Language, Record<string, string>> = {
     favorite: "مفضل",
     recent: "الأخيرة",
     new: "جديد",
+    next: "التالي",
     edit: "تعديل",
     delete: "حذف",
     createNewProject: "إنشاء مشروع جديد",
@@ -530,8 +532,8 @@ const translations: Record<Language, Record<string, string>> = {
     assetSavedTitle: "تم حفظ الأصل",
     assetSavedDesc: "تم حفظ الأصل \"{assetName}\".",
 
-    photosRequiredTitle: "الصور مطلوبة",
-    photosRequiredDesc: "الرجاء إضافة صورة واحدة على الأقل للأصل.",
+    photosRequiredTitle: "الوسائط مطلوبة",
+    photosRequiredDesc: "الرجاء إضافة صورة واحدة على الأقل أو فيديو للأصل.",
     
     stepNameInputTitle: "الخطوة ١: اسم الأصل",
     stepPhotosAndNameTitle: "الخطوة ١: الوسائط واسم الأصل",
@@ -539,6 +541,7 @@ const translations: Record<Language, Record<string, string>> = {
     stepDescriptionsTitle: "الخطوة ٢: الأوصاف",
 
     nextStepAddPhotos: "التالي: إضافة الصور", 
+    nextStepAssetName: "التالي: اسم الأصل",
     nextStepDescriptions: "التالي: إضافة الأوصاف", 
     
     addPhotosForAssetTitle: "إضافة صور لـ:",
@@ -559,7 +562,7 @@ const translations: Record<Language, Record<string, string>> = {
     backToPhotoCapture: "رجوع", 
     backToAssetNameModal: "رجوع",
     backToPhotosName: "العودة إلى الوسائط والاسم",
-    saveAssetButton: "حفظ الأصل", 
+    saveAssetButton: "إنهاء", 
 
     descriptionRequiredForSaveTitle: "الوصف مطلوب",
     descriptionRequiredForSaveDesc: "يرجى تقديم شكل واحد على الأقل من الوصف (صوتي أو نصي).",
@@ -821,7 +824,6 @@ const translations: Record<Language, Record<string, string>> = {
     stepNameInputTitleModal: "الخطوة 2: اسم الأصل",
     stepDescriptionsTitleModal: "الخطوة 3: الأوصاف والحفظ",
     provideNameForAsset: "أدخل اسمًا للأصل الخاص بك.",
-    nextStepAssetName: "التالي: اسم الأصل",
     cancelAssetCreation: "إلغاء إنشاء الأصل", 
     backToDashboard: "العودة إلى لوحة التحكم",
 

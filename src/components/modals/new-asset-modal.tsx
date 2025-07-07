@@ -623,13 +623,9 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   }, []);
 
   const handleNextFromMedia = useCallback(() => {
-    if (photoPreviews.length === 0 && videoPreviews.length === 0) { 
-      toast({ title: t('photosRequiredTitle', "Media Required"), description: t('photosRequiredDesc', "Please add at least one photo or video for the asset."), variant: "destructive" });
-      return;
-    }
     setCurrentStep('name_input');
     setIsManageMediaBatchModalOpen(false); 
-  }, [photoPreviews.length, videoPreviews.length, toast, t]);
+  }, []);
 
   const handleNextFromNameInput = useCallback(async () => {
     if (!assetName.trim()) {
@@ -799,11 +795,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       setCurrentStep('name_input');
       return;
     }
-    if (photoPreviews.length === 0 && videoPreviews.length === 0) {
-      toast({ title: t('photosRequiredTitle', "Media Required"), description: t('photosRequiredDesc', "Please add at least one photo or video for the asset."), variant: "destructive" });
-      setCurrentStep('photos_capture');
-      return;
-    }
 
     const assetDataPayload: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
       userId: currentUser.id,
@@ -885,8 +876,8 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
               <Button variant="outline" onClick={handleModalClose} disabled={isProcessingMedia}>
                 {t('cancel', 'Cancel')}
               </Button>
-              <Button onClick={handleNextFromMedia} disabled={isProcessingMedia || totalMediaCount === 0}>
-                {t('nextStepAssetName', 'Next: Asset Name')} <ArrowRight className="ml-2 h-4 w-4" />
+              <Button onClick={handleNextFromMedia} disabled={isProcessingMedia}>
+                {t('next', 'Next')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </DialogFooter>
           </>
@@ -918,13 +909,16 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                 />
               </div>
             </div>
-            <DialogFooter className="flex justify-between">
-              <Button variant="outline" onClick={handleBackToPhotos}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToPhotoCapture', 'Back')}
-              </Button>
-              <Button onClick={handleNextFromNameInput} disabled={!assetName.trim()}>
-                {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+            <DialogFooter className="flex justify-between items-center">
+                <Button variant="ghost" onClick={handleModalClose}>{t('cancel', 'Cancel')}</Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={handleBackToPhotos}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToPhotoCapture', 'Back')}
+                    </Button>
+                    <Button onClick={handleNextFromNameInput} disabled={!assetName.trim()}>
+                    {t('next', 'Next')} <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
             </DialogFooter>
           </>
         );
@@ -983,13 +977,16 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                   />
                 </div>
             </div>
-            <DialogFooter className="flex flex-row justify-between items-center gap-2 pt-4">
-              <Button variant="outline" onClick={handleBackToNameInput}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToAssetNameModal', 'Back')}
-              </Button>
-              <Button onClick={handleSaveAsset} size="lg" disabled={(photoPreviews.length === 0 && videoPreviews.length === 0) || !assetName.trim()}>
-                {t('saveAssetButton', 'Finish')}
-              </Button>
+            <DialogFooter className="flex justify-between items-center pt-4">
+                <Button variant="ghost" onClick={handleModalClose}>{t('cancel', 'Cancel')}</Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={handleBackToNameInput}>
+                        <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToAssetNameModal', 'Back')}
+                    </Button>
+                    <Button onClick={handleSaveAsset} size="lg" disabled={!assetName.trim()}>
+                        {t('saveAssetButton', 'Finish')}
+                    </Button>
+                </div>
             </DialogFooter>
           </>
         );
@@ -1060,5 +1057,3 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     </>
   );
 }
-
-    
