@@ -276,7 +276,7 @@ const translations: Record<Language, Record<string, string>> = {
 
 
     loginTitle: "Login",
-    loginDesc: "Access your Asset Inspector Pro account.",
+    loginDesc: "Access your ValTech account.",
     emailLabel: "Email",
     passwordLabel: "Password",
     loginButton: "Login",
@@ -730,7 +730,7 @@ const translations: Record<Language, Record<string, string>> = {
     exportProject: "تصدير المشروع",
 
     loginTitle: "تسجيل الدخول",
-    loginDesc: "قم بالوصول إلى حساب Asset Inspector Pro الخاص بك.",
+    loginDesc: "قم بالوصول إلى حساب فالتيك للتقييم الخاص بك.",
     emailLabel: "البريد الإلكتروني",
     passwordLabel: "كلمة المرور",
     loginButton: "تسجيل الدخول",
