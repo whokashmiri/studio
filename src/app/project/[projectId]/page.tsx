@@ -19,7 +19,6 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import * as OfflineService from '@/lib/offline-service';
-import * as XLSX from 'xlsx';
 import Image from 'next/image';
 import type { DocumentData } from 'firebase/firestore';
 
@@ -463,6 +462,8 @@ export default function ProjectPage() {
   const handleFileImport = async () => {
     if (!fileToImport || !project || !currentUser) return;
     setIsImporting(true);
+
+    const XLSX = await import('xlsx');
     
     const reader = new FileReader();
     reader.onload = async (e) => {
