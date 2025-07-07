@@ -628,12 +628,9 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   }, []);
 
   const handleNextFromNameInput = useCallback(async () => {
-    if (!assetName.trim()) {
-      toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
-      return;
-    }
+    // Allow navigation to the next step without validation, per user request.
     setCurrentStep('descriptions');
-  }, [assetName, toast, t]);
+  }, []);
 
   const handleBackToPhotos = useCallback(() => setCurrentStep('photos_capture'), []);
   const handleBackToNameInput = useCallback(() => setCurrentStep('name_input'), []);
@@ -915,7 +912,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                     <Button variant="outline" onClick={handleBackToPhotos}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToPhotoCapture', 'Back')}
                     </Button>
-                    <Button onClick={handleNextFromNameInput} disabled={!assetName.trim()}>
+                    <Button onClick={handleNextFromNameInput}>
                     {t('next', 'Next')} <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>
@@ -983,7 +980,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
                     <Button variant="outline" onClick={handleBackToNameInput}>
                         <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToAssetNameModal', 'Back')}
                     </Button>
-                    <Button onClick={handleSaveAsset} size="lg" disabled={!assetName.trim()}>
+                    <Button onClick={handleSaveAsset} size="lg">
                         {t('saveAssetButton', 'Finish')}
                     </Button>
                 </div>

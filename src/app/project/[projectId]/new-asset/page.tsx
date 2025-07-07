@@ -654,14 +654,8 @@ export default function NewAssetPage() {
   };
 
   const handleNextToDescriptions = () => {
-    if (photoUrls.length === 0 && videoUrls.length === 0) {
-      toast({ title: t('photosRequiredTitle', "Media Required"), description: t('photosRequiredDesc', "Please add at least one photo or video for the asset."), variant: "destructive" });
-      return;
-    }
-    if (!assetName.trim()) {
-      toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), description: t('assetNameRequiredDesc', "Please enter a name for the asset."), variant: "destructive" });
-      return;
-    }
+    // Allow navigation to the next step without validation, per user request.
+    // Validation will happen on final save.
     setCurrentStep('descriptions');
     setIsMediaModalOpen(false);
   };
@@ -903,6 +897,8 @@ export default function NewAssetPage() {
   const pageTitle = isEditMode ? t('editAssetTitle', "Edit Asset") : t('newAsset', 'Create New Asset');
   const totalMediaCount = photoUrls.length + videoUrls.length;
   
+  const backLinkHref = `/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`;
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 'photos_and_name':
@@ -971,9 +967,12 @@ export default function NewAssetPage() {
                 />
               </div>
             </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button onClick={handleNextToDescriptions} disabled={totalMediaCount === 0 || !assetName.trim() || isProcessingMedia}>
-                {t('nextStepDescriptions', 'Next: Add Descriptions')} <ArrowRight className="ml-2 h-4 w-4" />
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={() => router.push(backLinkHref)} disabled={isProcessingMedia}>
+                {t('cancel', 'Cancel')}
+              </Button>
+              <Button onClick={handleNextToDescriptions} disabled={isProcessingMedia}>
+                {t('next', 'Next')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
           </Card>
@@ -1096,13 +1095,18 @@ export default function NewAssetPage() {
                 )}
             </CardContent>
             <CardFooter className="flex flex-row justify-between items-center gap-2 pt-4">
-              <Button variant="outline" onClick={() => setCurrentStep('photos_and_name')}>
-                {t('backToPhotosName', 'Back to Media & Name')}
+              <Button variant="outline" onClick={() => router.push(backLinkHref)} disabled={isSaving}>
+                {t('cancel', 'Cancel')}
               </Button>
-              <Button onClick={handleSaveAsset} size="lg" disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditMode ? t('updateAssetButton', "Update Asset") : t('saveAssetButton', 'Save Asset')}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setCurrentStep('photos_and_name')} disabled={isSaving}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />{t('backToPhotosName', 'Back to Media & Name')}
+                </Button>
+                <Button onClick={handleSaveAsset} size="lg" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isEditMode ? t('updateAssetButton', "Update Asset") : t('saveAssetButton', 'Save Asset')}
+                </Button>
+              </div>
             </CardFooter>
           </Card>
         );
@@ -1111,7 +1115,7 @@ export default function NewAssetPage() {
     }
   };
 
-  const backLinkHref = `/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`;
+  
   const backLinkText = `${t('backTo', 'Back to')} ${project.name}`;
 
 
