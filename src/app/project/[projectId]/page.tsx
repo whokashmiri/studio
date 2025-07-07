@@ -193,14 +193,19 @@ export default function ProjectPage() {
           project.id,
           term,
           10,
-          loadMore ? lastSearchedDoc : null,
-          currentUrlFolderId // Pass folder context
+          loadMore ? lastSearchedDoc : null
       );
   
+      // Client-side filtering for the current folder view
+      const assetsForCurrentView = newAssets.filter(asset => {
+        if (currentUrlFolderId === null) return true; // Show all if in root
+        return asset.folderId === currentUrlFolderId;
+      });
+
       if (loadMore) {
-          setSearchedAssets(prev => [...prev, ...newAssets]);
+          setSearchedAssets(prev => [...prev, ...assetsForCurrentView]);
       } else {
-          setSearchedAssets(newAssets);
+          setSearchedAssets(assetsForCurrentView);
       }
       
       setLastSearchedDoc(lastDoc);
@@ -791,11 +796,7 @@ export default function ProjectPage() {
                 <div className="relative w-full max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder={
-                            currentUrlFolderId 
-                                ? t('searchByNameOrSerial', 'Search by name or serial...')
-                                : t('searchBySerialInProject', 'Search by Serial Number in project...')
-                        }
+                        placeholder={t('searchByNameOrSerial', 'Search by name or serial...')}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10"
@@ -804,11 +805,11 @@ export default function ProjectPage() {
                 </div>
             </div>
             {isSearching ? (
-                <div className="h-[calc(100vh-32rem)]">
+                <div className="h-[calc(100vh-28rem)]">
                     {renderSearchResults()}
                 </div>
             ) : (
-                <div className="h-[calc(100vh-32rem)]" ref={scrollAreaRef}>
+                <div className="h-[calc(100vh-28rem)]" ref={scrollAreaRef}>
                   <ScrollArea className="h-full pr-3">
                       {renderFolderView()}
                   </ScrollArea>
