@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -28,6 +27,7 @@ import type { DocumentData } from 'firebase/firestore';
 const EditFolderModal = React.lazy(() => import('@/components/modals/edit-folder-modal').then(module => ({ default: module.EditFolderModal })));
 const NewAssetModal = React.lazy(() => import('@/components/modals/new-asset-modal').then(module => ({ default: module.NewAssetModal })));
 const FolderTreeDisplay = React.lazy(() => import('@/components/folder-tree').then(module => ({ default: module.FolderTreeDisplay })));
+const ImagePreviewModal = React.lazy(() => import('@/components/modals/image-preview-modal').then(module => ({ default: module.ImagePreviewModal })));
 
 
 export default function ProjectPage() {
@@ -915,15 +915,14 @@ export default function ProjectPage() {
                 onAssetCreated={handleAssetCreatedInModal}
             />
             )}
+            {assetToPreview && (
+              <ImagePreviewModal
+                isOpen={isImagePreviewModalOpen}
+                onClose={handleCloseImagePreviewModal}
+                asset={assetToPreview}
+              />
+            )}
         </React.Suspense>
-
-        {assetToPreview && (
-          <ImagePreviewModal
-            isOpen={isImagePreviewModalOpen}
-            onClose={handleCloseImagePreviewModal}
-            asset={assetToPreview}
-          />
-        )}
       </div>
   );
 }
