@@ -445,10 +445,10 @@ export async function getAssets(projectId: string, folderId: string | null): Pro
       let q;
       if (folderId === null) {
           // If folderId is null, fetch assets at the root of the project
-          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null), where("isDone", "!=", true));
+          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null), where("isDone", "==", false));
       } else {
           // If folderId is provided, fetch assets within that specific folder
-          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId), where("isDone", "!=", true));
+          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId), where("isDone", "==", false));
       }
       const snapshot = await getDocs(q);
       return processSnapshot<Asset>(snapshot);
@@ -471,7 +471,7 @@ export async function getAssetsPaginated(
     const constraints: any[] = [
       where("projectId", "==", projectId),
       where("folderId", "==", folderId),
-      where("isDone", "!=", true),
+      where("isDone", "==", false),
       orderBy(documentId()), // Use document ID for consistent pagination, which requires no special index.
       limit(pageSize)
     ];
@@ -628,7 +628,7 @@ export async function getUserAccessibleData(userId: string, companyId: string): 
           const foldersSnapshot = await getDocs(foldersQuery);
           result.folders.push(...processSnapshot<Folder>(foldersSnapshot));
           
-          const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", batchProjectIds), where("isDone", "!=", true));
+          const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", batchProjectIds), where("isDone", "==", false));
           const assetsSnapshot = await getDocs(assetsQuery);
           result.assets.push(...processSnapshot<Asset>(assetsSnapshot));
         }
@@ -789,6 +789,7 @@ export async function searchAssets(
                 where("name_lowercase", ">=", lowerCaseTerm),
                 where("name_lowercase", "<=", lowerCaseTerm + '\uf8ff'),
                 orderBy("name_lowercase"),
+                orderBy(documentId()), // Add secondary order by to resolve ties
                 limit(pageSize),
             ];
         }
