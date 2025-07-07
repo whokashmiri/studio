@@ -339,9 +339,9 @@ export default function NewAssetPage() {
         }
 
         if (assetIdToEdit) {
+          setIsEditMode(true);
           const foundAsset = await FirestoreService.getAssetById(assetIdToEdit);
           if (foundAsset && foundAsset.projectId === projectId) {
-            setIsEditMode(true);
             setAssetName(foundAsset.name);
             setSerialNumber(foundAsset.serialNumber ? String(foundAsset.serialNumber) : '');
             setAssetVoiceDescription(foundAsset.voiceDescription || '');
@@ -853,11 +853,7 @@ export default function NewAssetPage() {
       let savedAssetName = assetName;
 
       if (isEditMode && assetIdToEdit) {
-        const updateData: Partial<Asset> = { ...assetDataPayload };
-        const originalAsset = await FirestoreService.getAssetById(assetIdToEdit);
-        if (originalAsset) updateData.createdAt = originalAsset.createdAt; 
-        
-        success = await FirestoreService.updateAsset(assetIdToEdit, updateData);
+        success = await FirestoreService.updateAsset(assetIdToEdit, assetDataPayload);
       } else {
         const dataForCreation = {
           ...assetDataPayload,

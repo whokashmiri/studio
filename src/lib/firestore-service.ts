@@ -472,7 +472,7 @@ export async function getAssetsPaginated(
       where("projectId", "==", projectId),
       where("folderId", "==", folderId),
       where("isDone", "==", false),
-      orderBy(documentId()), // Use document ID for consistent pagination, which requires no special index.
+      orderBy("name"),
       limit(pageSize)
     ];
 
@@ -483,11 +483,8 @@ export async function getAssetsPaginated(
     const q = query(assetsCollectionRef, ...constraints);
     
     const snapshot = await getDocs(q);
-    let assets = processSnapshot<Asset>(snapshot);
+    const assets = processSnapshot<Asset>(snapshot);
     const lastDoc = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
-
-    // Sort the results on the client-side to maintain a consistent user experience.
-    assets.sort((a, b) => a.name.localeCompare(b.name));
 
     return { assets, lastDoc };
   } catch (error) {
@@ -531,9 +528,10 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
     const dataToSave = removeUndefinedProps({
       ...dataWithNullForOptionalAudio,
       name_lowercase: assetData.name.toLowerCase(),
+      name_lowercase_with_status: `false_${assetData.name.toLowerCase()}`,
+      isDone: false, // Explicitly set to false for new assets
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-      isDone: false, // Explicitly set to false for new assets
     });
 
     if (localId) {
@@ -557,22 +555,33 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
   }
 }
 
-export async function updateAsset(assetId: string, assetData: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'name_lowercase'>>): Promise<boolean> {
+export async function updateAsset(assetId: string, assetData: Partial<Asset>): Promise<boolean> {
   try {
     const docRef = doc(getDb(), ASSETS_COLLECTION, assetId);
-    
-    const dataWithNullForOptionalAudio = {
-      ...assetData,
-      recordedAudioDataUrl: assetData.recordedAudioDataUrl === undefined ? undefined : (assetData.recordedAudioDataUrl || null),
-    };
 
-    const dataToUpdate = removeUndefinedProps({
-        ...dataWithNullForOptionalAudio,
-        ...(assetData.name && { name_lowercase: assetData.name.toLowerCase() }),
+    const dataToUpdate: Record<string, any> = {
+        ...assetData,
         updatedAt: serverTimestamp()
-    });
+    };
+    
+    if (assetData.name) {
+        dataToUpdate.name_lowercase = assetData.name.toLowerCase();
+    }
 
-    await updateDoc(docRef, dataToUpdate);
+    // Rebuild composite key if name or isDone is part of the update
+    if (assetData.name !== undefined && assetData.isDone !== undefined) {
+        dataToUpdate.name_lowercase_with_status = `${assetData.isDone}_${assetData.name.toLowerCase()}`;
+    } else if (assetData.name !== undefined || assetData.isDone !== undefined) {
+        // Handle partial update case: requires fetching original doc
+        const originalAsset = await getAssetById(assetId);
+        if (originalAsset) {
+            const newName = assetData.name ?? originalAsset.name;
+            const newIsDone = assetData.isDone ?? originalAsset.isDone ?? false;
+            dataToUpdate.name_lowercase_with_status = `${newIsDone}_${newName.toLowerCase()}`;
+        }
+    }
+
+    await updateDoc(docRef, removeUndefinedProps(dataToUpdate));
     return true;
   } catch (error) {
     console.error("Error updating asset: ", error);
@@ -761,9 +770,6 @@ export async function searchAssets(
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     const isSerialSearch = /^\d+$/.test(searchTerm) && searchTerm.length > 0;
     
-    // NOTE: The where("isDone", "!=", true) clause was removed from here
-    // to prevent a crash that requires a composite index.
-    // Search results may include "Done" assets, which is an acceptable trade-off.
     const baseConstraints: any[] = [
         where("projectId", "==", projectId)
     ];
@@ -774,35 +780,37 @@ export async function searchAssets(
     
     let finalConstraints: any[] = [];
 
-    if (folderId !== undefined) { // Search inside a specific folder (or root) by name or serial
+    if (folderId !== undefined) { // Search inside a specific folder (or root)
         if (isSerialSearch) {
              finalConstraints = [
                 ...baseConstraints,
+                where("isDone", "==", false),
                 where("serialNumber", "==", Number(searchTerm)),
                 orderBy(documentId()),
                 limit(pageSize),
             ];
-        } else {
+        } else { // Name search
              const lowerCaseTerm = searchTerm.toLowerCase();
+             const prefix = `false_${lowerCaseTerm}`;
              finalConstraints = [
                 ...baseConstraints,
-                where("name_lowercase", ">=", lowerCaseTerm),
-                where("name_lowercase", "<=", lowerCaseTerm + '\uf8ff'),
-                orderBy("name_lowercase"),
-                orderBy(documentId()), // Add secondary order by to resolve ties
+                where("name_lowercase_with_status", ">=", prefix),
+                where("name_lowercase_with_status", "<=", prefix + '\uf8ff'),
+                orderBy("name_lowercase_with_status"),
                 limit(pageSize),
             ];
         }
-    } else { // Project-wide search (serial only for now to avoid complex indexes)
+    } else { // Project-wide search (serial only)
         if (isSerialSearch) {
             finalConstraints = [
                 ...baseConstraints,
+                where("isDone", "==", false),
                 where("serialNumber", "==", Number(searchTerm)),
                 orderBy(documentId()),
                 limit(pageSize),
             ];
         } else {
-            // Project-wide name search requires a composite index, returning empty for now
+            // Project-wide name search is disabled to avoid needing complex indexes.
             return { assets: [], lastDoc: null };
         }
     }

@@ -37,6 +37,7 @@ export interface Asset {
   id: string;
   name: string;
   name_lowercase?: string;
+  name_lowercase_with_status?: string; // New composite field for searching
   projectId: string;
   folderId: string | null;
   serialNumber?: number;
