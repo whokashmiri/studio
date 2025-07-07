@@ -761,9 +761,11 @@ export async function searchAssets(
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     const isSerialSearch = /^\d+$/.test(searchTerm) && searchTerm.length > 0;
     
+    // NOTE: The where("isDone", "!=", true) clause was removed from here
+    // to prevent a crash that requires a composite index.
+    // Search results may include "Done" assets, which is an acceptable trade-off.
     const baseConstraints: any[] = [
-        where("projectId", "==", projectId),
-        where("isDone", "!=", true)
+        where("projectId", "==", projectId)
     ];
 
     if (folderId !== undefined && folderId !== null) {
