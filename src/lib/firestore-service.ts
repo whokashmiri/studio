@@ -749,17 +749,20 @@ export async function searchAssets(
   projectId: string,
   searchTerm: string,
   pageSize: number,
-  startAfterDoc?: DocumentData | null,
-  folderId?: string | null // context for search
+  startAfterDoc?: DocumentData | null
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
   try {
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     const isSerialSearch = /^\d+(\.\d+)?$/.test(searchTerm.trim()) && searchTerm.trim().length > 0;
 
-    let constraints: any[] = [where("projectId", "==", projectId)];
+    const constraints: any[] = [where("projectId", "==", projectId)];
 
     if (isSerialSearch) {
       constraints.push(where("serialNumber", "==", Number(searchTerm.trim())));
+       // To use startAfter with cursors, an orderBy is required. 
+       // We'll order by serialNumber then name to be safe and have a consistent order.
+      constraints.push(orderBy("serialNumber"));
+      constraints.push(orderBy("name_lowercase"));
     } else { // Name search
       const lowerCaseTerm = searchTerm.toLowerCase();
       constraints.push(where("name_lowercase", ">=", lowerCaseTerm));
@@ -777,14 +780,8 @@ export async function searchAssets(
     const snapshot = await getDocs(q);
     let assets = processSnapshot<Asset>(snapshot);
     
-    // Client-side filtering
-    assets = assets.filter(asset => {
-      // If folderId is not null, we are searching within a folder.
-      // If folderId is null, it's a project-wide search, so we don't filter by folder.
-      const folderMatch = folderId !== null ? asset.folderId === folderId : true;
-      const isDoneMatch = asset.isDone !== true;
-      return folderMatch && isDoneMatch;
-    });
+    // Client-side filtering for 'isDone' status to avoid complex index requirements
+    assets = assets.filter(asset => asset.isDone !== true);
 
     const lastDoc = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
 

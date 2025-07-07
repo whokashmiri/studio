@@ -654,7 +654,7 @@ export default function ProjectPage() {
                 </CardTitle>
              )}
           </CardHeader>
-          <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-20rem)]">
+          <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
              <div className="flex justify-end mb-4">
                 <div className="relative w-full max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -676,7 +676,6 @@ export default function ProjectPage() {
                             onEditAsset={handleEditAsset}
                             loadingAssetId={loadingAssetId}
                             foldersMap={foldersMap}
-                            currentUrlFolderId={currentUrlFolderId}
                         />
                     </React.Suspense>
                 ) : (

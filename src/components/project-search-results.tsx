@@ -18,10 +18,9 @@ interface ProjectSearchResultsProps {
   onEditAsset: (asset: Asset) => void;
   loadingAssetId: string | null;
   foldersMap: Map<string, Folder>;
-  currentUrlFolderId: string | null;
 }
 
-export function ProjectSearchResults({ project, searchTerm, onEditAsset, loadingAssetId, foldersMap, currentUrlFolderId }: ProjectSearchResultsProps) {
+export function ProjectSearchResults({ project, searchTerm, onEditAsset, loadingAssetId, foldersMap }: ProjectSearchResultsProps) {
   const { t } = useLanguage();
   const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
@@ -59,23 +58,17 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, loading
         loadMore ? lastSearchedDoc : null
     );
 
-    // Client-side filtering for the current folder view
-    const assetsForCurrentView = newAssets.filter(asset => {
-      if (currentUrlFolderId === null) return true; // Show all if in root
-      return asset.folderId === currentUrlFolderId;
-    });
-
     if (loadMore) {
-        setSearchedAssets(prev => [...prev, ...assetsForCurrentView]);
+        setSearchedAssets(prev => [...prev, ...newAssets]);
     } else {
-        setSearchedAssets(assetsForCurrentView);
+        setSearchedAssets(newAssets);
     }
     
     setLastSearchedDoc(lastDoc);
     setHasMoreSearchResults(lastDoc !== null);
     setIsSearchLoading(false);
 
-  }, [project, lastSearchedDoc, currentUrlFolderId]);
+  }, [project, lastSearchedDoc]);
 
   useEffect(() => {
     const term = searchTerm.trim();
@@ -158,11 +151,11 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, loading
                                       <CardTitle className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
                                           {asset.name}
                                       </CardTitle>
-                                      {!currentUrlFolderId && (
-                                          <CardDescription className="text-xs text-muted-foreground truncate" title={pathString}>
-                                              {pathString}
-                                          </CardDescription>
-                                      )}
+                                      
+                                      <CardDescription className="text-xs text-muted-foreground truncate" title={pathString}>
+                                          {pathString}
+                                      </CardDescription>
+                                      
                                   </div>
                               </div>
                               <div className={cn("shrink-0 ml-2", isLoading && "opacity-50")}>
