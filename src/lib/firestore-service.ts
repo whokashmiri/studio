@@ -439,6 +439,49 @@ export async function deleteFolderCascade(folderId: string): Promise<boolean> {
   }
 }
 
+export async function copyFolderRecursively(folderId: string, destinationParentId: string | null): Promise<boolean> {
+  const db = getDb();
+  const batch = writeBatch(db);
+  const foldersProcessed = new Map<string, string>(); // Maps old folderId to new folderId
+
+  async function findAndCopyRecursive(currentFolderId: string, newParentId: string | null) {
+      const originalFolderDoc = await getDoc(doc(db, FOLDERS_COLLECTION, currentFolderId));
+      if (!originalFolderDoc.exists()) return;
+
+      const originalFolderData = originalFolderDoc.data() as Omit<Folder, 'id'>;
+
+      const newFolderRef = doc(collection(db, FOLDERS_COLLECTION));
+      batch.set(newFolderRef, { ...originalFolderData, parentId: newParentId });
+      const newFolderId = newFolderRef.id;
+      foldersProcessed.set(currentFolderId, newFolderId);
+
+      // Copy assets in the current folder
+      const assetsQuery = query(collection(db, ASSETS_COLLECTION), where("folderId", "==", currentFolderId));
+      const assetsSnapshot = await getDocs(assetsQuery);
+      assetsSnapshot.forEach(assetDoc => {
+          const originalAssetData = assetDoc.data() as Omit<Asset, 'id'>;
+          const newAssetRef = doc(collection(db, ASSETS_COLLECTION));
+          batch.set(newAssetRef, { ...originalAssetData, folderId: newFolderId });
+      });
+
+      // Recurse for subfolders
+      const subfoldersQuery = query(collection(db, FOLDERS_COLLECTION), where("parentId", "==", currentFolderId));
+      const subfoldersSnapshot = await getDocs(subfoldersQuery);
+      for (const subfolderDoc of subfoldersSnapshot.docs) {
+          await findAndCopyRecursive(subfolderDoc.id, newFolderId);
+      }
+  }
+
+  try {
+      await findAndCopyRecursive(folderId, destinationParentId);
+      await batch.commit();
+      return true;
+  } catch (error) {
+      console.error("Error copying folder recursively: ", error);
+      return false;
+  }
+}
+
 // Assets
 export async function getAssets(projectId: string, folderId: string | null): Promise<Asset[]> {
     try {

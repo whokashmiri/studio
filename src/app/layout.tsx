@@ -1,7 +1,9 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { LanguageProvider } from '@/contexts/language-context';
 import { AuthProvider } from '@/contexts/auth-context';
+import { ClipboardProvider } from '@/contexts/clipboard-context';
 import { Toaster } from '@/components/ui/toaster';
 import { Header } from '@/components/layout/header';
 import { cn } from '@/lib/utils';
@@ -43,11 +45,13 @@ export default function RootLayout({
       <body className={cn("min-h-screen bg-background font-body antialiased")}>
         <AuthProvider>
           <LanguageProvider>
-            <div className="relative flex min-h-screen flex-col">
-              <Header />
-              <main className="flex-1">{children}</main>
-            </div>
-            <Toaster />
+            <ClipboardProvider>
+              <div className="relative flex min-h-screen flex-col">
+                <Header />
+                <main className="flex-1">{children}</main>
+              </div>
+              <Toaster />
+            </ClipboardProvider>
           </LanguageProvider>
         </AuthProvider>
       </body>

@@ -10,9 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, CloudOff, Edit2 } from 'lucide-react';
+import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, CloudOff, Edit2, Copy, Scissors } from 'lucide-react';
 import type { Folder } from '@/data/mock-data';
 import { cn } from '@/lib/utils';
+import { useClipboard } from '@/contexts/clipboard-context';
+import { useAuth } from '@/contexts/auth-context';
 
 interface FolderGridCardProps {
   folder: Folder;
@@ -36,19 +38,35 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   isOnline = true,
 }: FolderGridCardProps) {
   
+  const { currentUser } = useAuth();
+  const { setClipboard, isItemCut } = useClipboard();
+  const isAdmin = currentUser?.role === 'Admin';
+  
   const isOffline = !!folder.isOffline;
   const isOfflineUpdate = !!folder.isOfflineUpdate;
+  const isCut = isItemCut(folder.id);
 
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onSelectFolder(folder);
+  };
+  
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setClipboard({ itemId: folder.id, itemType: 'folder', operation: 'copy', sourceProjectId: folder.projectId });
+  };
+  
+  const handleCut = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setClipboard({ itemId: folder.id, itemType: 'folder', operation: 'cut', sourceProjectId: folder.projectId });
   };
 
   return (
     <Card
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 p-1",
-        isOffline ? "cursor-not-allowed" : "cursor-pointer"
+        isOffline ? "cursor-not-allowed" : "cursor-pointer",
+        isCut && "opacity-60"
       )}
       onClick={handleCardClick}
       title={folder.name}
@@ -86,6 +104,19 @@ export const FolderGridCard = React.memo(function FolderGridCard({
               <Edit3 className="mr-2 h-4 w-4" />
               {t('editFolder', 'Edit folder')}
             </DropdownMenuItem>
+            {isAdmin && isOnline && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleCopy}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    {t('copy', 'Copy')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCut}>
+                    <Scissors className="mr-2 h-4 w-4" />
+                    {t('cut', 'Cut')}
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => onActualDeleteFolder(e, folder)}

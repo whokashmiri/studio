@@ -1,7 +1,7 @@
 
 "use client";
 import type { Folder, Asset } from '@/data/mock-data';
-import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, FileArchive, Loader2 } from 'lucide-react';
+import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, FileArchive, Loader2, Copy, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import {
 import { Card, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language-context';
+import { useClipboard } from '@/contexts/clipboard-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import React, { useCallback, useMemo, useRef, useEffect } from 'react'; 
@@ -115,6 +116,7 @@ export function FolderTreeDisplay({
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
+  const { setClipboard, isItemCut } = useClipboard();
   const loaderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

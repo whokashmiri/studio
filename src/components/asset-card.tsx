@@ -4,16 +4,19 @@ import type { Asset } from '@/data/mock-data';
 import React from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2, CloudOff, Video, Edit2 } from 'lucide-react';
+import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2, CloudOff, Video, Edit2, Copy, Scissors } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from '@/contexts/language-context';
+import { useClipboard } from '@/contexts/clipboard-context';
 import Image from 'next/image'; 
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/auth-context';
 
 interface AssetCardProps {
   asset: Asset;
@@ -28,11 +31,16 @@ interface AssetCardProps {
 
 export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewAsset, displayMode = 'grid', isDeleting = false, isLoading = false, isOnline = true }: AssetCardProps) {
   const { t } = useLanguage();
+  const { currentUser } = useAuth();
+  const { setClipboard, isItemCut } = useClipboard();
+  const isAdmin = currentUser?.role === 'Admin';
+  
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
   const hasVideo = asset.videos && asset.videos.length > 0;
   const isUploading = !!asset.isUploading;
   const isOffline = !!asset.isOffline;
   const isOfflineUpdate = !!asset.isOfflineUpdate;
+  const isCut = isItemCut(asset.id);
   const cardIsDisabled = isUploading || isDeleting || isLoading;
 
   const mainAction = () => {
@@ -40,12 +48,23 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
     onEditAsset(asset);
   };
 
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setClipboard({ itemId: asset.id, itemType: 'asset', operation: 'copy', sourceProjectId: asset.projectId });
+  };
+  
+  const handleCut = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setClipboard({ itemId: asset.id, itemType: 'asset', operation: 'cut', sourceProjectId: asset.projectId });
+  };
+
   if (displayMode === 'grid') {
     return (
       <Card
         className={cn(
             "group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 p-1",
-            cardIsDisabled ? "cursor-wait" : "cursor-pointer"
+            cardIsDisabled ? "cursor-wait" : "cursor-pointer",
+            isCut && "opacity-60"
         )}
         onClick={mainAction}
         title={asset.name}
@@ -90,6 +109,20 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
                     <Edit3 className="mr-2 h-4 w-4" />
                     {t('editAssetButton', 'Edit Asset')}
                   </DropdownMenuItem>
+                   {isAdmin && isOnline && (
+                     <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleCopy}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            {t('copy', 'Copy')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleCut}>
+                            <Scissors className="mr-2 h-4 w-4" />
+                            {t('cut', 'Cut')}
+                        </DropdownMenuItem>
+                     </>
+                   )}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={(e) => { e.stopPropagation(); onDeleteAsset(asset); }}
                     className="text-destructive focus:text-destructive focus:bg-destructive/10"
@@ -131,7 +164,8 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
   return (
       <Card 
         className={cn(
-            "group relative flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md"
+            "group relative flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md",
+            isCut && "opacity-60"
         )}
         title={asset.name}
         onClick={mainAction}
@@ -199,6 +233,20 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
                 <Edit3 className="mr-2 h-4 w-4" />
                 {t('editAssetButton', 'Edit Asset')}
               </DropdownMenuItem>
+               {isAdmin && isOnline && (
+                 <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleCopy}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        {t('copy', 'Copy')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleCut}>
+                        <Scissors className="mr-2 h-4 w-4" />
+                        {t('cut', 'Cut')}
+                    </DropdownMenuItem>
+                 </>
+               )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={(e) => { e.stopPropagation(); onDeleteAsset(asset); }}
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"

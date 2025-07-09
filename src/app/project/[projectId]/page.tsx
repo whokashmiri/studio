@@ -5,10 +5,11 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2 } from 'lucide-react';
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2, Copy, Scissors, ClipboardPaste } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
+import { useClipboard } from '@/contexts/clipboard-context';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -49,6 +50,7 @@ export default function ProjectPage() {
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
   const [loadingAssetId, setLoadingAssetId] = useState<string | null>(null);
+  const [isPasting, setIsPasting] = useState(false);
   
   // State for modals and forms
   const [newFolderName, setNewFolderName] = useState('');
@@ -72,6 +74,7 @@ export default function ProjectPage() {
   const { toast } = useToast();
   const { t } = useLanguage();
   const { currentUser } = useAuth();
+  const { clipboardState, clearClipboard } = useClipboard();
   const isAdmin = currentUser?.role === 'Admin';
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -629,6 +632,59 @@ export default function ProjectPage() {
         }
     };
 
+    const handlePaste = async () => {
+        if (!clipboardState.itemId || !isOnline || isPasting) return;
+    
+        const { itemId, itemType, operation, sourceProjectId } = clipboardState;
+    
+        if (sourceProjectId !== project?.id) {
+            toast({ title: "Paste Error", description: "Cannot paste items between different projects.", variant: "destructive" });
+            return;
+        }
+    
+        setIsPasting(true);
+    
+        const destinationFolderId = currentUrlFolderId;
+    
+        let success = false;
+        try {
+            if (itemType === 'asset') {
+                const originalAsset = allProjectAssets.find(a => a.id === itemId);
+                if (!originalAsset) throw new Error("Original asset not found");
+    
+                if (operation === 'cut') {
+                    success = await FirestoreService.updateAsset(itemId, { folderId: destinationFolderId });
+                } else { // copy
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    const { id, createdAt, updatedAt, ...assetToCopy } = originalAsset;
+                    success = !!await FirestoreService.addAsset({
+                        ...assetToCopy,
+                        folderId: destinationFolderId,
+                    });
+                }
+            } else if (itemType === 'folder') {
+                if (operation === 'cut') {
+                    success = await FirestoreService.updateFolder(itemId, { parentId: destinationFolderId });
+                } else { // copy
+                    success = await FirestoreService.copyFolderRecursively(itemId, destinationFolderId);
+                }
+            }
+    
+            if (success) {
+                toast({ title: "Success", description: `Item ${operation === 'copy' ? 'copied' : 'moved'} successfully.` });
+                await reloadAllData();
+            } else {
+                throw new Error(`Failed to ${operation} item.`);
+            }
+        } catch (error) {
+            console.error(`Error during paste operation:`, error);
+            toast({ title: "Error", description: `Could not complete the ${operation} operation.`, variant: "destructive" });
+        } finally {
+            clearClipboard();
+            setIsPasting(false);
+        }
+    };
+
 
   if (isLoading || !project) {
     return (
@@ -793,6 +849,12 @@ export default function ProjectPage() {
                 <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)} className="shadow-lg" disabled={!isOnline}>
                   <Upload className="mr-2 h-4 w-4" />
                   {t('importAssetsButton', 'Import Assets')}
+                </Button>
+              )}
+              {isAdmin && clipboardState.itemId && (
+                <Button variant="secondary" size="lg" onClick={handlePaste} className="shadow-lg" disabled={!isOnline || isPasting}>
+                  {isPasting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ClipboardPaste className="mr-2 h-4 w-4" />}
+                  {isPasting ? t('pasting', 'Pasting...') : t('paste', 'Paste')}
                 </Button>
               )}
           </div>
