@@ -31,6 +31,7 @@ interface ProjectFolderViewProps {
   onPreviewAsset: (asset: Asset) => void;
   onLoadMore: () => void;
   isAdmin: boolean;
+  isOnline: boolean;
 }
 
 export function ProjectFolderView({
@@ -53,7 +54,8 @@ export function ProjectFolderView({
   onDeleteAsset,
   onPreviewAsset,
   onLoadMore,
-  isAdmin
+  isAdmin,
+  isOnline
 }: ProjectFolderViewProps) {
   const { t } = useLanguage();
 
@@ -61,7 +63,7 @@ export function ProjectFolderView({
 
   const { setNodeRef: setRootDroppableRef, isOver: isOverRoot } = useDroppable({
     id: 'root-droppable',
-    disabled: !isAdmin,
+    disabled: !isAdmin || !isOnline,
     data: {
       type: 'root'
     }
@@ -102,6 +104,7 @@ export function ProjectFolderView({
             isLoadingMore={isLoadingMore}
             scrollAreaRef={scrollAreaRef}
             isAdmin={isAdmin}
+            isOnline={isOnline}
           />
         )}
         

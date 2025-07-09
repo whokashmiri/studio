@@ -41,13 +41,14 @@ interface FolderTreeDisplayProps {
   isLoadingMore?: boolean;
   scrollAreaRef?: React.RefObject<HTMLDivElement>;
   isAdmin: boolean;
+  isOnline: boolean;
 }
 
-const DraggableAsset = ({ asset, children, isAdmin }: { asset: Asset; children: React.ReactNode, isAdmin: boolean }) => {
+const DraggableAsset = ({ asset, children, isAdmin, isOnline }: { asset: Asset; children: React.ReactNode, isAdmin: boolean, isOnline: boolean }) => {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
       id: asset.id,
       data: { type: 'asset', item: asset },
-      disabled: !isAdmin || asset.isOffline,
+      disabled: !isAdmin || asset.isOffline || !isOnline,
     });
   
     if (!isAdmin) return <>{children}</>;
@@ -59,17 +60,17 @@ const DraggableAsset = ({ asset, children, isAdmin }: { asset: Asset; children: 
     );
 };
   
-const DraggableAndDroppableFolder = ({ folder, children, isAdmin }: { folder: Folder, children: React.ReactNode, isAdmin: boolean }) => {
+const DraggableAndDroppableFolder = ({ folder, children, isAdmin, isOnline }: { folder: Folder, children: React.ReactNode, isAdmin: boolean, isOnline: boolean }) => {
     const { setNodeRef: setDroppableRef, isOver } = useDroppable({
         id: folder.id,
         data: { type: 'folder', item: folder },
-        disabled: !isAdmin || folder.isOffline,
+        disabled: !isAdmin || folder.isOffline || !isOnline,
     });
 
     const { attributes, listeners, setNodeRef: setDraggableRef, isDragging } = useDraggable({
         id: folder.id,
         data: { type: 'folder', item: folder },
-        disabled: !isAdmin || folder.isOffline,
+        disabled: !isAdmin || folder.isOffline || !isOnline,
     });
 
     if (!isAdmin) return <>{children}</>;
@@ -109,7 +110,8 @@ export function FolderTreeDisplay({
   hasMore = false,
   isLoadingMore = false,
   scrollAreaRef,
-  isAdmin
+  isAdmin,
+  isOnline,
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -152,6 +154,10 @@ export function FolderTreeDisplay({
 
   const handleDeleteClick = useCallback(async (e: React.MouseEvent, currentFolder: Folder) => {
     e.stopPropagation();
+    if (!isOnline) {
+      toast({ title: "Action Not Available", description: "Cannot delete items while offline.", variant: "default" });
+      return;
+    }
     const childFolders = await FirestoreService.getFolders(currentFolder.projectId);
     const hasChildFolders = childFolders.some(f => f.parentId === currentFolder.id);
     const childAssets = await FirestoreService.getAssets(currentFolder.projectId, currentFolder.id);
@@ -178,7 +184,7 @@ export function FolderTreeDisplay({
          toast({ title: "Error", description: "Failed to delete folder.", variant: "destructive" });
       }
     }
-  }, [toast, t, onDeleteFolder]); 
+  }, [toast, t, onDeleteFolder, isOnline]); 
   
   const combinedItems = useMemo(() => [
     ...foldersToDisplay.map(f => ({ type: 'folder' as const, data: f })),
@@ -211,10 +217,11 @@ export function FolderTreeDisplay({
                         onEditFolder={onEditFolder}
                         onActualDeleteFolder={handleDeleteClick}
                         t={t}
+                        isOnline={isOnline}
                     />
                 );
                 return (
-                    <DraggableAndDroppableFolder key={`dnd-folder-${item.data.id}`} folder={item.data} isAdmin={isAdmin}>
+                    <DraggableAndDroppableFolder key={`dnd-folder-${item.data.id}`} folder={item.data} isAdmin={isAdmin} isOnline={isOnline}>
                         {folderCard}
                     </DraggableAndDroppableFolder>
                 );
@@ -230,10 +237,11 @@ export function FolderTreeDisplay({
                         displayMode="grid"
                         isDeleting={deletingAssetId === item.data.id}
                         isLoading={loadingAssetId === item.data.id}
+                        isOnline={isOnline}
                     />
                 );
                 return (
-                    <DraggableAsset key={`dnd-asset-${item.data.id}`} asset={item.data} isAdmin={isAdmin}>
+                    <DraggableAsset key={`dnd-asset-${item.data.id}`} asset={item.data} isAdmin={isAdmin} isOnline={isOnline}>
                         {assetCard}
                     </DraggableAsset>
                 );
@@ -241,7 +249,7 @@ export function FolderTreeDisplay({
             return null;
           })}
         </div>
-        {onLoadMore && infiniteScrollTrigger}
+        {onLoadMore && hasMore && isOnline && infiniteScrollTrigger}
       </div>
     );
   }

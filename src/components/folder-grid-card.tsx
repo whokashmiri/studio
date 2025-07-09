@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, CloudOff } from 'lucide-react';
+import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, CloudOff, Edit2 } from 'lucide-react';
 import type { Folder } from '@/data/mock-data';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +22,7 @@ interface FolderGridCardProps {
   onActualDeleteFolder: (e: React.MouseEvent, folder: Folder) => void;
   t: (key: string, defaultText: string, params?: Record<string, string | number>) => string;
   assetCount?: number;
+  isOnline?: boolean;
 }
 
 export const FolderGridCard = React.memo(function FolderGridCard({
@@ -32,9 +33,11 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   onActualDeleteFolder,
   t,
   assetCount,
+  isOnline = true,
 }: FolderGridCardProps) {
   
   const isOffline = !!folder.isOffline;
+  const isOfflineUpdate = !!folder.isOfflineUpdate;
 
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -45,14 +48,15 @@ export const FolderGridCard = React.memo(function FolderGridCard({
     <Card
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 p-1",
-        isOffline ? "cursor-wait" : "cursor-pointer"
+        isOffline ? "cursor-not-allowed" : "cursor-pointer"
       )}
       onClick={handleCardClick}
       title={folder.name}
     >
-       {isOffline && (
-          <div className="absolute top-1.5 left-1.5 z-10 p-1 bg-background/60 rounded-full">
-            <CloudOff className="h-4 w-4 text-muted-foreground" title="Saved locally, pending sync"/>
+       {(isOffline || isOfflineUpdate) && (
+          <div className="absolute top-1.5 left-1.5 z-10 p-1 bg-background/60 rounded-full flex items-center gap-1">
+            {isOffline && <CloudOff className="h-4 w-4 text-muted-foreground" title="Saved locally, pending sync"/>}
+            {isOfflineUpdate && !isOffline && <Edit2 className="h-4 w-4 text-accent" title="Changes pending sync"/>}
           </div>
         )}
       <div className="absolute top-1 right-1 z-10">
@@ -86,6 +90,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
             <DropdownMenuItem
               onClick={(e) => onActualDeleteFolder(e, folder)}
               className="text-destructive focus:text-destructive focus:bg-destructive/10"
+              disabled={!isOnline}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               {t('deleteFolder', 'Delete folder')}

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Folder } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
+import * as OfflineService from '@/lib/offline-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { Loader2 } from 'lucide-react';
@@ -17,9 +18,10 @@ interface EditFolderModalProps {
   onClose: () => void;
   folder: Folder | null;
   onFolderUpdated: (updatedFolder: Folder) => void;
+  isOnline: boolean;
 }
 
-export function EditFolderModal({ isOpen, onClose, folder, onFolderUpdated }: EditFolderModalProps) {
+export function EditFolderModal({ isOpen, onClose, folder, onFolderUpdated, isOnline }: EditFolderModalProps) {
   const [folderName, setFolderName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
@@ -48,23 +50,32 @@ export function EditFolderModal({ isOpen, onClose, folder, onFolderUpdated }: Ed
       name: folderName,
     };
 
-    const success = await FirestoreService.updateFolder(folder.id, folderUpdateData);
-    setIsSaving(false);
-    
-    if (success) {
-      onFolderUpdated({ ...folder, name: folderName }); // Optimistically update with new name
-      onClose(); 
-      toast({
-        title: t('folderUpdatedTitle', "Folder Updated"),
-        description: t('folderUpdatedDesc', `Folder "${folderName}" has been successfully updated.`, { folderName: folderName }),
-      });
+    if (isOnline) {
+      const success = await FirestoreService.updateFolder(folder.id, folderUpdateData);
+      if (success) {
+        toast({
+          title: t('folderUpdatedTitle', "Folder Updated"),
+          description: t('folderUpdatedDesc', `Folder "${folderName}" has been successfully updated.`, { folderName: folderName }),
+        });
+      } else {
+         toast({
+          title: "Error",
+          description: "Failed to update folder.",
+          variant: "destructive",
+        });
+      }
     } else {
-      toast({
-        title: "Error",
-        description: "Failed to update folder.",
-        variant: "destructive",
-      });
+       OfflineService.queueOfflineAction('update-folder', folderUpdateData, folder.projectId, folder.id);
+       toast({
+          title: "Working Offline",
+          description: `Folder update for "${folderName}" saved locally. It will sync when you're back online.`,
+       });
     }
+    
+    // Optimistically update UI regardless of online status
+    onFolderUpdated({ ...folder, ...folderUpdateData, isOfflineUpdate: !isOnline });
+    setIsSaving(false);
+    onClose(); 
   };
 
   if (!folder) return null;

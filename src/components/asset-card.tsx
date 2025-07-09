@@ -4,7 +4,7 @@ import type { Asset } from '@/data/mock-data';
 import React from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2, CloudOff, Video } from 'lucide-react';
+import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2, CloudOff, Video, Edit2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,15 +23,17 @@ interface AssetCardProps {
   displayMode?: 'grid' | 'list';
   isDeleting?: boolean;
   isLoading?: boolean;
+  isOnline?: boolean;
 }
 
-export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewAsset, displayMode = 'grid', isDeleting = false, isLoading = false }: AssetCardProps) {
+export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewAsset, displayMode = 'grid', isDeleting = false, isLoading = false, isOnline = true }: AssetCardProps) {
   const { t } = useLanguage();
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
   const hasVideo = asset.videos && asset.videos.length > 0;
   const isUploading = !!asset.isUploading;
   const isOffline = !!asset.isOffline;
-  const cardIsDisabled = isUploading || isOffline || isDeleting || isLoading;
+  const isOfflineUpdate = !!asset.isOfflineUpdate;
+  const cardIsDisabled = isUploading || isDeleting || isLoading;
 
   const mainAction = () => {
     if (cardIsDisabled) return;
@@ -54,9 +56,10 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
           </div>
         )}
         <div className={cn('flex flex-col flex-grow', cardIsDisabled && 'opacity-50 pointer-events-none')}>
-            {isOffline && !isUploading && (
-              <div className="absolute top-1.5 left-1.5 z-10 p-1 bg-background/60 rounded-full">
-                <CloudOff className="h-4 w-4 text-muted-foreground" title="Saved locally, pending sync"/>
+            {(isOffline || isOfflineUpdate) && (
+              <div className="absolute top-1.5 left-1.5 z-10 p-1 bg-background/60 rounded-full flex items-center gap-1">
+                {isOffline && <CloudOff className="h-4 w-4 text-muted-foreground" title="Saved locally, pending sync"/>}
+                {isOfflineUpdate && !isOffline && <Edit2 className="h-4 w-4 text-accent" title="Changes pending sync"/>}
               </div>
             )}
             {hasVideo && (
@@ -90,7 +93,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
                   <DropdownMenuItem
                     onClick={(e) => { e.stopPropagation(); onDeleteAsset(asset); }}
                     className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                    disabled={isDeleting}
+                    disabled={isDeleting || !isOnline}
                   >
                     {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                     {t('deleteAssetButton', 'Delete Asset')}
@@ -139,8 +142,11 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
             </div>
         )}
         <div className={cn("flex items-center gap-3 flex-grow min-w-0", cardIsDisabled && "opacity-50 pointer-events-none")}>
-          {isOffline && !isUploading && (
-            <CloudOff className="h-5 w-5 text-muted-foreground shrink-0" title="Saved locally, pending sync"/>
+          {(isOffline || isOfflineUpdate) && (
+             <div className="flex items-center gap-1">
+                {isOffline && <CloudOff className="h-5 w-5 text-muted-foreground shrink-0" title="Saved locally, pending sync"/>}
+                {isOfflineUpdate && !isOffline && <Edit2 className="h-5 w-5 text-accent shrink-0" title="Changes pending sync"/>}
+              </div>
           )}
           <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center">
             {primaryPhoto ? (
@@ -196,7 +202,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
               <DropdownMenuItem
                 onClick={(e) => { e.stopPropagation(); onDeleteAsset(asset); }}
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                disabled={isDeleting}
+                disabled={isDeleting || !isOnline}
               >
                 {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                 {t('deleteAssetButton', 'Delete Asset')}

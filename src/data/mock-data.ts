@@ -31,6 +31,7 @@ export interface Folder {
   projectId: string;
   parentId: string | null;
   isOffline?: boolean;
+  isOfflineUpdate?: boolean; // To mark pending updates
 }
 
 export interface Asset {
@@ -52,6 +53,7 @@ export interface Asset {
   userId?: string;
   isUploading?: boolean;
   isOffline?: boolean;
+  isOfflineUpdate?: boolean; // To mark pending updates
   isDone?: boolean;
 }
 

@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive } from 'lucide-react';
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -124,11 +124,12 @@ export default function ProjectPage() {
     setIsContentLoading(true);
     setCurrentViewAssets([]); // Clear previous assets
     
-    const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(pId, fId, 15);
-    
-    setCurrentViewAssets(assets);
-    setLastVisibleAssetDoc(lastDoc);
-    setHasMoreAssets(lastDoc !== null);
+    if (isOnline) {
+      const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(pId, fId, 15);
+      setCurrentViewAssets(assets);
+      setLastVisibleAssetDoc(lastDoc);
+      setHasMoreAssets(lastDoc !== null);
+    }
     
     // Also fetch offline assets for this folder
     const queuedActions = OfflineService.getOfflineQueue();
@@ -138,10 +139,10 @@ export default function ProjectPage() {
     setOfflineAssets(offlineForView);
 
     setIsContentLoading(false);
-  }, []);
+  }, [isOnline]);
 
   const loadMoreAssets = useCallback(async () => {
-    if (isLoadingMore || !hasMoreAssets || !project) return;
+    if (isLoadingMore || !hasMoreAssets || !project || !isOnline) return;
     
     setIsLoadingMore(true);
     const { assets: newAssets, lastDoc } = await FirestoreService.getAssetsPaginated(project.id, currentUrlFolderId, 15, lastVisibleAssetDoc);
@@ -150,7 +151,7 @@ export default function ProjectPage() {
     setLastVisibleAssetDoc(lastDoc);
     setHasMoreAssets(lastDoc !== null);
     setIsLoadingMore(false);
-  }, [isLoadingMore, hasMoreAssets, project, currentUrlFolderId, lastVisibleAssetDoc]);
+  }, [isLoadingMore, hasMoreAssets, project, currentUrlFolderId, lastVisibleAssetDoc, isOnline]);
 
   // Initial Data Load
   useEffect(() => {
@@ -195,7 +196,26 @@ export default function ProjectPage() {
   }, [deferredSearchTerm]);
 
   // --- Memoized Data and Folder Logic ---
-  const combinedFolders = useMemo(() => [...allProjectFolders, ...offlineFolders], [allProjectFolders, offlineFolders]);
+  const combinedFolders = useMemo(() => {
+    const offlineUpdates = new Map<string, FolderType>();
+    OfflineService.getOfflineQueue()
+        .filter(a => a.type === 'update-folder' && a.projectId === projectId)
+        .forEach(a => {
+            const updateAction = a as { type: 'update-folder', folderId: string, payload: Partial<Folder> };
+            const existing = offlineUpdates.get(updateAction.folderId) || {};
+            offlineUpdates.set(updateAction.folderId, { ...existing, ...updateAction.payload });
+        });
+
+    const onlineFoldersWithOfflineUpdates = allProjectFolders.map(folder => {
+        if (offlineUpdates.has(folder.id)) {
+            return { ...folder, ...offlineUpdates.get(folder.id), isOfflineUpdate: true };
+        }
+        return folder;
+    });
+
+    return [...onlineFoldersWithOfflineUpdates, ...offlineFolders];
+  }, [allProjectFolders, offlineFolders, projectId]);
+  
   const foldersMap = useMemo(() => new Map(combinedFolders.map(f => [f.id, f])), [combinedFolders]);
   const selectedFolder = useMemo(() => currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null, [currentUrlFolderId, foldersMap]);
   
@@ -221,8 +241,24 @@ export default function ProjectPage() {
   }, [project, currentUrlFolderId, getFolderPath]);
 
   const combinedCurrentViewAssets = useMemo(() => {
-    return [...currentViewAssets, ...offlineAssets];
-  }, [currentViewAssets, offlineAssets]);
+    const offlineUpdates = new Map<string, Asset>();
+    OfflineService.getOfflineQueue()
+        .filter(a => a.type === 'update-asset' && a.projectId === projectId)
+        .forEach(a => {
+            const updateAction = a as { type: 'update-asset', assetId: string, payload: Partial<Asset> };
+            const existing = offlineUpdates.get(updateAction.assetId) || {};
+            offlineUpdates.set(updateAction.assetId, { ...existing, ...updateAction.payload });
+        });
+
+    const onlineAssetsWithOfflineUpdates = currentViewAssets.map(asset => {
+        if (offlineUpdates.has(asset.id)) {
+            return { ...asset, ...offlineUpdates.get(asset.id), isOfflineUpdate: true };
+        }
+        return asset;
+    });
+
+    return [...onlineAssetsWithOfflineUpdates, ...offlineAssets];
+  }, [currentViewAssets, offlineAssets, projectId]);
   
   const finalAssetsToDisplay = useMemo(() => combinedCurrentViewAssets, [combinedCurrentViewAssets]);
   const finalFoldersToDisplay = useMemo(() => combinedFolders.filter(folder => folder.parentId === (currentUrlFolderId || null)), [combinedFolders, currentUrlFolderId]);
@@ -269,7 +305,7 @@ export default function ProjectPage() {
       }
     } else {
       const { localId } = OfflineService.queueOfflineAction('add-folder', newFolderData, project.id);
-      const optimisticFolder: FolderType = { ...newFolderData, id: localId, isOffline: true };
+      const optimisticFolder: FolderType = { ...newFolderData, id: localId!, isOffline: true };
       setOfflineFolders(prev => [...prev, optimisticFolder]);
       toast({ title: "Working Offline", description: `Folder "${newFolderName}" saved locally. It will sync when you're back online.` });
       
@@ -286,13 +322,9 @@ export default function ProjectPage() {
   }, []); 
 
   const handleOpenEditFolderModal = useCallback((folderToEdit: FolderType) => {
-    if (folderToEdit.isOffline) {
-      toast({ title: "Action Not Available", description: "Cannot edit an item that is pending sync.", variant: "default" });
-      return;
-    }
     setEditingFolder(folderToEdit);
     setIsEditFolderModalOpen(true);
-  }, [toast]);
+  }, []);
 
   const handleFolderDeleted = useCallback(async () => {
     await reloadAllData(); 
@@ -308,18 +340,14 @@ export default function ProjectPage() {
   }, [reloadAllData, project]);
 
   const handleEditAsset = useCallback((asset: Asset) => {
-    if (asset.isOffline) {
-      toast({ title: "Action Not Available", description: "Cannot edit an item that is pending sync.", variant: "default" });
-      return;
-    }
     setLoadingAssetId(asset.id);
     const editUrl = `/project/${projectId}/new-asset?assetId=${asset.id}${asset.folderId ? `&folderId=${asset.folderId}` : ''}`;
     router.push(editUrl); 
-  }, [projectId, router, toast]);
+  }, [projectId, router]);
 
   const handleDeleteAsset = useCallback(async (assetToDelete: Asset) => {
-    if (assetToDelete.isOffline) {
-      toast({ title: "Action Not Available", description: "Cannot delete an item that is pending sync.", variant: "default" });
+    if (!isOnline) {
+      toast({ title: "Action Not Available", description: "Cannot delete items while offline.", variant: "default" });
       return;
     }
     if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
@@ -339,15 +367,17 @@ export default function ProjectPage() {
         setDeletingAssetId(null);
       }
     }
-  }, [reloadAllData, t, toast]);
+  }, [reloadAllData, t, toast, isOnline]);
 
   const handleAssetCreatedInModal = useCallback(async (assetDataWithDataUris: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!project) return;
     if (!isOnline) {
+      OfflineService.queueOfflineAction('add-asset', assetDataWithDataUris, project.id);
       toast({
-        title: "Action Not Available Offline",
-        description: "Creating new assets with media is not supported while offline. Please connect to the internet to save your asset.",
-        variant: "destructive"
+        title: "Working Offline",
+        description: `Asset "${assetDataWithDataUris.name}" saved locally. It will sync when you're back online.`
       });
+      await reloadAllData(); // To show optimistic offline asset
       return;
     }
     
@@ -545,6 +575,7 @@ export default function ProjectPage() {
   };
   
     const handleDragStart = (event: any) => {
+        if (!isOnline) return;
         const { active } = event;
         const itemType = active.data.current?.type;
         const itemData = active.data.current?.item;
@@ -554,6 +585,7 @@ export default function ProjectPage() {
     };
 
     const handleDragEnd = async (event: any) => {
+        if (!isOnline) return;
         setActiveDragItem(null);
         const { active, over } = event;
     
@@ -636,7 +668,7 @@ export default function ProjectPage() {
             </CardTitle>
           )}
       </CardHeader>
-      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
+      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-22rem)]">
           <div className="flex justify-end mb-4">
             <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -645,7 +677,7 @@ export default function ProjectPage() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
-                    disabled={isLoading}
+                    disabled={isLoading || !isOnline}
                 />
             </div>
         </div>
@@ -680,6 +712,7 @@ export default function ProjectPage() {
                 onPreviewAsset={handleOpenImagePreviewModal}
                 onLoadMore={loadMoreAssets}
                 isAdmin={isAdmin}
+                isOnline={isOnline}
               />
             )}
         </div>
@@ -744,6 +777,7 @@ export default function ProjectPage() {
                   title={selectedFolder ? t('addNewFolder', 'New Folder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
                   className="shadow-lg"
               >
+                  <FolderPlus className="mr-2 h-4 w-4" />
                   {t('addNewFolder', 'New Folder')}
               </Button>
               <Button
@@ -752,10 +786,11 @@ export default function ProjectPage() {
                   size="lg"
                   title={t('newAsset', 'New Asset')}
               >
+                  <FilePlus className="mr-2 h-4 w-4" />
                   {t('newAsset', 'New Asset')}
               </Button>
                {isAdmin && (
-                <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)} className="shadow-lg">
+                <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)} className="shadow-lg" disabled={!isOnline}>
                   <Upload className="mr-2 h-4 w-4" />
                   {t('importAssetsButton', 'Import Assets')}
                 </Button>
@@ -838,6 +873,7 @@ export default function ProjectPage() {
             }}
             folder={editingFolder}
             onFolderUpdated={handleFolderUpdated}
+            isOnline={isOnline}
         />
         )}
         
