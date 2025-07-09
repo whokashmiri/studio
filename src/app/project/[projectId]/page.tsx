@@ -200,7 +200,7 @@ export default function ProjectPage() {
 
   // --- Memoized Data and Folder Logic ---
   const combinedFolders = useMemo(() => {
-    const offlineUpdates = new Map<string, FolderType>();
+    const offlineUpdates = new Map<string, Partial<FolderType>>();
     OfflineService.getOfflineQueue()
         .filter(a => a.type === 'update-folder' && a.projectId === projectId)
         .forEach(a => {
@@ -215,8 +215,12 @@ export default function ProjectPage() {
         }
         return folder;
     });
-
-    return [...onlineFoldersWithOfflineUpdates, ...offlineFolders];
+    
+    // Filter out any offline folders that now exist in the online list (have been synced)
+    const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
+    const uniqueOfflineFolders = offlineFolders.filter(of => !onlineFolderIds.has(of.id));
+    
+    return [...onlineFoldersWithOfflineUpdates, ...uniqueOfflineFolders];
   }, [allProjectFolders, offlineFolders, projectId]);
   
   const foldersMap = useMemo(() => new Map(combinedFolders.map(f => [f.id, f])), [combinedFolders]);
@@ -244,7 +248,7 @@ export default function ProjectPage() {
   }, [project, currentUrlFolderId, getFolderPath]);
 
   const combinedCurrentViewAssets = useMemo(() => {
-    const offlineUpdates = new Map<string, Asset>();
+    const offlineUpdates = new Map<string, Partial<Asset>>();
     OfflineService.getOfflineQueue()
         .filter(a => a.type === 'update-asset' && a.projectId === projectId)
         .forEach(a => {
@@ -260,7 +264,11 @@ export default function ProjectPage() {
         return asset;
     });
 
-    return [...onlineAssetsWithOfflineUpdates, ...offlineAssets];
+    // Filter out any offline assets that now exist in the online list (have been synced)
+    const onlineAssetIds = new Set(currentViewAssets.map(a => a.id));
+    const uniqueOfflineAssets = offlineAssets.filter(oa => !onlineAssetIds.has(oa.id));
+
+    return [...onlineAssetsWithOfflineUpdates, ...uniqueOfflineAssets];
   }, [currentViewAssets, offlineAssets, projectId]);
   
   const finalAssetsToDisplay = useMemo(() => combinedCurrentViewAssets, [combinedCurrentViewAssets]);
@@ -724,7 +732,7 @@ export default function ProjectPage() {
             </CardTitle>
           )}
       </CardHeader>
-      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-22rem)]">
+      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
           <div className="flex justify-end mb-4">
             <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

@@ -211,7 +211,6 @@ export function FolderTreeDisplay({
             if (item.type === 'folder') {
                 const folderCard = (
                     <FolderGridCard
-                        key={`folder-card-${item.data.id}`}
                         folder={item.data}
                         assetCount={assetCountsByFolder.get(item.data.id)}
                         onSelectFolder={onSelectFolder}
@@ -231,7 +230,6 @@ export function FolderTreeDisplay({
             if (item.type === 'asset') {
                 const assetCard = (
                     <AssetCard
-                        key={`asset-card-${item.data.id}`}
                         asset={item.data}
                         onEditAsset={onEditAsset}
                         onDeleteAsset={onDeleteAsset}
