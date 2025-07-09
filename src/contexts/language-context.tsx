@@ -332,7 +332,7 @@ const translations: Record<Language, Record<string, string>> = {
     assignUsersButtonTitle: "Assign Users",
     assignUsersToProjectTitle: "Assign Users to:",
     assignUsersModalDescExtended: "Search for users by email to add them as Inspectors or Valuators to your company, then assign them to this project.",
-    assignInspector: "Assign Inspector", 
+    assignInspector: "Assign Inspector.", 
     assignInspectorsLabel: "Assign Inspectors", 
     assignValuator: "Assign Valuator", 
     assignValuatorsLabel: "Assign Valuators", 
