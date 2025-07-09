@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useEffect, useState, useCallback, Suspense } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { CompanySelector } from '@/components/company-selector';
 import type { Company } from '@/data/mock-data';
@@ -9,10 +9,9 @@ import * as FirestoreService from '@/lib/firestore-service';
 import { Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProjectDashboard } from '@/components/project-dashboard';
 
 const SELECTED_COMPANY_ID_KEY = 'selectedCompanyId';
-
-const ProjectDashboard = React.lazy(() => import('@/components/project-dashboard').then(module => ({ default: module.ProjectDashboard })));
 
 export default function HomePage() {
   const { currentUser, isLoading: authIsLoading, logout: authLogout } = useAuth();
@@ -108,20 +107,11 @@ export default function HomePage() {
   if (selectedCompany) {
     return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <Suspense fallback={
-            <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="text-lg text-muted-foreground mt-4">
-                    {t('preparingDashboard', 'Preparing dashboard...')}
-                </p>
-            </div>
-        }>
-            <ProjectDashboard
-              company={selectedCompany}
-              onLogout={handleLogoutAndReset}
-              onSwitchCompany={handleSwitchCompany}
-            />
-        </Suspense>
+        <ProjectDashboard
+            company={selectedCompany}
+            onLogout={handleLogoutAndReset}
+            onSwitchCompany={handleSwitchCompany}
+        />
       </div>
     );
   }
