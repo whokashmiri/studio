@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search } from 'lucide-react';
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -13,19 +13,17 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import * as OfflineService from '@/lib/offline-service';
 import type { DocumentData } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { uploadMedia } from '@/actions/cloudinary-actions';
-
-// Lazy load modals and complex components to improve initial page load time
-const EditFolderModal = React.lazy(() => import('@/components/modals/edit-folder-modal').then(module => ({ default: module.EditFolderModal })));
-const NewAssetModal = React.lazy(() => import('@/components/modals/new-asset-modal').then(module => ({ default: module.NewAssetModal })));
-const ImagePreviewModal = React.lazy(() => import('@/components/modals/image-preview-modal').then(module => ({ default: module.ImagePreviewModal })));
-const ProjectSearchResults = React.lazy(() => import('@/components/project-search-results').then(module => ({ default: module.ProjectSearchResults })));
-const ProjectFolderView = React.lazy(() => import('@/components/project-folder-view').then(module => ({ default: module.ProjectFolderView })));
+import { DndContext, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
+import { ProjectFolderView } from '@/components/project-folder-view';
+import { ProjectSearchResults } from '@/components/project-search-results';
+import { EditFolderModal } from '@/components/modals/edit-folder-modal';
+import { NewAssetModal } from '@/components/modals/new-asset-modal';
+import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 
 
 export default function ProjectPage() {
@@ -76,6 +74,17 @@ export default function ProjectPage() {
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'Admin';
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Drag and Drop state
+  const [activeDragItem, setActiveDragItem] = useState<{ id: string; type: 'folder' | 'asset'; data: any } | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // User must drag 8px before a drag event is initiated
+      },
+    })
+  );
 
 
   const loadInitialStructure = useCallback(async () => {
@@ -534,6 +543,60 @@ export default function ProjectPage() {
 
     reader.readAsBinaryString(fileToImport);
   };
+  
+    const handleDragStart = (event: any) => {
+        const { active } = event;
+        const itemType = active.data.current?.type;
+        const itemData = active.data.current?.item;
+        if (itemData) {
+            setActiveDragItem({ id: active.id, type: itemType, data: itemData });
+        }
+    };
+
+    const handleDragEnd = async (event: any) => {
+        setActiveDragItem(null);
+        const { active, over } = event;
+    
+        if (!over || active.id === over.id) {
+            return;
+        }
+
+        const draggedItemId = active.id as string;
+        const draggedItemType = active.data.current?.type as 'folder' | 'asset';
+        const droppedOnId = over.id as string;
+        const droppedOnType = over.data.current?.type;
+
+        if (droppedOnType === 'asset') {
+            toast({ title: "Invalid Move", description: "Cannot move an item into an asset.", variant: "destructive" });
+            return;
+        }
+
+        const newParentId = droppedOnId === 'root-droppable' ? null : droppedOnId;
+    
+        let success = false;
+        try {
+            if (draggedItemType === 'folder') {
+                const draggedFolder = active.data.current.item as FolderType;
+                if (draggedFolder.parentId === newParentId) return; // No change
+                success = await FirestoreService.updateFolder(draggedItemId, { parentId: newParentId });
+            } else if (draggedItemType === 'asset') {
+                const draggedAsset = active.data.current.item as Asset;
+                if (draggedAsset.folderId === newParentId) return; // No change
+                success = await FirestoreService.updateAsset(draggedItemId, { folderId: newParentId });
+            }
+        
+            if (success) {
+                toast({ title: "Item Moved", description: "The item has been moved successfully.", variant: "success-yellow" });
+                await reloadAllData();
+            } else {
+                throw new Error("Update operation failed.");
+            }
+        } catch (error) {
+            console.error("Error moving item:", error);
+            toast({ title: "Error", description: "Failed to move the item.", variant: "destructive" });
+        }
+    };
+
 
   if (isLoading || !project) {
     return (
@@ -545,6 +608,84 @@ export default function ProjectPage() {
         </div>
     );
   }
+
+  const mainContent = (
+    <>
+      <CardHeader className="pt-3 px-4 pb-0 md:pt-4 md:px-6 md:pb-0">
+          {!isSearching && (
+            <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
+                {breadcrumbItems.map((item, index) => (
+                    <React.Fragment key={item.id || `project_root_${project.id}`}>
+                    <span
+                        className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                        onClick={() => {
+                        if (item.type === 'project') {
+                            handleSelectFolder(null);
+                        } else if (item.id) {
+                            const folderToSelect = foldersMap.get(item.id); 
+                            if (folderToSelect) handleSelectFolder(folderToSelect);
+                        }
+                        }}
+                        title={t('clickToNavigateTo', 'Click to navigate to {name}', { name: item.name })}
+                    >
+                        {item.name}
+                    </span>
+                    {index < breadcrumbItems.length - 1 && <span className="mx-1.5 text-muted-foreground">{t('breadcrumbSeparator', '>')}</span>}
+                    </React.Fragment>
+                ))}
+            </CardTitle>
+          )}
+      </CardHeader>
+      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-22rem)]">
+          <div className="flex justify-end mb-4">
+            <div className="relative w-full max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder={t('searchByNameOrSerial', 'Search by name or serial...')}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                    disabled={isLoading}
+                />
+            </div>
+        </div>
+        <div className="h-[calc(100%-4rem)]">
+              {isSearching ? (
+                  <ProjectSearchResults
+                      project={project}
+                      searchTerm={deferredSearchTerm}
+                      onEditAsset={handleEditAsset}
+                      loadingAssetId={loadingAssetId}
+                      foldersMap={foldersMap}
+                  />
+            ) : (
+              <ProjectFolderView
+                project={project}
+                isContentLoading={isContentLoading}
+                foldersToDisplay={finalFoldersToDisplay}
+                assetsToDisplay={finalAssetsToDisplay}
+                allProjectAssets={allProjectAssets}
+                selectedFolder={selectedFolder}
+                deletingAssetId={deletingAssetId}
+                loadingAssetId={loadingAssetId}
+                hasMoreAssets={hasMoreAssets}
+                isLoadingMore={isLoadingMore}
+                scrollAreaRef={scrollAreaRef}
+                onSelectFolder={handleSelectFolder}
+                onAddSubfolder={openNewFolderDialog}
+                onEditFolder={handleOpenEditFolderModal}
+                onDeleteFolder={handleFolderDeleted}
+                onEditAsset={handleEditAsset}
+                onDeleteAsset={handleDeleteAsset}
+                onPreviewAsset={handleOpenImagePreviewModal}
+                onLoadMore={loadMoreAssets}
+                isAdmin={isAdmin}
+              />
+            )}
+        </div>
+      </CardContent>
+    </>
+  );
   
   return (
       <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24">
@@ -573,85 +714,26 @@ export default function ProjectPage() {
             </h1>
           </div>
         </div>
-
-        <Card>
-          <CardHeader className="pt-3 px-4 pb-0 md:pt-4 md:px-6 md:pb-0">
-             {!isSearching && (
-                <CardTitle className="text-base sm:text-lg flex flex-wrap items-center mb-3">
-                    {breadcrumbItems.map((item, index) => (
-                        <React.Fragment key={item.id || `project_root_${project.id}`}>
-                        <span
-                            className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                            onClick={() => {
-                            if (item.type === 'project') {
-                                handleSelectFolder(null);
-                            } else if (item.id) {
-                                const folderToSelect = foldersMap.get(item.id); 
-                                if (folderToSelect) handleSelectFolder(folderToSelect);
-                            }
-                            }}
-                            title={t('clickToNavigateTo', 'Click to navigate to {name}', { name: item.name })}
-                        >
-                            {item.name}
-                        </span>
-                        {index < breadcrumbItems.length - 1 && <span className="mx-1.5 text-muted-foreground">{t('breadcrumbSeparator', '>')}</span>}
-                        </React.Fragment>
-                    ))}
-                </CardTitle>
-             )}
-          </CardHeader>
-          <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-22rem)]">
-             <div className="flex justify-end mb-4">
-                <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder={t('searchByNameOrSerial', 'Search by name or serial...')}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                        disabled={isLoading}
-                    />
+        
+        {isAdmin ? (
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <Card>
+              {mainContent}
+            </Card>
+            <DragOverlay>
+              {activeDragItem ? (
+                <div className="rounded-lg bg-primary text-primary-foreground p-2 shadow-xl flex items-center gap-2">
+                   {activeDragItem.type === 'folder' ? <FolderIcon/> : <FileArchive/>}
+                   <span className="font-semibold text-sm">{activeDragItem.data.name}</span>
                 </div>
-            </div>
-            <div className="h-[calc(100%-4rem)]">
-                 {isSearching ? (
-                     <React.Suspense fallback={<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-                        <ProjectSearchResults
-                            project={project}
-                            searchTerm={deferredSearchTerm}
-                            onEditAsset={handleEditAsset}
-                            loadingAssetId={loadingAssetId}
-                            foldersMap={foldersMap}
-                        />
-                    </React.Suspense>
-                ) : (
-                    <React.Suspense fallback={<div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-                      <ProjectFolderView
-                        project={project}
-                        isContentLoading={isContentLoading}
-                        foldersToDisplay={finalFoldersToDisplay}
-                        assetsToDisplay={finalAssetsToDisplay}
-                        allProjectAssets={allProjectAssets}
-                        selectedFolder={selectedFolder}
-                        deletingAssetId={deletingAssetId}
-                        loadingAssetId={loadingAssetId}
-                        hasMoreAssets={hasMoreAssets}
-                        isLoadingMore={isLoadingMore}
-                        scrollAreaRef={scrollAreaRef}
-                        onSelectFolder={handleSelectFolder}
-                        onAddSubfolder={openNewFolderDialog}
-                        onEditFolder={handleOpenEditFolderModal}
-                        onDeleteFolder={handleFolderDeleted}
-                        onEditAsset={handleEditAsset}
-                        onDeleteAsset={handleDeleteAsset}
-                        onPreviewAsset={handleOpenImagePreviewModal}
-                        onLoadMore={loadMoreAssets}
-                      />
-                    </React.Suspense>
-                )}
-            </div>
-          </CardContent>
-        </Card>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        ) : (
+          <Card>
+            {mainContent}
+          </Card>
+        )}
 
         <div className="fixed bottom-0 inset-x-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40">
           <div className="container mx-auto flex justify-center items-center gap-2 flex-wrap">
@@ -747,37 +829,34 @@ export default function ProjectPage() {
           </Dialog>
         )}
 
-        {/* Suspense is needed for lazy loading components */}
-        <React.Suspense fallback={null}>
-            {editingFolder && (
-            <EditFolderModal
-                isOpen={isEditFolderModalOpen}
-                onClose={() => {
-                setIsEditFolderModalOpen(false);
-                setEditingFolder(null);
-                }}
-                folder={editingFolder}
-                onFolderUpdated={handleFolderUpdated}
-            />
-            )}
-            
-            {project && (
-            <NewAssetModal
-                isOpen={isNewAssetModalOpen}
-                onClose={() => setIsNewAssetModalOpen(false)}
-                project={project}
-                parentFolder={selectedFolder}
-                onAssetCreated={handleAssetCreatedInModal}
-            />
-            )}
-            {assetToPreview && (
-              <ImagePreviewModal
-                isOpen={isImagePreviewModalOpen}
-                onClose={handleCloseImagePreviewModal}
-                asset={assetToPreview}
-              />
-            )}
-        </React.Suspense>
+        {editingFolder && (
+        <EditFolderModal
+            isOpen={isEditFolderModalOpen}
+            onClose={() => {
+            setIsEditFolderModalOpen(false);
+            setEditingFolder(null);
+            }}
+            folder={editingFolder}
+            onFolderUpdated={handleFolderUpdated}
+        />
+        )}
+        
+        {project && (
+        <NewAssetModal
+            isOpen={isNewAssetModalOpen}
+            onClose={() => setIsNewAssetModalOpen(false)}
+            project={project}
+            parentFolder={selectedFolder}
+            onAssetCreated={handleAssetCreatedInModal}
+        />
+        )}
+        {assetToPreview && (
+          <ImagePreviewModal
+            isOpen={isImagePreviewModalOpen}
+            onClose={handleCloseImagePreviewModal}
+            asset={assetToPreview}
+          />
+        )}
       </div>
   );
 }

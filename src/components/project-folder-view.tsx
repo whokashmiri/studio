@@ -6,9 +6,9 @@ import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Project, Folder as FolderType, Asset } from '@/data/mock-data';
 import { useLanguage } from '@/contexts/language-context';
-
-// Lazy load the heaviest component
-const FolderTreeDisplay = React.lazy(() => import('@/components/folder-tree').then(module => ({ default: module.FolderTreeDisplay })));
+import { FolderTreeDisplay } from '@/components/folder-tree';
+import { useDroppable } from '@dnd-kit/core';
+import { cn } from '@/lib/utils';
 
 interface ProjectFolderViewProps {
   project: Project;
@@ -30,6 +30,7 @@ interface ProjectFolderViewProps {
   onDeleteAsset: (asset: Asset) => void;
   onPreviewAsset: (asset: Asset) => void;
   onLoadMore: () => void;
+  isAdmin: boolean;
 }
 
 export function ProjectFolderView({
@@ -51,24 +52,35 @@ export function ProjectFolderView({
   onEditAsset,
   onDeleteAsset,
   onPreviewAsset,
-  onLoadMore
+  onLoadMore,
+  isAdmin
 }: ProjectFolderViewProps) {
   const { t } = useLanguage();
 
   const isCurrentLocationEmpty = foldersToDisplay.length === 0 && assetsToDisplay.length === 0;
 
+  const { setNodeRef: setRootDroppableRef, isOver: isOverRoot } = useDroppable({
+    id: 'root-droppable',
+    disabled: !isAdmin,
+    data: {
+      type: 'root'
+    }
+  });
+
   return (
-    <ScrollArea className="h-full pr-3" viewportRef={scrollAreaRef}>
-      {isContentLoading ? (
-        <div className="flex justify-center items-center h-40">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <React.Suspense fallback={
+    <div 
+        ref={isAdmin ? setRootDroppableRef : null} 
+        className={cn(
+            'h-full p-1 rounded-lg',
+            isOverRoot && 'bg-primary/10 ring-2 ring-primary ring-inset'
+        )}
+    >
+      <ScrollArea className="h-full pr-3" viewportRef={scrollAreaRef}>
+        {isContentLoading ? (
           <div className="flex justify-center items-center h-40">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        }>
+        ) : (
           <FolderTreeDisplay
             foldersToDisplay={foldersToDisplay}
             assetsToDisplay={assetsToDisplay}
@@ -89,17 +101,18 @@ export function ProjectFolderView({
             hasMore={hasMoreAssets}
             isLoadingMore={isLoadingMore}
             scrollAreaRef={scrollAreaRef}
+            isAdmin={isAdmin}
           />
-        </React.Suspense>
-      )}
-      
-      {isCurrentLocationEmpty && !isContentLoading && (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground mb-4">
-            {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
-          </p>
-        </div>
-      )}
-    </ScrollArea>
+        )}
+        
+        {isCurrentLocationEmpty && !isContentLoading && (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground mb-4">
+              {selectedFolder ? t('folderIsEmpty', 'This folder is empty. Add a subfolder or asset.') : t('projectRootIsEmpty', 'This project has no folders or root assets. Add a folder to get started.')}
+            </p>
+          </div>
+        )}
+      </ScrollArea>
+    </div>
   );
 }

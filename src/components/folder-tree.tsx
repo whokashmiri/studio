@@ -18,86 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import React, { useCallback, useMemo, useRef, useEffect } from 'react'; 
 import { AssetCard } from '@/components/asset-card';
 import { FolderGridCard } from '@/components/folder-grid-card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-
-
-interface FolderDisplayCardProps {
-  folder: Folder;
-  onSelectFolder: (folder: Folder) => void;
-  onAddSubfolder: (parentFolder: Folder) => void;
-  onEditFolder: (folder: Folder) => void;
-  onActualDeleteFolder: (e: React.MouseEvent, folder: Folder) => void;
-  t: (key: string, defaultText: string, params?: Record<string, string | number>) => string;
-  assetCount?: number;
-}
-
-const FolderDisplayCard = React.memo(function FolderDisplayCard({
-  folder,
-  onSelectFolder,
-  onAddSubfolder,
-  onEditFolder,
-  onActualDeleteFolder,
-  t,
-  assetCount
-}: FolderDisplayCardProps) {
-  return (
-    <Card 
-      className="group flex flex-row items-center justify-between p-3 hover:shadow-md transition-shadow cursor-pointer w-full border-b last:border-b-0 rounded-none first:rounded-t-md last:rounded-b-md"
-      onClick={() => onSelectFolder(folder)}
-      title={folder.name}
-    >
-      <div className="flex items-center gap-3 flex-grow min-w-0">
-        <FolderIcon className="h-6 w-6 text-primary shrink-0" />
-        <div className="flex-grow min-w-0">
-            <CardTitle className="text-sm sm:text-base font-medium truncate">
-            {folder.name}
-            </CardTitle>
-            {assetCount !== undefined && (
-                <p className="text-xs text-muted-foreground">{t('totalAssets', '{count} Assets', { count: assetCount })}</p>
-            )}
-        </div>
-      </div>
-      
-      <div className="shrink-0 ml-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={(e) => e.stopPropagation()} 
-            >
-              <MoreVertical className="h-4 w-4" />
-              <span className="sr-only">{t('folderActions', 'Folder actions')}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuItem onClick={() => onSelectFolder(folder)}>
-              <Eye className="mr-2 h-4 w-4" />
-              {t('openFolder', 'Open Folder')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAddSubfolder(folder)}>
-              <FolderPlus className="mr-2 h-4 w-4" />
-              {t('addSubfolderToCurrent', 'Add subfolder here')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onEditFolder(folder)}>
-              <Edit3 className="mr-2 h-4 w-4" />
-              {t('editFolder', 'Edit folder')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => onActualDeleteFolder(e, folder)}
-              className="text-destructive focus:text-destructive focus:bg-destructive/10"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t('deleteFolder', 'Delete folder')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </Card>
-  );
-});
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 
 interface FolderTreeDisplayProps {
   foldersToDisplay: Folder[];
@@ -119,7 +40,54 @@ interface FolderTreeDisplayProps {
   hasMore?: boolean;
   isLoadingMore?: boolean;
   scrollAreaRef?: React.RefObject<HTMLDivElement>;
+  isAdmin: boolean;
 }
+
+const DraggableAsset = ({ asset, children, isAdmin }: { asset: Asset; children: React.ReactNode, isAdmin: boolean }) => {
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+      id: asset.id,
+      data: { type: 'asset', item: asset },
+      disabled: !isAdmin || asset.isOffline,
+    });
+  
+    if (!isAdmin) return <>{children}</>;
+  
+    return (
+      <div ref={setNodeRef} style={{ opacity: isDragging ? 0.4 : 1 }} {...listeners} {...attributes}>
+        {children}
+      </div>
+    );
+};
+  
+const DraggableAndDroppableFolder = ({ folder, children, isAdmin }: { folder: Folder, children: React.ReactNode, isAdmin: boolean }) => {
+    const { setNodeRef: setDroppableRef, isOver } = useDroppable({
+        id: folder.id,
+        data: { type: 'folder', item: folder },
+        disabled: !isAdmin || folder.isOffline,
+    });
+
+    const { attributes, listeners, setNodeRef: setDraggableRef, isDragging } = useDraggable({
+        id: folder.id,
+        data: { type: 'folder', item: folder },
+        disabled: !isAdmin || folder.isOffline,
+    });
+
+    if (!isAdmin) return <>{children}</>;
+
+    const setCombinedRef = (node: HTMLElement | null) => {
+        setDraggableRef(node);
+        setDroppableRef(node);
+    };
+
+    return (
+        <div ref={setCombinedRef} style={{ opacity: isDragging ? 0.4 : 1 }} className={cn(isOver && !isDragging && 'outline outline-2 outline-offset-2 outline-primary rounded-lg transition-all duration-100')}>
+            <div {...listeners} {...attributes}>
+                {children}
+            </div>
+        </div>
+    );
+};
+
 
 export function FolderTreeDisplay({ 
   foldersToDisplay,
@@ -141,6 +109,7 @@ export function FolderTreeDisplay({
   hasMore = false,
   isLoadingMore = false,
   scrollAreaRef,
+  isAdmin
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -232,32 +201,42 @@ export function FolderTreeDisplay({
         <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
           {combinedItems.map(item => {
             if (item.type === 'folder') {
-              return (
-                <FolderGridCard
-                  key={`item-folder-${item.data.id}`}
-                  folder={item.data}
-                  assetCount={assetCountsByFolder.get(item.data.id)}
-                  onSelectFolder={onSelectFolder}
-                  onAddSubfolder={onAddSubfolder}
-                  onEditFolder={onEditFolder}
-                  onActualDeleteFolder={handleDeleteClick}
-                  t={t}
-                />
-              );
+                const folderCard = (
+                    <FolderGridCard
+                        key={`folder-grid-${item.data.id}`}
+                        folder={item.data}
+                        assetCount={assetCountsByFolder.get(item.data.id)}
+                        onSelectFolder={onSelectFolder}
+                        onAddSubfolder={onAddSubfolder}
+                        onEditFolder={onEditFolder}
+                        onActualDeleteFolder={handleDeleteClick}
+                        t={t}
+                    />
+                );
+                return (
+                    <DraggableAndDroppableFolder key={`dnd-folder-${item.data.id}`} folder={item.data} isAdmin={isAdmin}>
+                        {folderCard}
+                    </DraggableAndDroppableFolder>
+                );
             }
             if (item.type === 'asset') {
-              return (
-                <AssetCard
-                  key={`item-asset-${item.data.id}`}
-                  asset={item.data}
-                  onEditAsset={onEditAsset}
-                  onDeleteAsset={onDeleteAsset}
-                  onPreviewAsset={onPreviewAsset}
-                  displayMode="grid"
-                  isDeleting={deletingAssetId === item.data.id}
-                  isLoading={loadingAssetId === item.data.id}
-                />
-              );
+                const assetCard = (
+                    <AssetCard
+                        key={`asset-grid-${item.data.id}`}
+                        asset={item.data}
+                        onEditAsset={onEditAsset}
+                        onDeleteAsset={onDeleteAsset}
+                        onPreviewAsset={onPreviewAsset}
+                        displayMode="grid"
+                        isDeleting={deletingAssetId === item.data.id}
+                        isLoading={loadingAssetId === item.data.id}
+                    />
+                );
+                return (
+                    <DraggableAsset key={`dnd-asset-${item.data.id}`} asset={item.data} isAdmin={isAdmin}>
+                        {assetCard}
+                    </DraggableAsset>
+                );
             }
             return null;
           })}
@@ -267,62 +246,6 @@ export function FolderTreeDisplay({
     );
   }
 
-  // --- LIST MODE LOGIC ---
-  if (foldersToDisplay.length === 0 && assetsToDisplay.length === 0) {
-    return null; 
-  }
-
-  const folderList = (
-    <div className="flex flex-col border rounded-md">
-      {foldersToDisplay.map(folder => (
-        <FolderDisplayCard
-          key={`folder-card-${folder.id}`}
-          folder={folder}
-          assetCount={assetCountsByFolder.get(folder.id)}
-          onSelectFolder={onSelectFolder}
-          onAddSubfolder={onAddSubfolder}
-          onEditFolder={onEditFolder}
-          onActualDeleteFolder={handleDeleteClick}
-          t={t}
-        />
-      ))}
-    </div>
-  );
-
-  return (
-    <div className="space-y-6">
-      {foldersToDisplay.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
-            <FolderIcon className="mr-2 h-5 w-5 text-primary" />
-            {t('folders', 'Folders')}
-          </h3>
-          {folderList}
-        </div>
-      )}
-      {assetsToDisplay.length > 0 && (
-        <div className={foldersToDisplay.length > 0 ? "mt-6" : ""}>
-          <h3 className="text-lg font-semibold mb-3 text-foreground/90 flex items-center">
-            <FileArchive className="mr-2 h-5 w-5 text-accent" />
-            {t('assets', 'Assets')}
-          </h3>
-          <div className="flex flex-col border rounded-md">
-            {assetsToDisplay.map(asset => (
-              <AssetCard
-                key={`asset-${asset.id}`}
-                asset={asset}
-                onEditAsset={onEditAsset}
-                onDeleteAsset={onDeleteAsset}
-                onPreviewAsset={onPreviewAsset}
-                displayMode="list"
-                isDeleting={deletingAssetId === asset.id}
-                isLoading={loadingAssetId === asset.id}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-       {onLoadMore && infiniteScrollTrigger}
-    </div>
-  );
+  // --- LIST MODE IS NOT CURRENTLY USED BUT LEFT FOR POTENTIAL FUTURE USE ---
+  return null; 
 }
