@@ -248,31 +248,52 @@ export default function ProjectPage() {
   }, [project, currentUrlFolderId, getFolderPath]);
 
   const combinedCurrentViewAssets = useMemo(() => {
+    const onlineAssetIds = new Set(currentViewAssets.map(asset => asset.id));
+    
     const offlineUpdates = new Map<string, Partial<Asset>>();
+    const offlineDeletes = new Set<string>();
+
     OfflineService.getOfflineQueue()
-        .filter(a => a.type === 'update-asset' && a.projectId === projectId)
-        .forEach(a => {
+      .filter(a => a.projectId === projectId)
+      .forEach(a => {
+        if (a.type === 'update-asset') {
             const updateAction = a as { type: 'update-asset', assetId: string, payload: Partial<Asset> };
+            if (!onlineAssetIds.has(updateAction.assetId)) return;
             const existing = offlineUpdates.get(updateAction.assetId) || {};
             offlineUpdates.set(updateAction.assetId, { ...existing, ...updateAction.payload });
+        }
+      });
+
+    const onlineAssetsWithOfflineUpdates = currentViewAssets
+        .filter(asset => !offlineDeletes.has(asset.id))
+        .map(asset => {
+            if (offlineUpdates.has(asset.id)) {
+                return { ...asset, ...offlineUpdates.get(asset.id), isOfflineUpdate: true };
+            }
+            return asset;
         });
 
-    const onlineAssetsWithOfflineUpdates = currentViewAssets.map(asset => {
-        if (offlineUpdates.has(asset.id)) {
-            return { ...asset, ...offlineUpdates.get(asset.id), isOfflineUpdate: true };
-        }
-        return asset;
-    });
-
-    // Filter out any offline assets that now exist in the online list (have been synced)
-    const onlineAssetIds = new Set(currentViewAssets.map(a => a.id));
     const uniqueOfflineAssets = offlineAssets.filter(oa => !onlineAssetIds.has(oa.id));
-
+    
     return [...onlineAssetsWithOfflineUpdates, ...uniqueOfflineAssets];
   }, [currentViewAssets, offlineAssets, projectId]);
   
   const finalAssetsToDisplay = useMemo(() => combinedCurrentViewAssets, [combinedCurrentViewAssets]);
-  const finalFoldersToDisplay = useMemo(() => combinedFolders.filter(folder => folder.parentId === (currentUrlFolderId || null)), [combinedFolders, currentUrlFolderId]);
+
+  const finalFoldersToDisplay = useMemo(() => {
+      const onlineFolderIds = new Set(allProjectFolders.map(folder => folder.id));
+      const offlineDeletes = new Set<string>();
+
+      OfflineService.getOfflineQueue()
+        .filter(a => a.type === 'update-folder' && a.projectId === projectId)
+        .forEach(a => {
+           // In future, can handle offline delete logic here
+        });
+
+      return combinedFolders.filter(folder => 
+          folder.parentId === (currentUrlFolderId || null) && !offlineDeletes.has(folder.id)
+      );
+  }, [combinedFolders, currentUrlFolderId, allProjectFolders, projectId]);
 
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && combinedFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
@@ -732,7 +753,7 @@ export default function ProjectPage() {
             </CardTitle>
           )}
       </CardHeader>
-      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
+      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-20rem)]">
           <div className="flex justify-end mb-4">
             <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
