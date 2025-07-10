@@ -201,7 +201,9 @@ export default function ProjectPage() {
   // --- Memoized Data and Folder Logic ---
   const combinedFolders = useMemo(() => {
     const offlineUpdates = new Map<string, Partial<FolderType>>();
-    OfflineService.getOfflineQueue()
+    const offlineQueue = OfflineService.getOfflineQueue();
+
+    offlineQueue
         .filter(a => a.type === 'update-folder' && a.projectId === projectId)
         .forEach(a => {
             const updateAction = a as { type: 'update-folder', folderId: string, payload: Partial<Folder> };
@@ -216,9 +218,9 @@ export default function ProjectPage() {
         return folder;
     });
     
-    // Filter out any offline folders that now exist in the online list (have been synced)
+    const offlineAddActionIds = new Set(offlineQueue.filter(a => a.type === 'add-folder').map(a => (a as any).localId));
     const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
-    const uniqueOfflineFolders = offlineFolders.filter(of => !onlineFolderIds.has(of.id));
+    const uniqueOfflineFolders = offlineFolders.filter(of => offlineAddActionIds.has(of.id) && !onlineFolderIds.has(of.id));
     
     return [...onlineFoldersWithOfflineUpdates, ...uniqueOfflineFolders];
   }, [allProjectFolders, offlineFolders, projectId]);
@@ -248,17 +250,16 @@ export default function ProjectPage() {
   }, [project, currentUrlFolderId, getFolderPath]);
 
   const combinedCurrentViewAssets = useMemo(() => {
-    const onlineAssetIds = new Set(currentViewAssets.map(asset => asset.id));
-    
     const offlineUpdates = new Map<string, Partial<Asset>>();
     const offlineDeletes = new Set<string>();
+    const offlineQueue = OfflineService.getOfflineQueue();
+    const onlineAssetIds = new Set(currentViewAssets.map(a => a.id));
 
-    OfflineService.getOfflineQueue()
+    offlineQueue
       .filter(a => a.projectId === projectId)
       .forEach(a => {
         if (a.type === 'update-asset') {
             const updateAction = a as { type: 'update-asset', assetId: string, payload: Partial<Asset> };
-            if (!onlineAssetIds.has(updateAction.assetId)) return;
             const existing = offlineUpdates.get(updateAction.assetId) || {};
             offlineUpdates.set(updateAction.assetId, { ...existing, ...updateAction.payload });
         }
@@ -272,37 +273,26 @@ export default function ProjectPage() {
             }
             return asset;
         });
-
-    const uniqueOfflineAssets = offlineAssets.filter(oa => {
-      // Check if an asset with this temporary ID has already been synced
-      const correspondingOnlineAsset = allProjectAssets.find(apa => apa.id === oa.id);
-      return !correspondingOnlineAsset;
-    });
+    
+    // An offline asset is unique and should be displayed if its real ID isn't in the online list yet.
+    const uniqueOfflineAssets = offlineAssets.filter(oa => !onlineAssetIds.has(oa.id));
     
     return [...onlineAssetsWithOfflineUpdates, ...uniqueOfflineAssets];
-  }, [currentViewAssets, offlineAssets, projectId, allProjectAssets]);
+  }, [currentViewAssets, offlineAssets, projectId]);
   
   const finalAssetsToDisplay = useMemo(() => combinedCurrentViewAssets, [combinedCurrentViewAssets]);
 
   const finalFoldersToDisplay = useMemo(() => {
-      const onlineFolderIds = new Set(allProjectFolders.map(folder => folder.id));
+      const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
       const offlineDeletes = new Set<string>();
 
-      OfflineService.getOfflineQueue()
-        .filter(a => a.type === 'update-folder' && a.projectId === projectId)
-        .forEach(a => {
-           // In future, can handle offline delete logic here
-        });
-      
-      const uniqueOfflineFolders = offlineFolders.filter(of => {
-        const correspondingOnlineFolder = allProjectFolders.find(apf => apf.id === of.id);
-        return !correspondingOnlineFolder;
-      });
+      // An offline folder is unique and should be displayed if its real ID isn't in the online list yet.
+      const uniqueOfflineFolders = offlineFolders.filter(of => !onlineFolderIds.has(of.id));
 
       return [...allProjectFolders, ...uniqueOfflineFolders].filter(folder => 
           folder.parentId === (currentUrlFolderId || null) && !offlineDeletes.has(folder.id)
       );
-  }, [allProjectFolders, offlineFolders, currentUrlFolderId, projectId]);
+  }, [allProjectFolders, offlineFolders, currentUrlFolderId]);
 
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && combinedFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
