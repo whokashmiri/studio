@@ -116,26 +116,33 @@ export default function ProjectPage() {
 
   // Infinite scroll observer
   useEffect(() => {
-    const observer = new IntersectionObserver(
-        (entries) => {
-            if (entries[0].isIntersecting && hasMoreAssets && !isFetchingMoreAssets) {
-                loadMoreAssets();
-            }
-        },
-        { root: scrollAreaRef.current, rootMargin: "0px", threshold: 1.0 }
-    );
-
-    const currentLoaderRef = loadMoreAssetsRef.current;
-    if (currentLoaderRef) {
-        observer.observe(currentLoaderRef);
+    const scrollAreaElement = scrollAreaRef.current;
+    const loaderElement = loadMoreAssetsRef.current;
+  
+    if (!scrollAreaElement || !loaderElement) {
+      return;
     }
-
-    return () => {
-        if (currentLoaderRef) {
-            observer.unobserve(currentLoaderRef);
+  
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreAssets && !isFetchingMoreAssets) {
+          loadMoreAssets();
         }
+      },
+      {
+        root: scrollAreaElement,
+        rootMargin: '0px 0px 100px 0px', // Trigger when loader is 100px from bottom
+        threshold: 0.1,
+      }
+    );
+  
+    observer.observe(loaderElement);
+  
+    return () => {
+      observer.disconnect();
     };
-  }, [hasMoreAssets, isFetchingMoreAssets, loadMoreAssets, scrollAreaRef.current]);
+  }, [hasMoreAssets, isFetchingMoreAssets, loadMoreAssets, currentUrlFolderId]); // Re-create observer when folder changes
+
 
   const fetchInitialFolderContent = useCallback(async (folderId: string | null) => {
       setIsContentLoading(true);
