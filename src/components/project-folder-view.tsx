@@ -19,6 +19,7 @@ interface ProjectFolderViewProps {
   selectedFolder: FolderType | null;
   deletingItemId: string | null;
   loadingAssetId: string | null;
+  loadingFolderId: string | null;
   scrollAreaRef: React.RefObject<HTMLDivElement>;
   onSelectFolder: (folder: FolderType) => void;
   onAddSubfolder: (parentFolder: FolderType | null) => void;
@@ -40,6 +41,7 @@ export function ProjectFolderView({
   selectedFolder,
   deletingItemId,
   loadingAssetId,
+  loadingFolderId,
   scrollAreaRef,
   onSelectFolder,
   onAddSubfolder,
@@ -93,6 +95,7 @@ export function ProjectFolderView({
             displayMode="grid"
             deletingItemId={deletingItemId}
             loadingAssetId={loadingAssetId}
+            loadingFolderId={loadingFolderId}
             isAdmin={isAdmin}
             isOnline={isOnline}
           />

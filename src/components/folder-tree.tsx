@@ -36,6 +36,7 @@ interface FolderTreeDisplayProps {
   displayMode?: 'grid' | 'list';
   deletingItemId?: string | null;
   loadingAssetId?: string | null;
+  loadingFolderId?: string | null;
   isAdmin: boolean;
   isOnline: boolean;
 }
@@ -100,6 +101,7 @@ export function FolderTreeDisplay({
   displayMode = 'grid',
   deletingItemId,
   loadingAssetId,
+  loadingFolderId,
   isAdmin,
   isOnline,
 }: FolderTreeDisplayProps) {
@@ -142,6 +144,7 @@ export function FolderTreeDisplay({
                         onActualDeleteFolder={handleDeleteFolderClick}
                         t={t}
                         isOnline={isOnline}
+                        isLoading={loadingFolderId === item.data.id}
                     />
                 );
                 return (

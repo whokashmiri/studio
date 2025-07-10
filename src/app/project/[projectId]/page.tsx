@@ -44,6 +44,7 @@ export default function ProjectPage() {
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [loadingAssetId, setLoadingAssetId] = useState<string | null>(null);
+  const [loadingFolderId, setLoadingFolderId] = useState<string | null>(null);
   const [isPasting, setIsPasting] = useState(false);
   
   // State for modals and forms
@@ -111,6 +112,7 @@ export default function ProjectPage() {
     } finally {
       setIsLoading(false);
       setIsContentLoading(false);
+      setLoadingFolderId(null);
     }
   }, [projectId, router, toast, t]);
 
@@ -201,6 +203,9 @@ export default function ProjectPage() {
   // --- Callbacks for UI actions ---
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
     setSearchTerm('');
+    if (folder) {
+        setLoadingFolderId(folder.id);
+    }
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
     router.push(targetPath, { scroll: false }); 
   }, [projectId, router]);
@@ -712,6 +717,7 @@ export default function ProjectPage() {
                 selectedFolder={selectedFolder}
                 deletingItemId={deletingItemId}
                 loadingAssetId={loadingAssetId}
+                loadingFolderId={loadingFolderId}
                 scrollAreaRef={scrollAreaRef}
                 onSelectFolder={handleSelectFolder}
                 onAddSubfolder={openNewFolderDialog}
