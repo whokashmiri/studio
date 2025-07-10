@@ -80,3 +80,5 @@ export const mockCompanies: Company[] = [
 export const mockProjects: Project[] = [];
 export const mockFolders: Folder[] = [];
 export const mockAssets: Asset[] = [];
+
+    

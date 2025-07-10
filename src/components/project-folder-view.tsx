@@ -30,6 +30,9 @@ interface ProjectFolderViewProps {
   onPreviewAsset: (asset: Asset) => void;
   isAdmin: boolean;
   isOnline: boolean;
+  loadMoreAssetsRef: React.RefObject<HTMLDivElement>;
+  hasMoreAssets: boolean;
+  isFetchingMoreAssets: boolean;
 }
 
 export function ProjectFolderView({
@@ -51,7 +54,10 @@ export function ProjectFolderView({
   onDeleteAsset,
   onPreviewAsset,
   isAdmin,
-  isOnline
+  isOnline,
+  loadMoreAssetsRef,
+  hasMoreAssets,
+  isFetchingMoreAssets,
 }: ProjectFolderViewProps) {
   const { t } = useLanguage();
 
@@ -108,7 +114,19 @@ export function ProjectFolderView({
             </p>
           </div>
         )}
+
+        {/* Infinite scroll loader */}
+        <div ref={loadMoreAssetsRef} className="h-14 mt-4 flex items-center justify-center col-span-full">
+            {isFetchingMoreAssets && (
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            )}
+            {!hasMoreAssets && assetsToDisplay.length > 0 && (
+                <p className="text-sm text-muted-foreground">{t('noMoreAssets', 'End of list.')}</p>
+            )}
+        </div>
       </ScrollArea>
     </div>
   );
 }
+
+    

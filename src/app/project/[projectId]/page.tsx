@@ -38,7 +38,8 @@ export default function ProjectPage() {
   // State for project structure and folder view
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
-  const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]);
+  const [displayedAssets, setDisplayedAssets] = useState<Asset[]>([]); // For paginated display
+  const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]); // For asset counts, might be removed later
   const [isLoading, setIsLoading] = useState(true); 
   const [isContentLoading, setIsContentLoading] = useState(true); 
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
@@ -46,6 +47,11 @@ export default function ProjectPage() {
   const [loadingAssetId, setLoadingAssetId] = useState<string | null>(null);
   const [loadingFolderId, setLoadingFolderId] = useState<string | null>(null);
   const [isPasting, setIsPasting] = useState(false);
+
+  // Pagination state for assets
+  const [lastVisibleAssetDoc, setLastVisibleAssetDoc] = useState<DocumentData | null>(null);
+  const [hasMoreAssets, setHasMoreAssets] = useState(true);
+  const [isFetchingMoreAssets, setIsFetchingMoreAssets] = useState(false);
   
   // State for modals and forms
   const [newFolderName, setNewFolderName] = useState('');
@@ -72,6 +78,7 @@ export default function ProjectPage() {
   const { clipboardState, clearClipboard } = useClipboard();
   const isAdmin = currentUser?.role === 'Admin';
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const loadMoreAssetsRef = useRef<HTMLDivElement>(null);
 
   // Drag and Drop state
   const [activeDragItem, setActiveDragItem] = useState<{ id: string; type: 'folder' | 'asset'; data: any } | null>(null);
@@ -84,16 +91,80 @@ export default function ProjectPage() {
     })
   );
 
+  const loadMoreAssets = useCallback(async () => {
+    if (isFetchingMoreAssets || !hasMoreAssets || isSearching) return;
+    
+    setIsFetchingMoreAssets(true);
+    try {
+        const { assets: newAssets, lastDoc } = await FirestoreService.getAssetsPaginated(
+            projectId,
+            currentUrlFolderId,
+            20,
+            lastVisibleAssetDoc
+        );
+
+        setDisplayedAssets(prev => [...prev, ...newAssets]);
+        setLastVisibleAssetDoc(lastDoc);
+        setHasMoreAssets(lastDoc !== null);
+    } catch (error) {
+        console.error("Error fetching more assets:", error);
+        toast({ title: "Error", description: "Failed to load more assets.", variant: "destructive" });
+    } finally {
+        setIsFetchingMoreAssets(false);
+    }
+  }, [isFetchingMoreAssets, hasMoreAssets, projectId, currentUrlFolderId, lastVisibleAssetDoc, toast, isSearching]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+        (entries) => {
+            if (entries[0].isIntersecting && hasMoreAssets && !isFetchingMoreAssets) {
+                loadMoreAssets();
+            }
+        },
+        { root: scrollAreaRef.current, rootMargin: "0px", threshold: 1.0 }
+    );
+
+    const currentLoaderRef = loadMoreAssetsRef.current;
+    if (currentLoaderRef) {
+        observer.observe(currentLoaderRef);
+    }
+
+    return () => {
+        if (currentLoaderRef) {
+            observer.unobserve(currentLoaderRef);
+        }
+    };
+  }, [hasMoreAssets, isFetchingMoreAssets, loadMoreAssets]);
+
+  const fetchInitialFolderContent = useCallback(async (folderId: string | null) => {
+      setIsContentLoading(true);
+      setDisplayedAssets([]);
+      setLastVisibleAssetDoc(null);
+      setHasMoreAssets(true);
+
+      try {
+          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, 20);
+          setDisplayedAssets(assets);
+          setLastVisibleAssetDoc(lastDoc);
+          setHasMoreAssets(lastDoc !== null);
+      } catch (error) {
+          console.error("Error fetching initial folder content:", error);
+          toast({ title: "Error", description: "Failed to load folder content.", variant: "destructive" });
+      } finally {
+          setIsContentLoading(false);
+      }
+  }, [projectId, toast]);
 
   const loadProjectData = useCallback(async () => {
     if (!projectId) return;
     setIsLoading(true);
-    setIsContentLoading(true);
+    
     try {
-      const [foundProject, projectFolders, projectAssets] = await Promise.all([
+      const [foundProject, projectFolders, allProjAssets] = await Promise.all([
         FirestoreService.getProjectById(projectId),
         FirestoreService.getFolders(projectId),
-        FirestoreService.getAllAssetsForProject(projectId),
+        FirestoreService.getAllAssetsForProject(projectId), // Keep for counts
       ]);
 
       if (!foundProject) {
@@ -104,17 +175,18 @@ export default function ProjectPage() {
 
       setProject(foundProject);
       setAllProjectFolders(projectFolders);
-      setAllProjectAssets(projectAssets);
+      setAllProjectAssets(allProjAssets); // For asset counts
+      
+      await fetchInitialFolderContent(currentUrlFolderId);
 
     } catch (error) {
       console.error("Error loading project data:", error);
       toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
     } finally {
       setIsLoading(false);
-      setIsContentLoading(false);
       setLoadingFolderId(null);
     }
-  }, [projectId, router, toast, t]);
+  }, [projectId, router, toast, t, fetchInitialFolderContent, currentUrlFolderId]);
 
   useEffect(() => {
     loadProjectData();
@@ -173,6 +245,9 @@ export default function ProjectPage() {
 
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
+    // In a paginated view, we'll only show offline items for the current folder.
+    // Full offline display might be complex with pagination.
+    // For now, let's keep it simple.
 
     // Process folders
     const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
@@ -181,17 +256,9 @@ export default function ProjectPage() {
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
     const currentOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null));
     const finalFolders = [...offlineFoldersForView, ...currentOnlineFolders];
-
-    // Process assets
-    const onlineAssetIds = new Set(allProjectAssets.map(a => a.id));
-    const offlineAssetsForView = offlineQueue
-      .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId && !onlineAssetIds.has(a.localId))
-      .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
-    const currentOnlineAssets = allProjectAssets.filter(a => a.folderId === currentUrlFolderId);
-    const finalAssets = [...offlineAssetsForView, ...currentOnlineAssets];
     
-    return { finalFoldersToDisplay: finalFolders, finalAssetsToDisplay: finalAssets };
-  }, [allProjectFolders, allProjectAssets, projectId, currentUrlFolderId]);
+    return { finalFoldersToDisplay: finalFolders, finalAssetsToDisplay: displayedAssets }; // Use displayedAssets here
+  }, [allProjectFolders, displayedAssets, projectId, currentUrlFolderId]);
 
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
@@ -350,7 +417,7 @@ export default function ProjectPage() {
     };
 
     // Add to UI immediately
-    setAllProjectAssets(prev => [optimisticAsset, ...prev]);
+    setDisplayedAssets(prev => [optimisticAsset, ...prev]);
 
     toast({
       title: t('saving', 'Saving...'),
@@ -399,7 +466,7 @@ export default function ProjectPage() {
         console.error("Error saving asset in background:", error);
         toast({ title: "Upload Error", description: `An error occurred while saving "${assetDataWithDataUris.name}".`, variant: "destructive" });
         // Remove the failed optimistic asset from UI
-        setAllProjectAssets(prev => prev.filter(asset => asset.id !== tempId));
+        setDisplayedAssets(prev => prev.filter(asset => asset.id !== tempId));
       }
     })();
   }, [isOnline, project, toast, t, loadProjectData]);
@@ -609,7 +676,7 @@ export default function ProjectPage() {
         let success = false;
         try {
             if (itemType === 'asset') {
-                const originalAsset = allProjectAssets.find(a => a.id === itemId);
+                const originalAsset = allProjectAssets.find(a => a.id === itemId) || displayedAssets.find(a => a.id === itemId);
                 if (!originalAsset) throw new Error("Original asset not found");
     
                 if (operation === 'cut') {
@@ -728,6 +795,9 @@ export default function ProjectPage() {
                 onPreviewAsset={handleOpenImagePreviewModal}
                 isAdmin={isAdmin}
                 isOnline={isOnline}
+                loadMoreAssetsRef={loadMoreAssetsRef}
+                hasMoreAssets={hasMoreAssets}
+                isFetchingMoreAssets={isFetchingMoreAssets}
               />
             )}
         </div>
@@ -917,3 +987,5 @@ export default function ProjectPage() {
     </div>
   );
 }
+
+    

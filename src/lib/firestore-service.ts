@@ -486,10 +486,10 @@ export async function getAssets(projectId: string, folderId: string | null): Pro
       let q;
       if (folderId === null) {
           // If folderId is null, fetch assets at the root of the project
-          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null), where("isDone", "==", false));
+          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", null), where("isDone", "!=", true));
       } else {
           // If folderId is provided, fetch assets within that specific folder
-          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId), where("isDone", "==", false));
+          q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId), where("folderId", "==", folderId), where("isDone", "!=", true));
       }
       const snapshot = await getDocs(q);
       return processSnapshot<Asset>(snapshot);
@@ -503,17 +503,17 @@ export async function getAssetsPaginated(
   projectId: string,
   folderId: string | null,
   pageSize: number,
-  startAfterDoc?: DocumentData
+  startAfterDoc?: DocumentData | null
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
   try {
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     
-    // Base query constraints - orderBy('name') is removed to prevent the need for a composite index.
+    // Base query constraints
     const constraints: any[] = [
       where("projectId", "==", projectId),
       where("folderId", "==", folderId),
-      where("isDone", "==", false),
-      orderBy("name"),
+      where("isDone", "!=", true),
+      orderBy("name_lowercase"),
       limit(pageSize)
     ];
 
@@ -661,7 +661,7 @@ export async function getUserAccessibleData(userId: string, companyId: string): 
           const foldersSnapshot = await getDocs(foldersQuery);
           result.folders.push(...processSnapshot<Folder>(foldersSnapshot));
           
-          const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", batchProjectIds), where("isDone", "==", false));
+          const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", batchProjectIds), where("isDone", "!=", true));
           const assetsSnapshot = await getDocs(assetsQuery);
           result.assets.push(...processSnapshot<Asset>(assetsSnapshot));
         }
@@ -833,3 +833,5 @@ export async function searchAssets(
     return { assets: [], lastDoc: null };
   }
 }
+
+    
