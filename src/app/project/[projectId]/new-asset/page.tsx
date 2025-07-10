@@ -21,6 +21,7 @@ import { processImageForSaving } from '@/lib/image-handler-service';
 import { uploadMedia } from '@/actions/cloudinary-actions';
 import { useAuth } from '@/contexts/auth-context';
 import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
 type CaptureMode = 'photo' | 'video';
@@ -152,6 +153,8 @@ const CustomCameraDialog: FC<any> = ({
   handleToggleVideoRecording,
   handleAddSessionMediaToBatch,
   mediaStream,
+  zoomState,
+  handleZoomChange,
   t
 }) => {
   return (
@@ -197,6 +200,29 @@ const CustomCameraDialog: FC<any> = ({
             </div>
           )}
         </div>
+        
+         {zoomState.isSupported && (
+            <div className="absolute bottom-40 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center gap-1 bg-black/40 p-1.5 rounded-full">
+                <Button
+                    onClick={() => handleZoomChange(0.5)}
+                    variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs"
+                    disabled={!zoomState.supportedLevels.includes(0.5)}
+                    data-active={zoomState.current === 0.5}
+                >0.5x</Button>
+                <Button
+                    onClick={() => handleZoomChange(1)}
+                    variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs"
+                    disabled={!zoomState.supportedLevels.includes(1)}
+                    data-active={zoomState.current === 1}
+                >1x</Button>
+                <Button
+                    onClick={() => handleZoomChange(2)}
+                    variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs"
+                    disabled={!zoomState.supportedLevels.includes(2)}
+                    data-active={zoomState.current === 2}
+                >2x</Button>
+            </div>
+        )}
 
         <div className="py-3 px-4 sm:py-5 sm:px-6 bg-black/80 backdrop-blur-sm z-20">
           {isProcessingMedia && (
@@ -293,6 +319,7 @@ export default function NewAssetPage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isFlashOn, setFlashOn] = useState(false);
+  const [zoomState, setZoomState] = useState({ isSupported: false, min: 1, max: 1, current: 1, supportedLevels: [1] });
 
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [isProcessingMedia, setIsProcessingMedia] = useState(false);
@@ -382,11 +409,18 @@ export default function NewAssetPage() {
           });
           setMediaStream(streamInstance);
           setHasCameraPermission(true);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(CAMERA_PERMISSION_GRANTED_KEY, 'true');
-          }
           if (videoRef.current) {
             videoRef.current.srcObject = streamInstance;
+          }
+          // Check for zoom capabilities
+          const videoTrack = streamInstance.getVideoTracks()[0];
+          const capabilities = videoTrack.getCapabilities();
+          if ('zoom' in capabilities && capabilities.zoom) {
+            const { min, max } = capabilities.zoom;
+            const supportedLevels = [0.5, 1, 2].filter(level => level >= min && level <= max);
+            setZoomState({ isSupported: true, min, max, current: 1, supportedLevels });
+          } else {
+            setZoomState({ isSupported: false, min: 1, max: 1, current: 1, supportedLevels: [1] });
           }
         } catch (error) {
           console.error('Error opening camera:', error);
@@ -591,6 +625,18 @@ export default function NewAssetPage() {
       }
     } else {
       toast({ title: "Flash Not Supported", description: "Your device camera does not support flash control." });
+    }
+  };
+  
+  const handleZoomChange = async (zoomValue: number) => {
+    if (!mediaStream || !zoomState.isSupported) return;
+    const videoTrack = mediaStream.getVideoTracks()[0];
+    try {
+      await videoTrack.applyConstraints({ advanced: [{ zoom: zoomValue }] });
+      setZoomState(prev => ({ ...prev, current: zoomValue }));
+    } catch (error) {
+      console.error('Failed to apply zoom constraints:', error);
+      toast({ title: "Zoom Error", description: `Could not set zoom to ${zoomValue}x.`, variant: "destructive" });
     }
   };
 
@@ -1169,6 +1215,8 @@ export default function NewAssetPage() {
           handleCapturePhotoFromStream={handleCapturePhotoFromStream}
           handleToggleVideoRecording={handleToggleVideoRecording}
           handleAddSessionMediaToBatch={handleAddSessionMediaToBatch}
+          zoomState={zoomState}
+          handleZoomChange={handleZoomChange}
           t={t}
         />
       )}
