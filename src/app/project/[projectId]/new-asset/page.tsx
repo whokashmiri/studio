@@ -841,6 +841,7 @@ export default function NewAssetPage() {
         recordedAudioDataUrl: recordedAudioDataUrl || undefined,
         textDescription: assetTextDescription.trim() || undefined,
         isDone: isDone,
+        userId: currentUser.id,
       };
       
       let success = false;
@@ -851,7 +852,6 @@ export default function NewAssetPage() {
       } else {
         const dataForCreation = {
           ...assetDataPayload,
-          userId: currentUser.id
         };
         const newAsset = await FirestoreService.addAsset(dataForCreation as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
         if (newAsset) {

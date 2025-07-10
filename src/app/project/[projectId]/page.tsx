@@ -273,10 +273,14 @@ export default function ProjectPage() {
             return asset;
         });
 
-    const uniqueOfflineAssets = offlineAssets.filter(oa => !onlineAssetIds.has(oa.id));
+    const uniqueOfflineAssets = offlineAssets.filter(oa => {
+      // Check if an asset with this temporary ID has already been synced
+      const correspondingOnlineAsset = allProjectAssets.find(apa => apa.id === oa.id);
+      return !correspondingOnlineAsset;
+    });
     
     return [...onlineAssetsWithOfflineUpdates, ...uniqueOfflineAssets];
-  }, [currentViewAssets, offlineAssets, projectId]);
+  }, [currentViewAssets, offlineAssets, projectId, allProjectAssets]);
   
   const finalAssetsToDisplay = useMemo(() => combinedCurrentViewAssets, [combinedCurrentViewAssets]);
 
@@ -289,11 +293,16 @@ export default function ProjectPage() {
         .forEach(a => {
            // In future, can handle offline delete logic here
         });
+      
+      const uniqueOfflineFolders = offlineFolders.filter(of => {
+        const correspondingOnlineFolder = allProjectFolders.find(apf => apf.id === of.id);
+        return !correspondingOnlineFolder;
+      });
 
-      return combinedFolders.filter(folder => 
+      return [...allProjectFolders, ...uniqueOfflineFolders].filter(folder => 
           folder.parentId === (currentUrlFolderId || null) && !offlineDeletes.has(folder.id)
       );
-  }, [combinedFolders, currentUrlFolderId, allProjectFolders, projectId]);
+  }, [allProjectFolders, offlineFolders, currentUrlFolderId, projectId]);
 
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && combinedFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
@@ -471,7 +480,7 @@ export default function ProjectPage() {
         setCurrentViewAssets(prev => prev.filter(asset => asset.id !== tempId));
       }
     })();
-  }, [isOnline, projectId, toast, t, reloadAllData]);
+  }, [isOnline, project, toast, t, reloadAllData]);
 
 
   const handleOpenImagePreviewModal = useCallback((asset: Asset) => {
@@ -753,7 +762,7 @@ export default function ProjectPage() {
             </CardTitle>
           )}
       </CardHeader>
-      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-20rem)]">
+      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
           <div className="flex justify-end mb-4">
             <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
