@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import * as FirestoreService from '@/lib/firestore-service';
 import type { DocumentData } from 'firebase/firestore';
 import { useLanguage } from '@/contexts/language-context';
+import { useIsMobile } from '@/hooks/use-mobile'; // Import the hook
 
 interface ProjectSearchResultsProps {
   project: Project;
@@ -29,7 +30,12 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
   const [lastSearchedDoc, setLastSearchedDoc] = useState<DocumentData | null>(null);
   const searchLoaderRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+  const [isClient, setIsClient] = useState(false);
 
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const getFolderPath = useCallback((folderId: string | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
     const path: Array<{ id: string | null; name: string, type: 'project' | 'folder' }> = [];
@@ -162,13 +168,32 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
                                   </div>
                               </div>
                               <div className={cn("shrink-0 ml-2 flex gap-1", isLoading && "opacity-50")}>
-                                  {hasMedia && (
-                                     <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onPreviewAsset(asset); }} disabled={isLoading}>
-                                         <Eye className="mr-1 h-4 w-4" />
-                                         {t('viewImage', 'Preview')}
+                                  {isClient && hasMedia && (
+                                     <Button 
+                                        variant="ghost" 
+                                        size={isMobile ? "icon" : "sm"}
+                                        className={isMobile ? "h-8 w-8" : ""}
+                                        onClick={(e) => { e.stopPropagation(); onPreviewAsset(asset); }} 
+                                        disabled={isLoading}
+                                        title={t('viewImage', 'Preview')}
+                                     >
+                                         <Eye className="h-4 w-4" />
+                                         {!isMobile && <span className="ml-1">{t('viewImage', 'Preview')}</span>}
                                      </Button>
                                   )}
-                                  <Button variant="ghost" size="sm" onClick={(e) => {e.stopPropagation(); onEditAsset(asset);}} disabled={isLoading}>{t('edit','Edit')}</Button>
+                                  {isClient && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size={isMobile ? "icon" : "sm"}
+                                      className={isMobile ? "h-8 w-8" : ""}
+                                      onClick={(e) => {e.stopPropagation(); onEditAsset(asset);}} 
+                                      disabled={isLoading}
+                                      title={t('edit','Edit')}
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-edit h-4 w-4"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                                      {!isMobile && <span className="ml-1">{t('edit','Edit')}</span>}
+                                    </Button>
+                                  )}
                               </div>
                           </Card>
                       )
