@@ -1,4 +1,5 @@
 
+
 import { addFolder, addAsset, updateProject, updateAsset, updateFolder as updateFolderInDb } from './firestore-service';
 import type { Folder, Asset, ProjectStatus } from '@/data/mock-data';
 import { v4 as uuidv4 } from 'uuid';
@@ -86,7 +87,7 @@ export async function syncOfflineActions(): Promise<{syncedCount: number, errorC
           break;
       }
     } catch (error) {
-      console.error(`Failed to sync action for localId ${'localId' in action ? action.localId : 'itemId' in action ? action.itemId : ''}:`, error);
+      console.error(`Failed to sync action for localId ${'localId' in action ? action.localId : 'assetId' in action ? action.assetId : ''}:`, error);
     }
     
     if (success) {

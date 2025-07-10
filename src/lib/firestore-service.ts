@@ -1,4 +1,5 @@
 
+
 import { getDb } from './firebase/config';
 import {
   collection,
@@ -373,19 +374,16 @@ export async function getFolderById(folderId: string): Promise<Folder | null> {
 export async function addFolder(folderData: Omit<Folder, 'id'>, localId?: string): Promise<Folder | null> {
   try {
     const dataToSave = removeUndefinedProps(folderData);
+    let docRef;
     if (localId) {
-      const docRef = doc(getDb(), FOLDERS_COLLECTION, localId);
+      docRef = doc(getDb(), FOLDERS_COLLECTION, localId);
       await setDoc(docRef, dataToSave);
-      const newFolderDoc = await getDoc(docRef);
-      if (newFolderDoc.exists()) {
-          return processDoc<Folder>(newFolderDoc);
-      }
     } else {
-      const docRef = await addDoc(collection(getDb(), FOLDERS_COLLECTION), dataToSave);
-      const newFolderDoc = await getDoc(docRef);
-      if (newFolderDoc.exists()) {
-          return processDoc<Folder>(newFolderDoc);
-      }
+      docRef = await addDoc(collection(getDb(), FOLDERS_COLLECTION), dataToSave);
+    }
+    const newFolderDoc = await getDoc(docRef);
+    if (newFolderDoc.exists()) {
+      return processDoc<Folder>(newFolderDoc);
     }
     return null;
   } catch (error) {
@@ -576,19 +574,16 @@ export async function addAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'upda
       updatedAt: serverTimestamp(),
     });
 
+    let docRef;
     if (localId) {
-        const docRef = doc(getDb(), ASSETS_COLLECTION, localId);
+        docRef = doc(getDb(), ASSETS_COLLECTION, localId);
         await setDoc(docRef, dataToSave);
-        const newAssetDoc = await getDoc(docRef);
-        if (newAssetDoc.exists()) {
-            return processDoc<Asset>(newAssetDoc);
-        }
     } else {
-        const docRef = await addDoc(collection(getDb(), ASSETS_COLLECTION), dataToSave);
-        const newAssetDoc = await getDoc(docRef);
-        if (newAssetDoc.exists()) {
-            return processDoc<Asset>(newAssetDoc);
-        }
+        docRef = await addDoc(collection(getDb(), ASSETS_COLLECTION), dataToSave);
+    }
+    const newAssetDoc = await getDoc(docRef);
+    if (newAssetDoc.exists()) {
+        return processDoc<Asset>(newAssetDoc);
     }
     return null;
   } catch (error) {
