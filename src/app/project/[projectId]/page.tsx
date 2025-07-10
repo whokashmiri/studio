@@ -282,9 +282,29 @@ export default function ProjectPage() {
     setIsEditFolderModalOpen(true);
   }, []);
 
-  const handleFolderDeleted = useCallback(async () => {
-    await reloadAllData(); 
-  }, [reloadAllData]);
+  const handleFolderDeleted = useCallback(async (folderToDelete: FolderType) => {
+    if (!isOnline) {
+      toast({ title: "Action Not Available", description: "Cannot delete folders while offline.", variant: "default" });
+      return;
+    }
+
+    const hasChildContent = allProjectFolders.some(f => f.parentId === folderToDelete.id) || allProjectAssets.some(a => a.folderId === folderToDelete.id);
+
+    if (hasChildContent) {
+      toast({ title: t('folderNotEmptyTitle', 'Folder Not Empty'), description: t('folderNotEmptyDesc', 'Cannot delete folder. Please delete all subfolders and assets first.'), variant: 'destructive' });
+      return;
+    }
+
+    if (window.confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${folderToDelete.name}"? This action cannot be undone.`, { folderName: folderToDelete.name }))) {
+      const success = await FirestoreService.deleteFolderCascade(folderToDelete.id);
+      if (success) {
+        toast({ title: t('folderDeletedTitle', 'Folder Deleted'), description: t('folderDeletedDesc', `Folder "${folderToDelete.name}" has been deleted.`, { folderName: folderToDelete.name }) });
+        await reloadAllData();
+      } else {
+        toast({ title: "Error", description: "Failed to delete folder.", variant: "destructive" });
+      }
+    }
+  }, [allProjectFolders, allProjectAssets, isOnline, reloadAllData, t, toast]);
 
   const handleFolderUpdated = useCallback(async () => {
     await reloadAllData(); 
@@ -677,7 +697,7 @@ export default function ProjectPage() {
             </CardTitle>
           )}
       </CardHeader>
-      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
+      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-20rem)]">
           <div className="flex justify-end mb-4">
             <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
