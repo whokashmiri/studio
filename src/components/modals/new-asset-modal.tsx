@@ -205,20 +205,20 @@ const CustomCameraDialog: FC<any> = ({
             <div className="absolute bottom-40 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center gap-1 bg-black/40 p-1.5 rounded-full">
                 <Button
                     onClick={() => handleZoomChange(0.5)}
-                    variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs data-[active=true]:bg-white/20"
-                    disabled={!zoomState.supportedLevels.includes(0.5)}
+                    variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs data-[active=true]:bg-white/20 data-[supported=false]:text-neutral-500 data-[supported=false]:cursor-not-allowed"
+                    data-supported={zoomState.supportedLevels.includes(0.5)}
                     data-active={zoomState.current === 0.5}
                 >0.5x</Button>
                 <Button
                     onClick={() => handleZoomChange(1)}
-                    variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs data-[active=true]:bg-white/20"
-                    disabled={!zoomState.supportedLevels.includes(1)}
+                    variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs data-[active=true]:bg-white/20 data-[supported=false]:text-neutral-500 data-[supported=false]:cursor-not-allowed"
+                    data-supported={zoomState.supportedLevels.includes(1)}
                     data-active={zoomState.current === 1}
                 >1x</Button>
                 <Button
                     onClick={() => handleZoomChange(2)}
-                    variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs data-[active=true]:bg-white/20"
-                    disabled={!zoomState.supportedLevels.includes(2)}
+                    variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs data-[active=true]:bg-white/20 data-[supported=false]:text-neutral-500 data-[supported=false]:cursor-not-allowed"
+                    data-supported={zoomState.supportedLevels.includes(2)}
                     data-active={zoomState.current === 2}
                 >2x</Button>
             </div>
@@ -610,7 +610,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   };
   
   const handleZoomChange = async (zoomValue: number) => {
-    if (!mediaStream || !zoomState.isSupported) return;
+    if (!mediaStream || !zoomState.supportedLevels.includes(zoomValue)) return;
     const videoTrack = mediaStream.getVideoTracks()[0];
     try {
       await videoTrack.applyConstraints({ advanced: [{ zoom: zoomValue }] });
