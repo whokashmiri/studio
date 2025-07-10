@@ -37,24 +37,18 @@ const baseNextConfig: NextConfig = {
   },
 };
 
-let finalConfig: NextConfig = baseNextConfig;
+// Only enable PWA in production builds to avoid development server issues.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const withPWA = require('next-pwa')({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development', // Disable PWA in development
+  register: true,
+  skipWaiting: true,
+});
 
-// Apply PWA configuration only if:
-// 1. It's a production build (NODE_ENV === 'production')
-// 2. Or, it's a development build AND Turbopack is NOT being used.
-const isTurbopackActive = process.env.TURBOPACK === '1';
+const finalConfig: NextConfig = process.env.NODE_ENV === 'production' 
+  ? withPWA(baseNextConfig) 
+  : baseNextConfig;
 
-if (process.env.NODE_ENV === 'production' || (process.env.NODE_ENV === 'development' && !isTurbopackActive)) {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const withPWA = require('next-pwa')({
-    dest: 'public',
-    register: true,
-    skipWaiting: true,
-    // next-pwa's own `disable` option handles disabling its runtime features during development,
-    // but this conditional application ensures the webpack wrapper isn't present for Turbopack dev.
-    disable: process.env.NODE_ENV === 'development',
-  });
-  finalConfig = withPWA(baseNextConfig);
-}
 
 export default finalConfig;

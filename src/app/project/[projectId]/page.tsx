@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useDeferredValue, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -197,27 +198,27 @@ export default function ProjectPage() {
   const finalAssetsToDisplay = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
     const offlineAssetsForView = offlineQueue
-        .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
-        .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
-    
+      .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
+      .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
+
     const onlineAssetIds = new Set(currentViewAssets.map(a => a.id));
     const uniqueOfflineAssets = offlineAssetsForView.filter(oa => !onlineAssetIds.has(oa.id));
     
-    return [...currentViewAssets, ...uniqueOfflineAssets];
+    return [...uniqueOfflineAssets, ...currentViewAssets];
   }, [currentViewAssets, projectId, currentUrlFolderId]);
 
   const finalFoldersToDisplay = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
     const offlineFoldersForView = offlineQueue
-        .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
-        .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
+      .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
+      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
     
     const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
     const uniqueOfflineFolders = offlineFoldersForView.filter(of => !onlineFolderIds.has(of.id));
     
     const currentOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null));
 
-    return [...currentOnlineFolders, ...uniqueOfflineFolders];
+    return [...uniqueOfflineFolders, ...currentOnlineFolders];
   }, [allProjectFolders, projectId, currentUrlFolderId]);
 
   useEffect(() => {
@@ -697,7 +698,7 @@ export default function ProjectPage() {
             </CardTitle>
           )}
       </CardHeader>
-      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-20rem)]">
+      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
           <div className="flex justify-end mb-4">
             <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -750,184 +751,184 @@ export default function ProjectPage() {
   );
   
   return (
-      <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-          <div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-primary hover:underline p-0 h-auto text-sm flex items-center"
-              onClick={() => {
-                setIsNavigatingToHome(true);
-                router.push('/');
-              }}
-              disabled={isNavigatingToHome}
-            >
-              {isNavigatingToHome ? (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Home className="mr-1 h-4 w-4" />
-              )}
-              {t('backToDashboard', 'Back to Dashboard')}
-            </Button>
-            <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1 flex items-center gap-2">
-              {project.name}
-              {!isOnline && <CloudOff className="h-6 w-6 text-muted-foreground" title="You are currently offline." />}
-            </h1>
-          </div>
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+        <div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-primary hover:underline p-0 h-auto text-sm flex items-center"
+            onClick={() => {
+              setIsNavigatingToHome(true);
+              router.push('/');
+            }}
+            disabled={isNavigatingToHome}
+          >
+            {isNavigatingToHome ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Home className="mr-1 h-4 w-4" />
+            )}
+            {t('backToDashboard', 'Back to Dashboard')}
+          </Button>
+          <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1 flex items-center gap-2">
+            {project.name}
+            {!isOnline && <CloudOff className="h-6 w-6 text-muted-foreground" title="You are currently offline." />}
+          </h1>
         </div>
-        
-        {isAdmin ? (
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <Card>
-              {mainContent}
-            </Card>
-            <DragOverlay>
-              {activeDragItem ? (
-                <div className="rounded-lg bg-primary text-primary-foreground p-2 shadow-xl flex items-center gap-2">
-                   {activeDragItem.type === 'folder' ? <FolderIcon/> : <FileArchive/>}
-                   <span className="font-semibold text-sm">{activeDragItem.data.name}</span>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        ) : (
+      </div>
+      
+      {isAdmin ? (
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <Card>
             {mainContent}
           </Card>
-        )}
+          <DragOverlay>
+            {activeDragItem ? (
+              <div className="rounded-lg bg-primary text-primary-foreground p-2 shadow-xl flex items-center gap-2">
+                 {activeDragItem.type === 'folder' ? <FolderIcon/> : <FileArchive/>}
+                 <span className="font-semibold text-sm">{activeDragItem.data.name}</span>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      ) : (
+        <Card>
+          {mainContent}
+        </Card>
+      )}
 
-        <div className="fixed bottom-0 inset-x-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40">
-          <div className="container mx-auto flex justify-center items-center gap-2 flex-wrap">
-              <Button 
-                  variant="default" 
-                  size="lg" 
-                  onClick={() => openNewFolderDialog(selectedFolder)} 
-                  title={selectedFolder ? t('addNewFolder', 'New Folder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
-                  className="shadow-lg"
-              >
-                  <FolderPlus className="mr-2 h-4 w-4" />
-                  {t('addNewFolder', 'New Folder')}
+      <div className="fixed bottom-0 inset-x-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40">
+        <div className="container mx-auto flex justify-center items-center gap-2 flex-wrap">
+            <Button 
+                variant="default" 
+                size="lg" 
+                onClick={() => openNewFolderDialog(selectedFolder)} 
+                title={selectedFolder ? t('addNewFolder', 'New Folder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
+                className="shadow-lg"
+            >
+                <FolderPlus className="mr-2 h-4 w-4" />
+                {t('addNewFolder', 'New Folder')}
+            </Button>
+            <Button
+                onClick={() => setIsNewAssetModalOpen(true)} 
+                className="shadow-lg"
+                size="lg"
+                title={t('newAsset', 'New Asset')}
+            >
+                <FilePlus className="mr-2 h-4 w-4" />
+                {t('newAsset', 'New Asset')}
+            </Button>
+             {isAdmin && (
+              <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)} className="shadow-lg" disabled={!isOnline}>
+                <Upload className="mr-2 h-4 w-4" />
+                {t('importAssetsButton', 'Import Assets')}
               </Button>
-              <Button
-                  onClick={() => setIsNewAssetModalOpen(true)} 
-                  className="shadow-lg"
-                  size="lg"
-                  title={t('newAsset', 'New Asset')}
-              >
-                  <FilePlus className="mr-2 h-4 w-4" />
-                  {t('newAsset', 'New Asset')}
+            )}
+            {isAdmin && clipboardState.itemId && (
+              <Button variant="secondary" size="lg" onClick={handlePaste} className="shadow-lg" disabled={!isOnline || isPasting}>
+                {isPasting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ClipboardPaste className="mr-2 h-4 w-4" />}
+                {isPasting ? t('pasting', 'Pasting...') : t('paste', 'Paste')}
               </Button>
-               {isAdmin && (
-                <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)} className="shadow-lg" disabled={!isOnline}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  {t('importAssetsButton', 'Import Assets')}
-                </Button>
-              )}
-              {isAdmin && clipboardState.itemId && (
-                <Button variant="secondary" size="lg" onClick={handlePaste} className="shadow-lg" disabled={!isOnline || isPasting}>
-                  {isPasting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ClipboardPaste className="mr-2 h-4 w-4" />}
-                  {isPasting ? t('pasting', 'Pasting...') : t('paste', 'Paste')}
-                </Button>
-              )}
-          </div>
+            )}
         </div>
+      </div>
 
-        <Dialog open={isNewFolderDialogOpen} onOpenChange={(isOpen) => {
-          if (isCreatingFolder) return;
-          if (!isOpen) {
-            setNewFolderName('');
-            setNewFolderParentContext(null);
-          }
-          setIsNewFolderDialogOpen(isOpen);
-        }}>
+      <Dialog open={isNewFolderDialogOpen} onOpenChange={(isOpen) => {
+        if (isCreatingFolder) return;
+        if (!isOpen) {
+          setNewFolderName('');
+          setNewFolderParentContext(null);
+        }
+        setIsNewFolderDialogOpen(isOpen);
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+                {newFolderParentContext ? t('addNewFolderTo', 'New Folder in "{parentName}"', { parentName: newFolderParentContext.name }) : t('addRootFolderTitle', 'Add Folder to Project Root')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="pt-4 pb-0 space-y-2 flex-grow overflow-y-auto">
+            <Label htmlFor="new-folder-name">{t('folderName', 'Folder Name')}</Label>
+            <Input
+              id="new-folder-name"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder={t('folderNamePlaceholder', "e.g., Inspection Area 1")}
+              disabled={isCreatingFolder}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); setNewFolderParentContext(null); }} disabled={isCreatingFolder}>{t('cancel', 'Cancel')}</Button>
+            <Button onClick={handleCreateFolder} disabled={!newFolderName.trim() || isCreatingFolder}>
+              {isCreatingFolder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isCreatingFolder ? t('saving', 'Saving...') : t('confirm', 'Confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {isAdmin && (
+        <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>
-                  {newFolderParentContext ? t('addNewFolderTo', 'New Folder in "{parentName}"', { parentName: newFolderParentContext.name }) : t('addRootFolderTitle', 'Add Folder to Project Root')}
-              </DialogTitle>
+              <DialogTitle>{t('importAssetsModalTitle', 'Import Assets from Excel')}</DialogTitle>
+              <DialogDescription>
+                {t('importAssetsModalDesc', 'Select an .xlsx file with columns: Name, quantity, Serial Number, Description.')}
+              </DialogDescription>
             </DialogHeader>
-            <div className="pt-4 pb-0 space-y-2 flex-grow overflow-y-auto">
-              <Label htmlFor="new-folder-name">{t('folderName', 'Folder Name')}</Label>
-              <Input
-                id="new-folder-name"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder={t('folderNamePlaceholder', "e.g., Inspection Area 1")}
-                disabled={isCreatingFolder}
-              />
+            <div className="pt-4 pb-0 space-y-2">
+                <Label htmlFor="import-file">{t('excelFileLabel', 'Excel File')}</Label>
+                <Input 
+                  id="import-file" 
+                  type="file" 
+                  accept=".xlsx"
+                  onChange={(e) => setFileToImport(e.target.files ? e.target.files[0] : null)}
+                  disabled={isImporting}
+                />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); setNewFolderParentContext(null); }} disabled={isCreatingFolder}>{t('cancel', 'Cancel')}</Button>
-              <Button onClick={handleCreateFolder} disabled={!newFolderName.trim() || isCreatingFolder}>
-                {isCreatingFolder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isCreatingFolder ? t('saving', 'Saving...') : t('confirm', 'Confirm')}
+              <Button variant="outline" onClick={() => setIsImportModalOpen(false)} disabled={isImporting}>
+                {t('cancel', 'Cancel')}
+              </Button>
+              <Button onClick={handleFileImport} disabled={isImporting || !fileToImport}>
+                {isImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isImporting ? t('importing', 'Importing...') : t('import', 'Import')}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        
-        {isAdmin && (
-          <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>{t('importAssetsModalTitle', 'Import Assets from Excel')}</DialogTitle>
-                <DialogDescription>
-                  {t('importAssetsModalDesc', 'Select an .xlsx file with columns: Name, quantity, Serial Number, Description.')}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="pt-4 pb-0 space-y-2">
-                  <Label htmlFor="import-file">{t('excelFileLabel', 'Excel File')}</Label>
-                  <Input 
-                    id="import-file" 
-                    type="file" 
-                    accept=".xlsx"
-                    onChange={(e) => setFileToImport(e.target.files ? e.target.files[0] : null)}
-                    disabled={isImporting}
-                  />
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsImportModalOpen(false)} disabled={isImporting}>
-                  {t('cancel', 'Cancel')}
-                </Button>
-                <Button onClick={handleFileImport} disabled={isImporting || !fileToImport}>
-                  {isImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isImporting ? t('importing', 'Importing...') : t('import', 'Import')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
+      )}
 
-        {editingFolder && (
-        <EditFolderModal
-            isOpen={isEditFolderModalOpen}
-            onClose={() => {
-            setIsEditFolderModalOpen(false);
-            setEditingFolder(null);
-            }}
-            folder={editingFolder}
-            onFolderUpdated={handleFolderUpdated}
-            isOnline={isOnline}
+      {editingFolder && (
+      <EditFolderModal
+          isOpen={isEditFolderModalOpen}
+          onClose={() => {
+          setIsEditFolderModalOpen(false);
+          setEditingFolder(null);
+          }}
+          folder={editingFolder}
+          onFolderUpdated={handleFolderUpdated}
+          isOnline={isOnline}
+      />
+      )}
+      
+      {project && (
+      <NewAssetModal
+          isOpen={isNewAssetModalOpen}
+          onClose={() => setIsNewAssetModalOpen(false)}
+          project={project}
+          parentFolder={selectedFolder}
+          onAssetCreated={handleAssetCreatedInModal}
+      />
+      )}
+      {assetToPreview && (
+        <ImagePreviewModal
+          isOpen={isImagePreviewModalOpen}
+          onClose={handleCloseImagePreviewModal}
+          asset={assetToPreview}
         />
-        )}
-        
-        {project && (
-        <NewAssetModal
-            isOpen={isNewAssetModalOpen}
-            onClose={() => setIsNewAssetModalOpen(false)}
-            project={project}
-            parentFolder={selectedFolder}
-            onAssetCreated={handleAssetCreatedInModal}
-        />
-        )}
-        {assetToPreview && (
-          <ImagePreviewModal
-            isOpen={isImagePreviewModalOpen}
-            onClose={handleCloseImagePreviewModal}
-            asset={assetToPreview}
-          />
-        )}
-      </div>
+      )}
+    </div>
   );
 }
