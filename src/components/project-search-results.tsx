@@ -160,7 +160,7 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
                                       
                                   </div>
                               </div>
-                              <div className={cn("shrink-0 ml-2 flex gap-1", isLoading && "opacity-50")}>
+                              <div className={cn("shrink-0 pl-2", isLoading && "opacity-50")}>
                                   <Button 
                                     variant="ghost" 
                                     size="icon"
