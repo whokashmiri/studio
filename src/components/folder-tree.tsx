@@ -14,9 +14,8 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language-context';
 import { useClipboard } from '@/contexts/clipboard-context';
-import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
-import React, { useCallback, useMemo, useRef, useEffect } from 'react'; 
+import React, { useCallback, useMemo } from 'react'; 
 import { AssetCard } from '@/components/asset-card';
 import { FolderGridCard } from '@/components/folder-grid-card';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
@@ -35,12 +34,8 @@ interface FolderTreeDisplayProps {
   onPreviewAsset: (asset: Asset) => void;
   currentSelectedFolderId: string | null;
   displayMode?: 'grid' | 'list';
-  deletingAssetId?: string | null;
+  deletingItemId?: string | null;
   loadingAssetId?: string | null;
-  onLoadMore?: () => void;
-  hasMore?: boolean;
-  isLoadingMore?: boolean;
-  scrollAreaRef?: React.RefObject<HTMLDivElement>;
   isAdmin: boolean;
   isOnline: boolean;
 }
@@ -95,7 +90,6 @@ export function FolderTreeDisplay({
   foldersToDisplay,
   assetsToDisplay,
   allProjectAssets,
-  projectId,
   onSelectFolder,
   onAddSubfolder,
   onEditFolder,
@@ -103,45 +97,14 @@ export function FolderTreeDisplay({
   onEditAsset,
   onDeleteAsset,
   onPreviewAsset,
-  currentSelectedFolderId,
-  displayMode = 'list',
-  deletingAssetId,
+  displayMode = 'grid',
+  deletingItemId,
   loadingAssetId,
-  onLoadMore,
-  hasMore = false,
-  isLoadingMore = false,
-  scrollAreaRef,
   isAdmin,
   isOnline,
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
-  const loaderRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!onLoadMore) return;
-
-    const observer = new IntersectionObserver(
-        (entries) => {
-            const firstEntry = entries[0];
-            if (firstEntry.isIntersecting && hasMore && !isLoadingMore) {
-                onLoadMore();
-            }
-        },
-        { root: scrollAreaRef?.current, threshold: 1.0 }
-    );
-
-    const currentLoader = loaderRef.current;
-    if (currentLoader) {
-        observer.observe(currentLoader);
-    }
-
-    return () => {
-        if (currentLoader) {
-            observer.unobserve(currentLoader);
-        }
-    };
-  }, [hasMore, isLoadingMore, onLoadMore, scrollAreaRef]);
 
   const assetCountsByFolder = useMemo(() => {
     if (!allProjectAssets) return new Map<string, number>();
@@ -153,47 +116,15 @@ export function FolderTreeDisplay({
     }, new Map<string, number>());
   }, [allProjectAssets]);
 
-  const handleDeleteFolderClick = useCallback(async (e: React.MouseEvent, folder: Folder) => {
+  const handleDeleteFolderClick = useCallback((e: React.MouseEvent, folder: Folder) => {
       e.stopPropagation();
-      if (!isOnline) {
-          toast({ title: "Action Not Available", description: "Cannot delete folders while offline.", variant: "default" });
-          return;
-      }
-
-      const childFolders = allProjectAssets ? allProjectAssets.filter(a => a.folderId?.startsWith(folder.id)) : [];
-      const hasChildContent = childFolders.length > 0 || (assetCountsByFolder.get(folder.id) || 0) > 0;
-      
-      const subFolders = foldersToDisplay.filter(f => f.parentId === folder.id);
-      if (subFolders.length > 0) {
-           toast({ title: t('folderNotEmptyTitle', 'Folder Not Empty'), description: t('folderNotEmptyDesc', 'Cannot delete folder. Please delete all subfolders and assets first.'), variant: 'destructive' });
-           return;
-      }
-      
-      const assetsInFolder = assetsToDisplay.filter(a => a.folderId === folder.id);
-      if (assetsInFolder.length > 0) {
-           toast({ title: t('folderNotEmptyTitle', 'Folder Not Empty'), description: t('folderNotEmptyDesc', 'Cannot delete folder. Please delete all subfolders and assets first.'), variant: 'destructive' });
-           return;
-      }
-
-      if (window.confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${folder.name}"? This action cannot be undone.`, { folderName: folder.name }))) {
-          onDeleteFolder(folder);
-      }
-  }, [isOnline, allProjectAssets, assetCountsByFolder, foldersToDisplay, assetsToDisplay, toast, t, onDeleteFolder]);
+      onDeleteFolder(folder);
+  }, [onDeleteFolder]);
   
   const combinedItems = useMemo(() => [
     ...foldersToDisplay.map(f => ({ type: 'folder' as const, data: f })),
     ...assetsToDisplay.map(a => ({ type: 'asset' as const, data: a })),
   ], [foldersToDisplay, assetsToDisplay]);
-
-  const infiniteScrollTrigger = (
-     <div ref={loaderRef} className="h-14 mt-4 flex items-center justify-center col-span-full">
-        {isLoadingMore ? (
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        ) : (
-            !hasMore && assetsToDisplay.length > 0 && <p className="text-sm text-muted-foreground">{t('noMoreAssets', 'End of list.')}</p>
-        )}
-    </div>
-  );
 
   if (displayMode === 'grid') {
     return (
@@ -227,13 +158,13 @@ export function FolderTreeDisplay({
                         onDeleteAsset={onDeleteAsset}
                         onPreviewAsset={onPreviewAsset}
                         displayMode="grid"
-                        isDeleting={deletingAssetId === item.data.id}
+                        isDeleting={deletingItemId === item.data.id}
                         isLoading={loadingAssetId === item.data.id}
                         isOnline={isOnline}
                     />
                 );
                 return (
-                    <DraggableAsset key={`asset-${item.data.id}`} asset={item.data} isAdmin={isAdmin} isOnline={isOnline}>
+                    <DraggableAsset key={`dnd-asset-${item.data.id}`} asset={item.data} isAdmin={isAdmin} isOnline={isOnline}>
                         {assetCard}
                     </DraggableAsset>
                 );
@@ -241,7 +172,6 @@ export function FolderTreeDisplay({
             return null;
           })}
         </div>
-        {onLoadMore && hasMore && isOnline && infiniteScrollTrigger}
       </div>
     );
   }

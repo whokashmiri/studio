@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { Loader2, FileArchive } from 'lucide-react';
+import { Loader2, FileArchive, Eye } from 'lucide-react';
 import { Card, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,11 +16,12 @@ interface ProjectSearchResultsProps {
   project: Project;
   searchTerm: string;
   onEditAsset: (asset: Asset) => void;
+  onPreviewAsset: (asset: Asset) => void;
   loadingAssetId: string | null;
   foldersMap: Map<string, Folder>;
 }
 
-export function ProjectSearchResults({ project, searchTerm, onEditAsset, loadingAssetId, foldersMap }: ProjectSearchResultsProps) {
+export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPreviewAsset, loadingAssetId, foldersMap }: ProjectSearchResultsProps) {
   const { t } = useLanguage();
   const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
@@ -125,6 +126,8 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, loading
                       const path = getFolderPath(asset.folderId);
                       const pathString = path.map(p => p.name).join(' > ');
                       const isLoading = loadingAssetId === asset.id;
+                      const hasMedia = (asset.photos && asset.photos.length > 0) || (asset.videos && asset.videos.length > 0);
+
                       return (
                           <Card 
                               key={asset.id} 
@@ -158,7 +161,13 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, loading
                                       
                                   </div>
                               </div>
-                              <div className={cn("shrink-0 ml-2", isLoading && "opacity-50")}>
+                              <div className={cn("shrink-0 ml-2 flex gap-1", isLoading && "opacity-50")}>
+                                  {hasMedia && (
+                                     <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onPreviewAsset(asset); }} disabled={isLoading}>
+                                         <Eye className="mr-1 h-4 w-4" />
+                                         {t('viewImage', 'Preview')}
+                                     </Button>
+                                  )}
                                   <Button variant="ghost" size="sm" onClick={(e) => {e.stopPropagation(); onEditAsset(asset);}} disabled={isLoading}>{t('edit','Edit')}</Button>
                               </div>
                           </Card>

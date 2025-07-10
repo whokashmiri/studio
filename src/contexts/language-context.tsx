@@ -376,7 +376,7 @@ const translations: Record<Language, Record<string, string>> = {
     cancelAssetCreation: "Cancel Asset Creation", 
     backToDashboard: "Back to Dashboard",
 
-    viewImage: "Preview Media",
+    viewImage: "Preview",
     clickToViewImage: "Click to view full image",
     fullSizePreviewAlt: "Full-size asset media preview",
     imagePreviewTitle: "Image Preview",
@@ -712,7 +712,7 @@ const translations: Record<Language, Record<string, string>> = {
     speechErrorTitle: "تعذر بدء التعرف على الكلام",
     speechStartErrorDesc: "يرجى التأكد من منح أذونات الميكروفون.",
     speechSynthesisErrorTitle: "خطأ في تشغيل الكلام",
-    speechNoVoiceToPlayDesc: "ميزة نطق النص غير متوفرة أو لا يوجد وصف صوتي لتشغيله.",
+    speechNoVoiceToPlayDesc: "ميزة نطق النص غير متوفرة أو لا يوجد وصف صوتي لتشغيله.", 
     speechPlaybackNotAvailableTitle: "تشغيل الكلام غير متوفر",
     speechPlaybackNotAvailableDesc: "متصفحك لا يدعم تشغيل الكلام.", 
     pauseAudio: "إيقاف مؤقت",
@@ -835,7 +835,7 @@ const translations: Record<Language, Record<string, string>> = {
     cancelAssetCreation: "إلغاء إنشاء الأصل", 
     backToDashboard: "العودة إلى لوحة التحكم",
 
-    viewImage: "معاينة الوسائط",
+    viewImage: "معاينة",
     clickToViewImage: "انقر لعرض الصورة بالحجم الكامل",
     fullSizePreviewAlt: "معاينة صورة الأصل بالحجم الكامل",
     imagePreviewTitle: "معاينة الصورة",

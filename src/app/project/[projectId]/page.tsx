@@ -39,14 +39,10 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
   const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]);
-  const [currentViewAssets, setCurrentViewAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true); 
   const [isContentLoading, setIsContentLoading] = useState(true); 
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMoreAssets, setHasMoreAssets] = useState(true);
-  const [lastVisibleAssetDoc, setLastVisibleAssetDoc] = useState<DocumentData | null>(null);
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
-  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [loadingAssetId, setLoadingAssetId] = useState<string | null>(null);
   const [isPasting, setIsPasting] = useState(false);
   
@@ -93,10 +89,10 @@ export default function ProjectPage() {
     setIsLoading(true);
     setIsContentLoading(true);
     try {
-      const [foundProject, projectFolders, { assets, lastDoc }] = await Promise.all([
+      const [foundProject, projectFolders, projectAssets] = await Promise.all([
         FirestoreService.getProjectById(projectId),
         FirestoreService.getFolders(projectId),
-        FirestoreService.getAssetsPaginated(projectId, currentUrlFolderId, 15)
+        FirestoreService.getAllAssetsForProject(projectId),
       ]);
 
       if (!foundProject) {
@@ -107,12 +103,7 @@ export default function ProjectPage() {
 
       setProject(foundProject);
       setAllProjectFolders(projectFolders);
-      setCurrentViewAssets(assets);
-      setLastVisibleAssetDoc(lastDoc);
-      setHasMoreAssets(lastDoc !== null);
-      
-      const allAssetsForCounts = await FirestoreService.getAllAssetsForProject(projectId);
-      setAllProjectAssets(allAssetsForCounts);
+      setAllProjectAssets(projectAssets);
 
     } catch (error) {
       console.error("Error loading project data:", error);
@@ -121,28 +112,12 @@ export default function ProjectPage() {
       setIsLoading(false);
       setIsContentLoading(false);
     }
-  }, [projectId, currentUrlFolderId, router, toast, t]);
+  }, [projectId, router, toast, t]);
 
   useEffect(() => {
     loadProjectData();
   }, [loadProjectData]);
 
-  const reloadAllData = useCallback(async () => {
-    await loadProjectData();
-  }, [loadProjectData]);
-
-  const loadMoreAssets = useCallback(async () => {
-    if (isLoadingMore || !hasMoreAssets || !project || !isOnline) return;
-    
-    setIsLoadingMore(true);
-    const { assets: newAssets, lastDoc } = await FirestoreService.getAssetsPaginated(project.id, currentUrlFolderId, 15, lastVisibleAssetDoc);
-
-    setCurrentViewAssets(prev => [...prev, ...newAssets]);
-    setLastVisibleAssetDoc(lastDoc);
-    setHasMoreAssets(lastDoc !== null);
-    setIsLoadingMore(false);
-  }, [isLoadingMore, hasMoreAssets, project, currentUrlFolderId, lastVisibleAssetDoc, isOnline]);
-  
   // Offline Sync
   useEffect(() => {
     if (isOnline) {
@@ -153,11 +128,11 @@ export default function ProjectPage() {
             description: `${syncedCount} offline item(s) have been successfully synced.`,
             variant: "success-yellow"
           });
-          reloadAllData();
+          loadProjectData();
         }
       });
     }
-  }, [isOnline, reloadAllData, toast]);
+  }, [isOnline, loadProjectData, toast]);
 
   // --- Search Activation ---
   useEffect(() => {
@@ -194,31 +169,27 @@ export default function ProjectPage() {
     return getFolderPath(currentUrlFolderId);
   }, [project, currentUrlFolderId, getFolderPath]);
 
-  const finalAssetsToDisplay = useMemo(() => {
+  const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
-    const offlineAssetsForView = offlineQueue
-      .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
-      .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
 
-    const onlineAssetIds = new Set(currentViewAssets.map(a => a.id));
-    const uniqueOfflineAssets = offlineAssetsForView.filter(oa => !onlineAssetIds.has(oa.id));
-    
-    return [...uniqueOfflineAssets, ...currentViewAssets];
-  }, [currentViewAssets, projectId, currentUrlFolderId]);
-
-  const finalFoldersToDisplay = useMemo(() => {
-    const offlineQueue = OfflineService.getOfflineQueue();
-    const offlineFoldersForView = offlineQueue
-      .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
-      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
-    
+    // Process folders
     const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
-    const uniqueOfflineFolders = offlineFoldersForView.filter(of => !onlineFolderIds.has(of.id));
-    
+    const offlineFoldersForView = offlineQueue
+      .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId && !onlineFolderIds.has(a.localId))
+      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
     const currentOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null));
+    const finalFolders = [...offlineFoldersForView, ...currentOnlineFolders];
 
-    return [...uniqueOfflineFolders, ...currentOnlineFolders];
-  }, [allProjectFolders, projectId, currentUrlFolderId]);
+    // Process assets
+    const onlineAssetIds = new Set(allProjectAssets.map(a => a.id));
+    const offlineAssetsForView = offlineQueue
+      .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId && !onlineAssetIds.has(a.localId))
+      .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
+    const currentOnlineAssets = allProjectAssets.filter(a => a.folderId === currentUrlFolderId);
+    const finalAssets = [...offlineAssetsForView, ...currentOnlineAssets];
+    
+    return { finalFoldersToDisplay: finalFolders, finalAssetsToDisplay: finalAssets };
+  }, [allProjectFolders, allProjectAssets, projectId, currentUrlFolderId]);
 
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
@@ -250,7 +221,7 @@ export default function ProjectPage() {
         if (createdFolder) {
           await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
           toast({ title: t('folderCreated', 'Folder Created'), description: t('folderCreatedNavigatedDesc', `Folder "{folderName}" created.`, {folderName: createdFolder.name})});
-          await reloadAllData();
+          await loadProjectData();
         } else {
           toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
         }
@@ -268,9 +239,9 @@ export default function ProjectPage() {
       setNewFolderName('');
       setIsNewFolderDialogOpen(false);
       setNewFolderParentContext(null);
-      await reloadAllData();
+      await loadProjectData();
     }
-  }, [newFolderName, project, newFolderParentContext, reloadAllData, t, toast, isOnline]);
+  }, [newFolderName, project, newFolderParentContext, loadProjectData, t, toast, isOnline]);
 
   const openNewFolderDialog = useCallback((parentContextForNewDialog: FolderType | null) => {
     setNewFolderParentContext(parentContextForNewDialog);
@@ -282,38 +253,41 @@ export default function ProjectPage() {
     setIsEditFolderModalOpen(true);
   }, []);
 
-  const handleFolderDeleted = useCallback(async (folderToDelete: FolderType) => {
+  const handleDeleteFolder = useCallback(async (folderToDelete: FolderType) => {
     if (!isOnline) {
       toast({ title: "Action Not Available", description: "Cannot delete folders while offline.", variant: "default" });
       return;
     }
+    const hasChildFolders = allProjectFolders.some(f => f.parentId === folderToDelete.id);
+    const hasChildAssets = allProjectAssets.some(a => a.folderId === folderToDelete.id);
 
-    const hasChildContent = allProjectFolders.some(f => f.parentId === folderToDelete.id) || allProjectAssets.some(a => a.folderId === folderToDelete.id);
-
-    if (hasChildContent) {
+    if (hasChildFolders || hasChildAssets) {
       toast({ title: t('folderNotEmptyTitle', 'Folder Not Empty'), description: t('folderNotEmptyDesc', 'Cannot delete folder. Please delete all subfolders and assets first.'), variant: 'destructive' });
       return;
     }
 
     if (window.confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${folderToDelete.name}"? This action cannot be undone.`, { folderName: folderToDelete.name }))) {
+      setDeletingItemId(folderToDelete.id);
       const success = await FirestoreService.deleteFolderCascade(folderToDelete.id);
       if (success) {
         toast({ title: t('folderDeletedTitle', 'Folder Deleted'), description: t('folderDeletedDesc', `Folder "${folderToDelete.name}" has been deleted.`, { folderName: folderToDelete.name }) });
-        await reloadAllData();
+        await loadProjectData();
       } else {
         toast({ title: "Error", description: "Failed to delete folder.", variant: "destructive" });
       }
+      setDeletingItemId(null);
     }
-  }, [allProjectFolders, allProjectAssets, isOnline, reloadAllData, t, toast]);
+  }, [allProjectFolders, allProjectAssets, isOnline, loadProjectData, t, toast]);
+
 
   const handleFolderUpdated = useCallback(async () => {
-    await reloadAllData(); 
+    await loadProjectData(); 
     if (project) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
       const updatedProj = await FirestoreService.getProjectById(project.id);
       setProject(updatedProj);
     }
-  }, [reloadAllData, project]);
+  }, [loadProjectData, project]);
 
   const handleEditAsset = useCallback((asset: Asset) => {
     setLoadingAssetId(asset.id);
@@ -327,12 +301,12 @@ export default function ProjectPage() {
       return;
     }
     if (window.confirm(t('deleteAssetConfirmationDesc', `Are you sure you want to delete asset "${assetToDelete.name}"?`, {assetName: assetToDelete.name}))) {
-      setDeletingAssetId(assetToDelete.id);
+      setDeletingItemId(assetToDelete.id);
       try {
         const success = await FirestoreService.deleteAsset(assetToDelete.id);
         if (success) {
           toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-          await reloadAllData();
+          await loadProjectData();
         } else {
           toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
         }
@@ -340,10 +314,10 @@ export default function ProjectPage() {
         console.error("Error deleting asset:", error);
         toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
       } finally {
-        setDeletingAssetId(null);
+        setDeletingItemId(null);
       }
     }
-  }, [reloadAllData, t, toast, isOnline]);
+  }, [loadProjectData, t, toast, isOnline]);
 
   const handleAssetCreatedInModal = useCallback(async (assetDataWithDataUris: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!project) return;
@@ -353,7 +327,7 @@ export default function ProjectPage() {
         title: "Working Offline",
         description: `Asset "${assetDataWithDataUris.name}" saved locally. It will sync when you're back online.`
       });
-      await reloadAllData(); // To show optimistic offline asset
+      await loadProjectData(); // To show optimistic offline asset
       return;
     }
     
@@ -371,7 +345,7 @@ export default function ProjectPage() {
     };
 
     // Add to UI immediately
-    setCurrentViewAssets(prev => [optimisticAsset, ...prev]);
+    setAllProjectAssets(prev => [optimisticAsset, ...prev]);
 
     toast({
       title: t('saving', 'Saving...'),
@@ -412,7 +386,7 @@ export default function ProjectPage() {
             variant: "success-yellow"
           });
           // Full reload to ensure consistency
-          await reloadAllData(); 
+          await loadProjectData(); 
         } else {
            throw new Error("Failed to save asset to Firestore.");
         }
@@ -420,10 +394,10 @@ export default function ProjectPage() {
         console.error("Error saving asset in background:", error);
         toast({ title: "Upload Error", description: `An error occurred while saving "${assetDataWithDataUris.name}".`, variant: "destructive" });
         // Remove the failed optimistic asset from UI
-        setCurrentViewAssets(prev => prev.filter(asset => asset.id !== tempId));
+        setAllProjectAssets(prev => prev.filter(asset => asset.id !== tempId));
       }
     })();
-  }, [isOnline, project, toast, t, reloadAllData]);
+  }, [isOnline, project, toast, t, loadProjectData]);
 
 
   const handleOpenImagePreviewModal = useCallback((asset: Asset) => {
@@ -537,7 +511,7 @@ export default function ProjectPage() {
             }
 
             toast({ title: t('importSuccessTitle', "Import Successful"), description: t('importSuccessDescInFolder', "{count} assets have been created in folder '{folderName}'.", { count: createdCount, folderName: folderName }) });
-            await reloadAllData();
+            await loadProjectData();
         } catch (error) {
             console.error("Error importing file:", error);
             toast({ title: t('importErrorTitle', "Import Error"), description: t('importErrorGeneric', "An error occurred while processing the file."), variant: "destructive" });
@@ -603,7 +577,7 @@ export default function ProjectPage() {
         
             if (success) {
                 toast({ title: "Item Moved", description: "The item has been moved successfully.", variant: "success-yellow" });
-                await reloadAllData();
+                await loadProjectData();
             } else {
                 throw new Error("Update operation failed.");
             }
@@ -653,7 +627,7 @@ export default function ProjectPage() {
     
             if (success) {
                 toast({ title: "Success", description: `Item ${operation === 'copy' ? 'copied' : 'moved'} successfully.` });
-                await reloadAllData();
+                await loadProjectData();
             } else {
                 throw new Error(`Failed to ${operation} item.`);
             }
@@ -724,6 +698,7 @@ export default function ProjectPage() {
                       project={project}
                       searchTerm={deferredSearchTerm}
                       onEditAsset={handleEditAsset}
+                      onPreviewAsset={handleOpenImagePreviewModal}
                       loadingAssetId={loadingAssetId}
                       foldersMap={foldersMap}
                   />
@@ -735,19 +710,16 @@ export default function ProjectPage() {
                 assetsToDisplay={finalAssetsToDisplay}
                 allProjectAssets={allProjectAssets}
                 selectedFolder={selectedFolder}
-                deletingAssetId={deletingAssetId}
+                deletingItemId={deletingItemId}
                 loadingAssetId={loadingAssetId}
-                hasMoreAssets={hasMoreAssets}
-                isLoadingMore={isLoadingMore}
                 scrollAreaRef={scrollAreaRef}
                 onSelectFolder={handleSelectFolder}
                 onAddSubfolder={openNewFolderDialog}
                 onEditFolder={handleOpenEditFolderModal}
-                onDeleteFolder={handleFolderDeleted}
+                onDeleteFolder={handleDeleteFolder}
                 onEditAsset={handleEditAsset}
                 onDeleteAsset={handleDeleteAsset}
                 onPreviewAsset={handleOpenImagePreviewModal}
-                onLoadMore={loadMoreAssets}
                 isAdmin={isAdmin}
                 isOnline={isOnline}
               />
