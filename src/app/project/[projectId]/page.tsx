@@ -202,6 +202,7 @@ export default function ProjectPage() {
   const combinedFolders = useMemo(() => {
     const offlineUpdates = new Map<string, Partial<FolderType>>();
     const offlineQueue = OfflineService.getOfflineQueue();
+    const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
 
     offlineQueue
         .filter(a => a.type === 'update-folder' && a.projectId === projectId)
@@ -218,8 +219,8 @@ export default function ProjectPage() {
         return folder;
     });
     
+    // An offline folder is unique and should be displayed if its real ID isn't in the online list yet.
     const offlineAddActionIds = new Set(offlineQueue.filter(a => a.type === 'add-folder').map(a => (a as any).localId));
-    const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
     const uniqueOfflineFolders = offlineFolders.filter(of => offlineAddActionIds.has(of.id) && !onlineFolderIds.has(of.id));
     
     return [...onlineFoldersWithOfflineUpdates, ...uniqueOfflineFolders];
@@ -251,7 +252,6 @@ export default function ProjectPage() {
 
   const combinedCurrentViewAssets = useMemo(() => {
     const offlineUpdates = new Map<string, Partial<Asset>>();
-    const offlineDeletes = new Set<string>();
     const offlineQueue = OfflineService.getOfflineQueue();
     const onlineAssetIds = new Set(currentViewAssets.map(a => a.id));
 
@@ -266,7 +266,6 @@ export default function ProjectPage() {
       });
 
     const onlineAssetsWithOfflineUpdates = currentViewAssets
-        .filter(asset => !offlineDeletes.has(asset.id))
         .map(asset => {
             if (offlineUpdates.has(asset.id)) {
                 return { ...asset, ...offlineUpdates.get(asset.id), isOfflineUpdate: true };
@@ -275,7 +274,8 @@ export default function ProjectPage() {
         });
     
     // An offline asset is unique and should be displayed if its real ID isn't in the online list yet.
-    const uniqueOfflineAssets = offlineAssets.filter(oa => !onlineAssetIds.has(oa.id));
+    const offlineAddActionIds = new Set(offlineQueue.filter(a => a.type === 'add-asset').map(a => (a as any).localId));
+    const uniqueOfflineAssets = offlineAssets.filter(oa => offlineAddActionIds.has(oa.id) && !onlineAssetIds.has(oa.id));
     
     return [...onlineAssetsWithOfflineUpdates, ...uniqueOfflineAssets];
   }, [currentViewAssets, offlineAssets, projectId]);
@@ -284,13 +284,14 @@ export default function ProjectPage() {
 
   const finalFoldersToDisplay = useMemo(() => {
       const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
-      const offlineDeletes = new Set<string>();
+      const offlineQueue = OfflineService.getOfflineQueue();
 
       // An offline folder is unique and should be displayed if its real ID isn't in the online list yet.
-      const uniqueOfflineFolders = offlineFolders.filter(of => !onlineFolderIds.has(of.id));
+      const offlineAddActionIds = new Set(offlineQueue.filter(a => a.type === 'add-folder').map(a => (a as any).localId));
+      const uniqueOfflineFolders = offlineFolders.filter(of => offlineAddActionIds.has(of.id) && !onlineFolderIds.has(of.id));
 
       return [...allProjectFolders, ...uniqueOfflineFolders].filter(folder => 
-          folder.parentId === (currentUrlFolderId || null) && !offlineDeletes.has(folder.id)
+          folder.parentId === (currentUrlFolderId || null)
       );
   }, [allProjectFolders, offlineFolders, currentUrlFolderId]);
 
@@ -752,7 +753,7 @@ export default function ProjectPage() {
             </CardTitle>
           )}
       </CardHeader>
-      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
+      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-20rem)]">
           <div className="flex justify-end mb-4">
             <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
