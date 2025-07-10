@@ -80,7 +80,8 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
     } else {
         setSearchedAssets([]);
     }
-  }, [searchTerm, handleSearch]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]); // We intentionally leave handleSearch out to prevent re-triggering on its own state changes
 
   // Infinite scroll for search results
   useEffect(() => {
@@ -106,6 +107,13 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
         }
     };
   }, [isSearchLoading, hasMoreSearchResults, searchTerm, handleSearch]);
+  
+  const truncateName = (name: string, maxLength: number = 20) => {
+    if (name.length > maxLength) {
+      return `${name.substring(0, maxLength)}...`;
+    }
+    return name;
+  };
 
   return (
     <ScrollArea className="h-full pr-3" viewportRef={scrollAreaRef}>
@@ -150,8 +158,8 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
                                       )}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                      <CardTitle className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
-                                          {asset.name}
+                                      <CardTitle className="text-sm sm:text-base font-medium group-hover:text-primary transition-colors">
+                                          {truncateName(asset.name, 20)}
                                       </CardTitle>
                                       
                                       <CardDescription className="text-xs text-muted-foreground truncate" title={pathString}>
