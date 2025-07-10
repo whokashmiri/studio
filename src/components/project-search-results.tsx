@@ -149,7 +149,7 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
                                           <FileArchive className="w-6 h-6 text-muted-foreground" />
                                       )}
                                   </div>
-                                  <div className="flex-grow min-w-0">
+                                  <div className="flex-1 min-w-0">
                                       <CardTitle className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
                                           {asset.name}
                                       </CardTitle>
