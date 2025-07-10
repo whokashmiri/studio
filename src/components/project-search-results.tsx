@@ -161,19 +161,17 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
                                   </div>
                               </div>
                               <div className={cn("shrink-0 ml-2 flex gap-1", isLoading && "opacity-50")}>
-                                  {hasMedia && (
-                                     <Button 
-                                        variant="ghost" 
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={(e) => { e.stopPropagation(); onPreviewAsset(asset); }} 
-                                        disabled={isLoading}
-                                        title={t('viewImage', 'Preview')}
-                                     >
-                                         <Eye className="h-4 w-4" />
-                                         <span className="sr-only">{t('viewImage', 'Preview')}</span>
-                                     </Button>
-                                  )}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={(e) => { e.stopPropagation(); onPreviewAsset(asset); }} 
+                                    disabled={isLoading || !hasMedia}
+                                    title={t('viewImage', 'Preview')}
+                                  >
+                                      <Eye className="h-4 w-4" />
+                                      <span className="sr-only">{t('viewImage', 'Preview')}</span>
+                                  </Button>
                                   <Button 
                                     variant="ghost" 
                                     size="icon"
