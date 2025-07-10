@@ -40,8 +40,6 @@ export default function ProjectPage() {
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
   const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]);
   const [currentViewAssets, setCurrentViewAssets] = useState<Asset[]>([]);
-  const [offlineFolders, setOfflineFolders] = useState<FolderType[]>([]);
-  const [offlineAssets, setOfflineAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true); 
   const [isContentLoading, setIsContentLoading] = useState(true); 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -90,59 +88,48 @@ export default function ProjectPage() {
   );
 
 
-  const loadInitialStructure = useCallback(async () => {
-    if (projectId) {
-      setIsLoading(true);
-      try {
-        const [foundProject, projectFolders, allAssetsForCounts] = await Promise.all([
-          FirestoreService.getProjectById(projectId),
-          FirestoreService.getFolders(projectId),
-          FirestoreService.getAllAssetsForProject(projectId),
-        ]);
-
-        if (!foundProject) {
-          toast({ title: t('projectNotFound', "Project not found"), variant: "destructive" });
-          router.push('/');
-          return;
-        }
-        
-        setProject(foundProject);
-        setAllProjectFolders(projectFolders);
-        setAllProjectAssets(allAssetsForCounts);
-        
-        const queuedActions = OfflineService.getOfflineQueue();
-        setOfflineFolders(queuedActions.filter(a => a.type === 'add-folder' && a.projectId === projectId).map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType)));
-
-      } catch (error) {
-        console.error("Error loading project structure:", error);
-        toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
-        router.push('/');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  }, [projectId, router, t, toast]);
-  
-  const fetchFirstPageOfAssets = useCallback(async (pId: string, fId: string | null) => {
+  const loadProjectData = useCallback(async () => {
+    if (!projectId) return;
+    setIsLoading(true);
     setIsContentLoading(true);
-    setCurrentViewAssets([]); // Clear previous assets
-    
-    if (isOnline) {
-      const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(pId, fId, 15);
+    try {
+      const [foundProject, projectFolders, { assets, lastDoc }] = await Promise.all([
+        FirestoreService.getProjectById(projectId),
+        FirestoreService.getFolders(projectId),
+        FirestoreService.getAssetsPaginated(projectId, currentUrlFolderId, 15)
+      ]);
+
+      if (!foundProject) {
+        toast({ title: t('projectNotFound', "Project not found"), variant: "destructive" });
+        router.push('/');
+        return;
+      }
+
+      setProject(foundProject);
+      setAllProjectFolders(projectFolders);
       setCurrentViewAssets(assets);
       setLastVisibleAssetDoc(lastDoc);
       setHasMoreAssets(lastDoc !== null);
-    }
-    
-    // Also fetch offline assets for this folder
-    const queuedActions = OfflineService.getOfflineQueue();
-    const offlineForView = queuedActions
-        .filter(a => a.type === 'add-asset' && a.projectId === pId && (a.payload.folderId || null) === fId)
-        .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
-    setOfflineAssets(offlineForView);
+      
+      const allAssetsForCounts = await FirestoreService.getAllAssetsForProject(projectId);
+      setAllProjectAssets(allAssetsForCounts);
 
-    setIsContentLoading(false);
-  }, [isOnline]);
+    } catch (error) {
+      console.error("Error loading project data:", error);
+      toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+      setIsContentLoading(false);
+    }
+  }, [projectId, currentUrlFolderId, router, toast, t]);
+
+  useEffect(() => {
+    loadProjectData();
+  }, [loadProjectData]);
+
+  const reloadAllData = useCallback(async () => {
+    await loadProjectData();
+  }, [loadProjectData]);
 
   const loadMoreAssets = useCallback(async () => {
     if (isLoadingMore || !hasMoreAssets || !project || !isOnline) return;
@@ -155,22 +142,6 @@ export default function ProjectPage() {
     setHasMoreAssets(lastDoc !== null);
     setIsLoadingMore(false);
   }, [isLoadingMore, hasMoreAssets, project, currentUrlFolderId, lastVisibleAssetDoc, isOnline]);
-
-  // Initial Data Load
-  useEffect(() => {
-    loadInitialStructure();
-  }, [loadInitialStructure]);
-
-  // Load folder content when project is loaded or folderId changes
-  useEffect(() => {
-    if (!isLoading && project) {
-      fetchFirstPageOfAssets(project.id, currentUrlFolderId);
-    }
-  }, [isLoading, project, currentUrlFolderId, fetchFirstPageOfAssets]);
-
-  const reloadAllData = useCallback(async () => {
-    await loadInitialStructure();
-  }, [loadInitialStructure]);
   
   // Offline Sync
   useEffect(() => {
@@ -199,34 +170,7 @@ export default function ProjectPage() {
   }, [deferredSearchTerm]);
 
   // --- Memoized Data and Folder Logic ---
-  const combinedFolders = useMemo(() => {
-    const offlineUpdates = new Map<string, Partial<FolderType>>();
-    const offlineQueue = OfflineService.getOfflineQueue();
-    const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
-
-    offlineQueue
-        .filter(a => a.type === 'update-folder' && a.projectId === projectId)
-        .forEach(a => {
-            const updateAction = a as { type: 'update-folder', folderId: string, payload: Partial<Folder> };
-            const existing = offlineUpdates.get(updateAction.folderId) || {};
-            offlineUpdates.set(updateAction.folderId, { ...existing, ...updateAction.payload });
-        });
-
-    const onlineFoldersWithOfflineUpdates = allProjectFolders.map(folder => {
-        if (offlineUpdates.has(folder.id)) {
-            return { ...folder, ...offlineUpdates.get(folder.id), isOfflineUpdate: true };
-        }
-        return folder;
-    });
-    
-    // An offline folder is unique and should be displayed if its real ID isn't in the online list yet.
-    const offlineAddActionIds = new Set(offlineQueue.filter(a => a.type === 'add-folder').map(a => (a as any).localId));
-    const uniqueOfflineFolders = offlineFolders.filter(of => offlineAddActionIds.has(of.id) && !onlineFolderIds.has(of.id));
-    
-    return [...onlineFoldersWithOfflineUpdates, ...uniqueOfflineFolders];
-  }, [allProjectFolders, offlineFolders, projectId]);
-  
-  const foldersMap = useMemo(() => new Map(combinedFolders.map(f => [f.id, f])), [combinedFolders]);
+  const foldersMap = useMemo(() => new Map(allProjectFolders.map(f => [f.id, f])), [allProjectFolders]);
   const selectedFolder = useMemo(() => currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null, [currentUrlFolderId, foldersMap]);
   
   const getFolderPath = useCallback((folderId: string | null): Array<{ id: string | null; name: string, type: 'project' | 'folder'}> => {
@@ -250,57 +194,38 @@ export default function ProjectPage() {
     return getFolderPath(currentUrlFolderId);
   }, [project, currentUrlFolderId, getFolderPath]);
 
-  const combinedCurrentViewAssets = useMemo(() => {
-    const offlineUpdates = new Map<string, Partial<Asset>>();
+  const finalAssetsToDisplay = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
+    const offlineAssetsForView = offlineQueue
+        .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
+        .map(a => ({ ...a.payload, id: a.localId, createdAt: Date.now(), isOffline: true } as Asset));
+    
     const onlineAssetIds = new Set(currentViewAssets.map(a => a.id));
-
-    offlineQueue
-      .filter(a => a.projectId === projectId)
-      .forEach(a => {
-        if (a.type === 'update-asset') {
-            const updateAction = a as { type: 'update-asset', assetId: string, payload: Partial<Asset> };
-            const existing = offlineUpdates.get(updateAction.assetId) || {};
-            offlineUpdates.set(updateAction.assetId, { ...existing, ...updateAction.payload });
-        }
-      });
-
-    const onlineAssetsWithOfflineUpdates = currentViewAssets
-        .map(asset => {
-            if (offlineUpdates.has(asset.id)) {
-                return { ...asset, ...offlineUpdates.get(asset.id), isOfflineUpdate: true };
-            }
-            return asset;
-        });
+    const uniqueOfflineAssets = offlineAssetsForView.filter(oa => !onlineAssetIds.has(oa.id));
     
-    // An offline asset is unique and should be displayed if its real ID isn't in the online list yet.
-    const offlineAddActionIds = new Set(offlineQueue.filter(a => a.type === 'add-asset').map(a => (a as any).localId));
-    const uniqueOfflineAssets = offlineAssets.filter(oa => offlineAddActionIds.has(oa.id) && !onlineAssetIds.has(oa.id));
-    
-    return [...onlineAssetsWithOfflineUpdates, ...uniqueOfflineAssets];
-  }, [currentViewAssets, offlineAssets, projectId]);
-  
-  const finalAssetsToDisplay = useMemo(() => combinedCurrentViewAssets, [combinedCurrentViewAssets]);
+    return [...currentViewAssets, ...uniqueOfflineAssets];
+  }, [currentViewAssets, projectId, currentUrlFolderId]);
 
   const finalFoldersToDisplay = useMemo(() => {
-      const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
-      const offlineQueue = OfflineService.getOfflineQueue();
+    const offlineQueue = OfflineService.getOfflineQueue();
+    const offlineFoldersForView = offlineQueue
+        .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
+        .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
+    
+    const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
+    const uniqueOfflineFolders = offlineFoldersForView.filter(of => !onlineFolderIds.has(of.id));
+    
+    const currentOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null));
 
-      // An offline folder is unique and should be displayed if its real ID isn't in the online list yet.
-      const offlineAddActionIds = new Set(offlineQueue.filter(a => a.type === 'add-folder').map(a => (a as any).localId));
-      const uniqueOfflineFolders = offlineFolders.filter(of => offlineAddActionIds.has(of.id) && !onlineFolderIds.has(of.id));
-
-      return [...allProjectFolders, ...uniqueOfflineFolders].filter(folder => 
-          folder.parentId === (currentUrlFolderId || null)
-      );
-  }, [allProjectFolders, offlineFolders, currentUrlFolderId]);
+    return [...currentOnlineFolders, ...uniqueOfflineFolders];
+  }, [allProjectFolders, projectId, currentUrlFolderId]);
 
   useEffect(() => {
-    if (!isLoading && currentUrlFolderId && combinedFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
+    if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
         toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
         router.push(`/project/${projectId}`);
     }
-  }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, t, toast, combinedFolders.length]);
+  }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, t, toast, allProjectFolders.length]);
 
   // --- Callbacks for UI actions ---
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
@@ -336,15 +261,14 @@ export default function ProjectPage() {
         setNewFolderParentContext(null);
       }
     } else {
-      const { localId } = OfflineService.queueOfflineAction('add-folder', newFolderData, project.id);
-      const optimisticFolder: FolderType = { ...newFolderData, id: localId!, isOffline: true };
-      setOfflineFolders(prev => [...prev, optimisticFolder]);
+      OfflineService.queueOfflineAction('add-folder', newFolderData, project.id);
       toast({ title: "Working Offline", description: `Folder "${newFolderName}" saved locally. It will sync when you're back online.` });
       
       setIsCreatingFolder(false);
       setNewFolderName('');
       setIsNewFolderDialogOpen(false);
       setNewFolderParentContext(null);
+      await reloadAllData();
     }
   }, [newFolderName, project, newFolderParentContext, reloadAllData, t, toast, isOnline]);
 
@@ -753,7 +677,7 @@ export default function ProjectPage() {
             </CardTitle>
           )}
       </CardHeader>
-      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-20rem)]">
+      <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
           <div className="flex justify-end mb-4">
             <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
