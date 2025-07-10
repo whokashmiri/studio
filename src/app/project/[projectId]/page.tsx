@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useDeferredValue, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -383,8 +382,16 @@ export default function ProjectPage() {
     (async () => {
       try {
         // Upload all media files to Cloudinary
-        const photoUploadPromises = (assetDataWithDataUris.photos || []).map(dataUri => uploadMedia(dataUri));
-        const videoUploadPromises = (assetDataWithDataUris.videos || []).map(dataUri => uploadMedia(dataUri));
+        const photoUploadPromises = (assetDataWithDataUris.photos || []).map(async (dataUri) => {
+            const result = await uploadMedia(dataUri);
+            if (!result.success) throw new Error(result.error || 'Photo upload failed');
+            return result.url;
+        });
+        const videoUploadPromises = (assetDataWithDataUris.videos || []).map(async (dataUri) => {
+            const result = await uploadMedia(dataUri);
+            if (!result.success) throw new Error(result.error || 'Video upload failed');
+            return result.url;
+        });
         
         const uploadedPhotoUrls = await Promise.all(photoUploadPromises);
         const uploadedVideoUrls = await Promise.all(videoUploadPromises);

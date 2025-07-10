@@ -483,21 +483,21 @@ export default function NewAssetPage() {
             reader.readAsDataURL(file);
           });
 
-          let finalUrl;
+          let uploadResult;
           if (isVideo) {
-             finalUrl = await uploadMedia(dataUrl);
+             uploadResult = await uploadMedia(dataUrl);
           } else {
             const processedUrl = await processImageForSaving(dataUrl);
             if (processedUrl) {
-                finalUrl = await uploadMedia(processedUrl);
+                uploadResult = await uploadMedia(processedUrl);
             }
           }
           
-          if (finalUrl) {
-            if (isVideo) uploadedVideoUrls.push(finalUrl);
-            else uploadedPhotoUrls.push(finalUrl);
+          if (uploadResult && uploadResult.success && uploadResult.url) {
+            if (isVideo) uploadedVideoUrls.push(uploadResult.url);
+            else uploadedPhotoUrls.push(uploadResult.url);
           } else {
-            toast({ title: "Media Upload Error", description: `Failed to upload ${file.name}.`, variant: "destructive" });
+            toast({ title: "Media Upload Error", description: uploadResult?.error || `Failed to upload ${file.name}.`, variant: "destructive" });
           }
         }
         setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
@@ -611,17 +611,17 @@ export default function NewAssetPage() {
       for (const photoDataUrl of capturedPhotosInSession) {
         const processedUrl = await processImageForSaving(photoDataUrl);
         if (processedUrl) {
-           const finalUrl = await uploadMedia(processedUrl);
-           if (finalUrl) uploadedPhotoUrls.push(finalUrl);
-           else toast({ title: "Image Upload Error", description: "A photo from session failed to upload.", variant: "destructive" });
+           const uploadResult = await uploadMedia(processedUrl);
+           if (uploadResult.success && uploadResult.url) uploadedPhotoUrls.push(uploadResult.url);
+           else toast({ title: "Image Upload Error", description: uploadResult.error || "A photo from session failed to upload.", variant: "destructive" });
         } else {
           toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive" });
         }
       }
       for (const videoDataUrl of capturedVideosInSession) {
-         const finalUrl = await uploadMedia(videoDataUrl);
-         if (finalUrl) uploadedVideoUrls.push(finalUrl);
-         else toast({ title: "Video Upload Error", description: "A video from session failed to upload.", variant: "destructive" });
+         const uploadResult = await uploadMedia(videoDataUrl);
+         if (uploadResult.success && uploadResult.url) uploadedVideoUrls.push(uploadResult.url);
+         else toast({ title: "Video Upload Error", description: uploadResult.error || "A video from session failed to upload.", variant: "destructive" });
       }
       
       setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);

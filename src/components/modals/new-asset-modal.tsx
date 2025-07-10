@@ -17,6 +17,7 @@ import { useLanguage } from '@/contexts/language-context';
 import { processImageForSaving } from '@/lib/image-handler-service'; 
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
+import { uploadMedia } from '@/actions/cloudinary-actions';
 
 type AssetCreationStep = 'photos_capture' | 'name_input' | 'descriptions';
 type CaptureMode = 'photo' | 'video';
@@ -636,7 +637,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const handleBackToNameInput = useCallback(() => setCurrentStep('name_input'), []);
 
   const startAudioDescRecordingWithStream = useCallback((streamForRecording: MediaStream) => {
-    if (!streamForRecording || !streamForRecording.active || streamForRecording.getAudioTracks().length === 0 || !streamForRecording.getAudioTracks().some(track => track.enabled && track.readyState === 'live')) {
+    if (!streamForRecording || !streamForRecording.active || !streamForRecording.getAudioTracks().length === 0 || !streamForRecording.getAudioTracks().some(track => track.enabled && track.readyState === 'live')) {
         toast({ title: t('speechErrorAudioCapture', 'Audio capture failed. Check microphone permissions.'), description: "The audio stream is not active or valid.", variant: "destructive" });
         setIsAudioDescRecording(false);
         if (speechRecognitionRef.current) speechRecognitionRef.current.stop();

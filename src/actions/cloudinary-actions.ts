@@ -1,3 +1,4 @@
+
 'use server';
 
 import { v2 as cloudinary } from 'cloudinary';
@@ -6,6 +7,12 @@ import { v2 as cloudinary } from 'cloudinary';
  * @fileOverview Server Action for handling media uploads to Cloudinary.
  * This file contains the secure, server-side logic for uploading images and videos.
  */
+
+interface UploadResponse {
+  success: boolean;
+  url?: string;
+  error?: string;
+}
 
 // Configure Cloudinary using environment variables.
 // These must be set in your .env.local file.
@@ -23,12 +30,12 @@ cloudinary.config({
  * It automatically detects the resource type (image/video).
  * 
  * @param fileDataUrl The file to upload, as a base64 Data URI.
- * @returns A promise that resolves to the secure Cloudinary URL of the uploaded media.
- * @throws An error if the upload fails or if environment variables are not set.
+ * @returns A promise that resolves to an object with success status and either the URL or an error message.
  */
-export async function uploadMedia(fileDataUrl: string): Promise<string> {
+export async function uploadMedia(fileDataUrl: string): Promise<UploadResponse> {
   if (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET || !process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) {
-    throw new Error('Cloudinary environment variables are not configured. Cannot upload media.');
+    console.error('Cloudinary environment variables are not configured.');
+    return { success: false, error: 'Cloudinary environment variables are not configured. Cannot upload media.' };
   }
 
   try {
@@ -36,9 +43,9 @@ export async function uploadMedia(fileDataUrl: string): Promise<string> {
       resource_type: "auto",
     });
     console.log('Cloudinary upload successful. URL:', result.secure_url);
-    return result.secure_url;
-  } catch (error) {
+    return { success: true, url: result.secure_url };
+  } catch (error: any) {
     console.error("Cloudinary Upload Error:", error);
-    throw new Error('Failed to upload media to Cloudinary.');
+    return { success: false, error: error?.message || 'Failed to upload media to Cloudinary.' };
   }
 }
