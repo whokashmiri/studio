@@ -1,7 +1,7 @@
 
 "use client";
 import Link from 'next/link';
-import React from 'react'; // Import React for React.memo
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit, Star, Users, MoreVertical, Trash2, Download, Loader2 } from 'lucide-react';
@@ -41,6 +41,11 @@ export const ProjectCard = React.memo(function ProjectCard({
 }: ProjectCardProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   const getStatusBadgeVariant = (status: Project['status']) => {
     switch (status) {
@@ -90,7 +95,7 @@ export const ProjectCard = React.memo(function ProjectCard({
                 </p>
               </div>
               <div className="flex items-center shrink-0 space-x-0.5">
-                {isMobile && !hasAdminActions && (
+                {isClient && isMobile && !hasAdminActions && (
                   <Badge 
                     variant={getStatusBadgeVariant(project.status)} 
                     className="capitalize text-xs mr-1"
@@ -161,7 +166,7 @@ export const ProjectCard = React.memo(function ProjectCard({
             </div>
           </CardHeader>
           <CardContent className="flex-grow p-3 pt-1.5 flex items-end">
-            {(!isMobile || (isMobile && (hasAdminActions || onExportProject))) && (
+            {(!isMobile || (isMobile && (hasAdminActions || onExportProject)) || !isClient) && (
                <Badge 
                 variant={getStatusBadgeVariant(project.status)} 
                 className="capitalize text-xs"
