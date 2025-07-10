@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { Loader2, FileArchive, Eye, Edit } from 'lucide-react';
+import { Loader2, FileArchive, Eye } from 'lucide-react';
 import { Card, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -171,17 +171,6 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
                                   >
                                       <Eye className="h-4 w-4" />
                                       <span className="sr-only">{t('viewImage', 'Preview')}</span>
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={(e) => {e.stopPropagation(); onEditAsset(asset);}} 
-                                    disabled={isLoading}
-                                    title={t('edit','Edit')}
-                                  >
-                                    <Edit className="h-4 w-4"/>
-                                    <span className="sr-only">{t('edit','Edit')}</span>
                                   </Button>
                               </div>
                           </Card>
