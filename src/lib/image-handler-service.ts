@@ -1,17 +1,17 @@
 
 /**
  * Compresses an image client-side before upload.
- * Resizes images to a maximum dimension while preserving aspect ratio and converts to JPEG.
+ * Resizes images to a maximum dimension, converts to JPEG, and aims for a target file size.
  *
  * @param fileDataUrl The file to process, as a base64 Data URI.
  * @param maxWidth The maximum width for the output image.
- * @param quality The quality of the output JPEG image (0 to 1).
+ * @param targetSizeInKB The desired file size in kilobytes.
  * @returns A promise that resolves to the compressed image as a Data URI or null if input is invalid.
  */
 export function processImageForSaving(
   fileDataUrl: string,
   maxWidth: number = 1920,
-  quality: number = 0.8
+  targetSizeInKB: number = 300
 ): Promise<string | null> {
   return new Promise((resolve, reject) => {
     if (!fileDataUrl || !fileDataUrl.startsWith('data:')) {
@@ -47,11 +47,26 @@ export function processImageForSaving(
       // Draw image to canvas
       ctx.drawImage(image, 0, 0, width, height);
 
-      // Get compressed image Data URI
-      const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+      // Iterative compression to meet target size
+      let quality = 0.9;
+      let compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+      const targetSizeBytes = targetSizeInKB * 1024;
+      const MAX_ITERATIONS = 7;
+      let iteration = 0;
+
+      // The size of a Base64 string is roughly 4/3 of the original data size.
+      // We calculate the byte size from the base64 length.
+      let currentSize = compressedDataUrl.length * (3 / 4);
+
+      while (currentSize > targetSizeBytes && quality > 0.1 && iteration < MAX_ITERATIONS) {
+        quality -= 0.1; // Reduce quality
+        compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        currentSize = compressedDataUrl.length * (3 / 4);
+        iteration++;
+      }
 
       console.log(
-        `Image compressed: original size ~${Math.round(fileDataUrl.length / 1024)}KB, new size ~${Math.round(compressedDataUrl.length / 1024)}KB`
+        `Image compressed: original size ~${Math.round(fileDataUrl.length / 1024)}KB, new size ~${Math.round(currentSize / 1024)}KB with quality ${quality.toFixed(2)}`
       );
       resolve(compressedDataUrl);
     };
