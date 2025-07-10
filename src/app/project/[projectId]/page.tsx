@@ -135,7 +135,7 @@ export default function ProjectPage() {
             observer.unobserve(currentLoaderRef);
         }
     };
-  }, [hasMoreAssets, isFetchingMoreAssets, loadMoreAssets]);
+  }, [hasMoreAssets, isFetchingMoreAssets, loadMoreAssets, scrollAreaRef.current]);
 
   const fetchInitialFolderContent = useCallback(async (folderId: string | null) => {
       setIsContentLoading(true);
@@ -987,5 +987,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
-    
