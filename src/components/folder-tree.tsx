@@ -29,7 +29,7 @@ interface FolderTreeDisplayProps {
   onSelectFolder: (folder: Folder) => void; 
   onAddSubfolder: (parentFolder: Folder) => void;
   onEditFolder: (folder: Folder) => void;
-  onDeleteFolder: () => void; 
+  onDeleteFolder: (folder: Folder) => void; 
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void; 
   onPreviewAsset: (asset: Asset) => void;
@@ -116,7 +116,6 @@ export function FolderTreeDisplay({
 }: FolderTreeDisplayProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
-  const { setClipboard, isItemCut } = useClipboard();
   const loaderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -154,39 +153,32 @@ export function FolderTreeDisplay({
     }, new Map<string, number>());
   }, [allProjectAssets]);
 
-  const handleDeleteClick = useCallback(async (e: React.MouseEvent, currentFolder: Folder) => {
-    e.stopPropagation();
-    if (!isOnline) {
-      toast({ title: "Action Not Available", description: "Cannot delete items while offline.", variant: "default" });
-      return;
-    }
-    const childFolders = await FirestoreService.getFolders(currentFolder.projectId);
-    const hasChildFolders = childFolders.some(f => f.parentId === currentFolder.id);
-    const childAssets = await FirestoreService.getAssets(currentFolder.projectId, currentFolder.id);
-    const hasChildAssets = childAssets.length > 0;
-
-    if (hasChildFolders || hasChildAssets) {
-      toast({
-        title: t('folderNotEmptyTitle', 'Folder Not Empty'),
-        description: t('folderNotEmptyDesc', 'Cannot delete folder. Please delete all subfolders and assets first.'),
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (window.confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${currentFolder.name}"? This action cannot be undone.`, { folderName: currentFolder.name }))) {
-      const success = await FirestoreService.deleteFolderCascade(currentFolder.id);
-      if (success) {
-        onDeleteFolder(); 
-        toast({
-          title: t('folderDeletedTitle', 'Folder Deleted'),
-          description: t('folderDeletedDesc', `Folder "${currentFolder.name}" has been deleted.`, { folderName: currentFolder.name }),
-        });
-      } else {
-         toast({ title: "Error", description: "Failed to delete folder.", variant: "destructive" });
+  const handleDeleteFolderClick = useCallback(async (e: React.MouseEvent, folder: Folder) => {
+      e.stopPropagation();
+      if (!isOnline) {
+          toast({ title: "Action Not Available", description: "Cannot delete folders while offline.", variant: "default" });
+          return;
       }
-    }
-  }, [toast, t, onDeleteFolder, isOnline]); 
+
+      const childFolders = allProjectAssets ? allProjectAssets.filter(a => a.folderId?.startsWith(folder.id)) : [];
+      const hasChildContent = childFolders.length > 0 || (assetCountsByFolder.get(folder.id) || 0) > 0;
+      
+      const subFolders = foldersToDisplay.filter(f => f.parentId === folder.id);
+      if (subFolders.length > 0) {
+           toast({ title: t('folderNotEmptyTitle', 'Folder Not Empty'), description: t('folderNotEmptyDesc', 'Cannot delete folder. Please delete all subfolders and assets first.'), variant: 'destructive' });
+           return;
+      }
+      
+      const assetsInFolder = assetsToDisplay.filter(a => a.folderId === folder.id);
+      if (assetsInFolder.length > 0) {
+           toast({ title: t('folderNotEmptyTitle', 'Folder Not Empty'), description: t('folderNotEmptyDesc', 'Cannot delete folder. Please delete all subfolders and assets first.'), variant: 'destructive' });
+           return;
+      }
+
+      if (window.confirm(t('deleteFolderConfirmation', `Are you sure you want to delete "${folder.name}"? This action cannot be undone.`, { folderName: folder.name }))) {
+          onDeleteFolder(folder);
+      }
+  }, [isOnline, allProjectAssets, assetCountsByFolder, foldersToDisplay, assetsToDisplay, toast, t, onDeleteFolder]);
   
   const combinedItems = useMemo(() => [
     ...foldersToDisplay.map(f => ({ type: 'folder' as const, data: f })),
@@ -216,13 +208,13 @@ export function FolderTreeDisplay({
                         onSelectFolder={onSelectFolder}
                         onAddSubfolder={onAddSubfolder}
                         onEditFolder={onEditFolder}
-                        onActualDeleteFolder={handleDeleteClick}
+                        onActualDeleteFolder={handleDeleteFolderClick}
                         t={t}
                         isOnline={isOnline}
                     />
                 );
                 return (
-                    <DraggableAndDroppableFolder key={`dnd-folder-${item.data.id}`} folder={item.data} isAdmin={isAdmin} isOnline={isOnline}>
+                    <DraggableAndDroppableFolder key={`folder-${item.data.id}`} folder={item.data} isAdmin={isAdmin} isOnline={isOnline}>
                         {folderCard}
                     </DraggableAndDroppableFolder>
                 );
@@ -241,7 +233,7 @@ export function FolderTreeDisplay({
                     />
                 );
                 return (
-                    <DraggableAsset key={`dnd-asset-${item.data.id}`} asset={item.data} isAdmin={isAdmin} isOnline={isOnline}>
+                    <DraggableAsset key={`asset-${item.data.id}`} asset={item.data} isAdmin={isAdmin} isOnline={isOnline}>
                         {assetCard}
                     </DraggableAsset>
                 );

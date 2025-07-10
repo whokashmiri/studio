@@ -25,7 +25,7 @@ interface ProjectFolderViewProps {
   onSelectFolder: (folder: FolderType) => void;
   onAddSubfolder: (parentFolder: FolderType | null) => void;
   onEditFolder: (folder: FolderType) => void;
-  onDeleteFolder: () => void;
+  onDeleteFolder: (folder: FolderType) => void;
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void;
   onPreviewAsset: (asset: Asset) => void;
