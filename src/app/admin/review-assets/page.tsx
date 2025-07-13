@@ -174,15 +174,16 @@ export default function ReviewAllAssetsPage() {
   
   const handleSelectProject = useCallback(async (project: Project | null) => {
     setSelectedProject(project);
-    setSelectedFolder(null); 
+    setSelectedFolder(null); // Always reset folder when project changes
     setAssetToPreview(null);
     if (project) {
         setCurrentView('projectContent');
         setProjectContentLoading(true);
         try {
+            // Fetch all assets for the project initially, then filter for root assets
             const allAssets = await FirestoreService.getAllAssetsForProject(project.id, 'all');
             const rootAssets = allAssets.filter(asset => !asset.folderId);
-            setAssetsInFolder(rootAssets);
+            setAssetsInFolder(rootAssets); // Show root assets by default
         } catch (e) {
             toast({ title: t('error', 'Error'), description: t('projectContentError', `Failed to load content for ${project.name}.`), variant: 'destructive'});
             setAssetsInFolder([]);
