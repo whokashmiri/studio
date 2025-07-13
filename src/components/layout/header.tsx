@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
 
+
 export function Header() {
   const { currentUser, isLoading, logout } = useAuth();
   const { t } = useLanguage();
