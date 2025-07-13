@@ -7,20 +7,17 @@ import { useAuth } from '@/contexts/auth-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import type { AssetWithContext } from '@/lib/firestore-service';
 import type { Project, Folder as FolderType, Asset } from '@/data/mock-data';
-import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye, Edit, Briefcase, ArrowRight, CheckCircle, List, ImageOff, FolderOpen } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye, Edit, Briefcase, ArrowRight, CheckCircle, List, ImageOff, FolderOpen, Folder, ChevronDown, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { SidebarProvider, Sidebar, SidebarTrigger, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
-import { AssetDetailDisplay } from '@/components/asset-detail-display';
-import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
 type ReviewPageView = 'companyStats' | 'projectContent';
-type AssetFilter = 'all' | 'active' | 'completed';
 type MediaItem = { type: 'image' | 'video'; url: string; };
 
 
@@ -42,7 +39,7 @@ function AssetPreviewer({ asset, onEdit }: { asset: Asset | null, onEdit: (asset
 
     if (!asset) {
         return (
-            <div className="h-full flex flex-col items-center justify-center bg-muted/50 rounded-lg p-4 text-center">
+            <div className="h-full flex flex-col items-center justify-center bg-muted/50 rounded-lg p-4 text-center sticky top-8">
                 <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold text-muted-foreground">{t('selectAssetToPreview', 'Select an Asset')}</h3>
                 <p className="text-sm text-muted-foreground">{t('selectAssetFromList', 'Select an asset from the list to see its details here.')}</p>
@@ -120,6 +117,104 @@ function AssetListItem({ asset, onSelect, isActive }: { asset: Asset, onSelect: 
     );
 }
 
+function FolderListItem({ folder, onSelect, isActive, assetCount }: { folder: FolderType, onSelect: (folder: FolderType) => void, isActive: boolean, assetCount: number }) {
+    const { t } = useLanguage();
+    return (
+        <button
+            onClick={() => onSelect(folder)}
+            className={cn(
+                "w-full text-left p-3 rounded-md hover:bg-muted transition-colors flex items-center gap-3 border",
+                isActive ? "bg-primary/10 border-primary" : "bg-card"
+            )}
+        >
+            <Folder className="h-6 w-6 text-primary shrink-0" />
+            <div className="flex-grow truncate">
+                <p className="text-sm font-medium truncate">{folder.name}</p>
+                <p className="text-xs text-muted-foreground">{t('totalAssets', '{count} Assets', {count: assetCount})}</p>
+            </div>
+        </button>
+    );
+}
+
+function FolderTreeSidebarItem({ folder, subFolders, onSelectFolder, selectedFolderId }: { folder: FolderType, subFolders: FolderType[], onSelectFolder: (folder: FolderType) => void, selectedFolderId: string | null }) {
+    const [isOpen, setIsOpen] = useState(false);
+    
+    return (
+        <>
+            <SidebarMenuItem className="relative">
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1"
+                >
+                    {subFolders.length > 0 && (isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />)}
+                </button>
+                <SidebarMenuButton 
+                    onClick={() => onSelectFolder(folder)} 
+                    isActive={selectedFolderId === folder.id}
+                    tooltip={folder.name}
+                    className="pl-5"
+                >
+                  <ProjectFolderIcon />
+                  <span className="group-data-[collapsible=icon]:hidden truncate" title={folder.name}>{folder.name}</span>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+            {isOpen && subFolders.length > 0 && (
+                <div className="pl-4 border-l ml-4">
+                     {subFolders.map(subFolder => (
+                        <FolderTreeSidebar key={subFolder.id} parentId={subFolder.id} onSelectFolder={onSelectFolder} selectedFolderId={selectedFolderId} />
+                     ))}
+                </div>
+            )}
+        </>
+    );
+}
+
+function FolderTreeSidebar({ parentId, onSelectFolder, selectedFolderId }: { parentId: string | null, onSelectFolder: (folder: FolderType) => void, selectedFolderId: string | null }) {
+    const { projectFolders } = useReviewContext();
+
+    const childFolders = useMemo(() => {
+        return projectFolders.filter(f => f.parentId === parentId).sort((a,b) => a.name.localeCompare(b.name));
+    }, [projectFolders, parentId]);
+
+    return (
+        <SidebarMenu className="space-y-1">
+            {childFolders.map(folder => {
+                const subFolders = projectFolders.filter(f => f.parentId === folder.id);
+                return <FolderTreeSidebarItem key={folder.id} folder={folder} subFolders={subFolders} onSelectFolder={onSelectFolder} selectedFolderId={selectedFolderId} />;
+            })}
+        </SidebarMenu>
+    );
+}
+
+
+const ReviewContext = React.createContext<{
+    projectFolders: FolderType[];
+    projectAssets: Asset[];
+    assetCounts: Map<string, number>;
+}>({ projectFolders: [], projectAssets: [], assetCounts: new Map() });
+
+const useReviewContext = () => useContext(ReviewContext);
+
+const ReviewContextProvider = ({ children, projectFolders, projectAssets }: { children: React.ReactNode, projectFolders: FolderType[], projectAssets: Asset[] }) => {
+    const assetCounts = useMemo(() => {
+        const counts = new Map<string, number>();
+        projectAssets.forEach(asset => {
+            const id = asset.folderId || 'root';
+            counts.set(id, (counts.get(id) || 0) + 1);
+        });
+        projectFolders.forEach(folder => {
+            if (!counts.has(folder.id)) counts.set(folder.id, 0);
+        });
+        return counts;
+    }, [projectAssets, projectFolders]);
+    
+    return (
+        <ReviewContext.Provider value={{ projectFolders, projectAssets, assetCounts }}>
+            {children}
+        </ReviewContext.Provider>
+    );
+};
+
 
 export default function ReviewAllAssetsPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
@@ -127,29 +222,24 @@ export default function ReviewAllAssetsPage() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
 
-  const [allCompanyAssets, setAllCompanyAssets] = useState<AssetWithContext[]>([]);
   const [companyProjects, setCompanyProjects] = useState<Project[]>([]);
-  
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
-  const [assetsInFolder, setAssetsInFolder] = useState<Asset[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  
+  const [projectFolders, setProjectFolders] = useState<FolderType[]>([]);
+  const [projectAssets, setProjectAssets] = useState<Asset[]>([]);
 
   const [pageLoading, setPageLoading] = useState(true);
   const [projectContentLoading, setProjectContentLoading] = useState(false);
 
   const [assetToPreview, setAssetToPreview] = useState<Asset | null>(null);
   const [currentView, setCurrentView] = useState<ReviewPageView>('companyStats');
-  const [assetFilter, setAssetFilter] = useState<AssetFilter>('all');
   
   const loadInitialAdminData = useCallback(async () => {
     if (currentUser && currentUser.role === 'Admin' && currentUser.companyId) {
       setPageLoading(true);
       try {
-        const [assets, projects] = await Promise.all([
-          FirestoreService.getAllAssetsForCompany(currentUser.companyId, assetFilter),
-          FirestoreService.getProjects(currentUser.companyId) 
-        ]);
-        setAllCompanyAssets(assets);
+        const projects = await FirestoreService.getProjects(currentUser.companyId);
         setCompanyProjects(projects.sort((a, b) => a.name.localeCompare(b.name)));
       } catch (error) {
         console.error("Error loading initial admin data:", error);
@@ -160,7 +250,7 @@ export default function ReviewAllAssetsPage() {
     } else if (!authLoading) {
       setPageLoading(false); 
     }
-  }, [currentUser, authLoading, toast, t, assetFilter]);
+  }, [currentUser, authLoading, toast, t]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -174,61 +264,65 @@ export default function ReviewAllAssetsPage() {
   
   const handleSelectProject = useCallback(async (project: Project | null) => {
     setSelectedProject(project);
-    setSelectedFolder(null); // Always reset folder when project changes
+    setSelectedFolderId(null);
     setAssetToPreview(null);
+    setProjectAssets([]);
+    setProjectFolders([]);
+
     if (project) {
         setCurrentView('projectContent');
         setProjectContentLoading(true);
         try {
-            const allAssets = await FirestoreService.getAllAssetsForProject(project.id, 'all');
-            const rootAssets = allAssets.filter(asset => !asset.folderId);
-            setAssetsInFolder(rootAssets); // Show root assets by default
+            const [folders, assets] = await Promise.all([
+                FirestoreService.getFolders(project.id),
+                FirestoreService.getAllAssetsForProject(project.id, 'all')
+            ]);
+            setProjectFolders(folders);
+            setProjectAssets(assets);
         } catch (e) {
             toast({ title: t('error', 'Error'), description: t('projectContentError', `Failed to load content for ${project.name}.`), variant: 'destructive'});
-            setAssetsInFolder([]);
         } finally {
             setProjectContentLoading(false);
         }
     } else {
         setCurrentView('companyStats');
-        setAssetsInFolder([]);
     }
   }, [toast, t]);
 
 
-  const handleSelectFolder = useCallback(async (project: Project, folder: FolderType | null) => {
-    setSelectedFolder(folder);
+  const handleSelectFolder = useCallback((folder: FolderType | null) => {
+    setSelectedFolderId(folder?.id ?? null);
     setAssetToPreview(null);
-    setProjectContentLoading(true);
-    try {
-        const allAssets = await FirestoreService.getAllAssetsForProject(project.id, 'all');
-        const assets = allAssets.filter(asset => asset.folderId === (folder ? folder.id : null));
-        setAssetsInFolder(assets);
-    } catch(e) {
-        toast({ title: t('error', 'Error'), description: t('folderAssetsError', 'Failed to load assets for folder.'), variant: 'destructive'});
-        setAssetsInFolder([]);
-    } finally {
-        setProjectContentLoading(false);
-    }
-  }, [toast, t]);
+  }, []);
 
   const handleEditAsset = (assetToEdit: Asset) => {
     const editUrl = `/project/${assetToEdit.projectId}/new-asset?assetId=${assetToEdit.id}${assetToEdit.folderId ? `&folderId=${assetToEdit.folderId}` : ''}`;
     router.push(editUrl);
   };
   
-  const { activeAssets, completedAssets } = useMemo(() => {
-    const active: Asset[] = [];
-    const completed: Asset[] = [];
-    assetsInFolder.forEach(asset => {
-      if (asset.isDone) {
-        completed.push(asset);
-      } else {
-        active.push(asset);
-      }
+  const { activeAssets, completedAssets, rootFolders, rootAssets } = useMemo(() => {
+    let active: Asset[] = [];
+    let completed: Asset[] = [];
+    
+    const assetsInScope = projectAssets.filter(asset => asset.folderId === selectedFolderId);
+
+    assetsInScope.forEach(asset => {
+      if (asset.isDone) completed.push(asset);
+      else active.push(asset);
     });
-    return { activeAssets: active, completedAssets: completed };
-  }, [assetsInFolder]);
+
+    return { 
+        activeAssets: active, 
+        completedAssets: completed,
+        rootFolders: projectFolders.filter(f => f.parentId === null).sort((a,b) => a.name.localeCompare(b.name)),
+        rootAssets: projectAssets.filter(a => a.folderId === null),
+    };
+  }, [projectAssets, projectFolders, selectedFolderId]);
+
+  const selectedFolder = useMemo(() => {
+    if (!selectedFolderId) return null;
+    return projectFolders.find(f => f.id === selectedFolderId) || null;
+  }, [selectedFolderId, projectFolders]);
 
 
   if (authLoading || pageLoading) {
@@ -256,6 +350,7 @@ export default function ReviewAllAssetsPage() {
   }
   
   return (
+    <ReviewContextProvider projectFolders={projectFolders} projectAssets={projectAssets}>
     <SidebarProvider>
       <div className="flex min-h-[calc(100vh-4rem)]">
         <Sidebar className={language === 'ar' ? "border-l" : "border-r"} collapsible="icon" side={language === 'ar' ? 'right' : 'left'}>
@@ -268,41 +363,46 @@ export default function ReviewAllAssetsPage() {
             </div>
           </SidebarHeader>
           <SidebarContent className="p-0">
-            <SidebarMenu className="p-2 space-y-1">
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  onClick={() => handleSelectProject(null)} 
-                  isActive={currentView === 'companyStats'}
-                  tooltip={t('companyStatsTooltip', 'View Company Stats')}
-                >
-                  <BarChart3 />
-                  <span className="group-data-[collapsible=icon]:hidden">{t('companyStatsSidebarItem', 'Company Stats')}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-            <ScrollArea className="h-[calc(100%-180px)] group-data-[collapsible=icon]:h-[calc(100%-120px)]">
-              <SidebarMenu className="p-2 pt-0 space-y-1">
-                 <div className="px-2 py-1 group-data-[collapsible=icon]:hidden">
-                    <span className="text-xs font-medium text-muted-foreground uppercase">{t('projectsSidebarItem', 'Projects')}</span>
-                </div>
-                {companyProjects.map((project) => (
-                  <SidebarMenuItem key={project.id}>
+            <ScrollArea className="h-[calc(100%-120px)] group-data-[collapsible=icon]:h-[calc(100%-60px)]">
+                <SidebarMenu className="p-2 space-y-1">
+                  <SidebarMenuItem>
                     <SidebarMenuButton 
-                        onClick={() => handleSelectProject(project)} 
-                        isActive={selectedProject?.id === project.id && currentView !== 'companyStats'}
-                        tooltip={project.name}
+                      onClick={() => handleSelectProject(null)} 
+                      isActive={currentView === 'companyStats'}
+                      tooltip={t('companyStatsTooltip', 'View Company Stats')}
                     >
-                      <ProjectFolderIcon />
-                      <span className="group-data-[collapsible=icon]:hidden truncate" title={project.name}>{project.name}</span>
+                      <BarChart3 />
+                      <span className="group-data-[collapsible=icon]:hidden">{t('companyStatsSidebarItem', 'Company Stats')}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                ))}
-                {companyProjects.length === 0 && !pageLoading && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-                        {t('noProjectsInCompany', 'No projects in company.')}
-                    </div>
-                )}
-              </SidebarMenu>
+                </SidebarMenu>
+                 <div className="px-3 py-1 group-data-[collapsible=icon]:hidden">
+                    <span className="text-xs font-medium text-muted-foreground uppercase">{t('projectsSidebarItem', 'Projects')}</span>
+                </div>
+                <SidebarMenu className="p-2 pt-0 space-y-1">
+                    {companyProjects.map((project) => (
+                      <SidebarMenuItem key={project.id}>
+                        <SidebarMenuButton 
+                            onClick={() => handleSelectProject(project)} 
+                            isActive={selectedProject?.id === project.id && currentView !== 'companyStats'}
+                            tooltip={project.name}
+                        >
+                          <ProjectFolderIcon />
+                          <span className="group-data-[collapsible=icon]:hidden truncate" title={project.name}>{project.name}</span>
+                        </SidebarMenuButton>
+                        {selectedProject?.id === project.id && (
+                            <div className="pl-5 pt-1">
+                                <FolderTreeSidebar parentId={null} onSelectFolder={handleSelectFolder} selectedFolderId={selectedFolderId} />
+                            </div>
+                        )}
+                      </SidebarMenuItem>
+                    ))}
+                    {companyProjects.length === 0 && !pageLoading && (
+                        <div className="px-3 py-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+                            {t('noProjectsInCompany', 'No projects in company.')}
+                        </div>
+                    )}
+                </SidebarMenu>
             </ScrollArea>
           </SidebarContent>
            <SidebarHeader className="p-3 border-t mt-auto">
@@ -323,113 +423,81 @@ export default function ReviewAllAssetsPage() {
           </SidebarHeader>
         </Sidebar>
 
-        <SidebarInset className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           {currentView === 'companyStats' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline text-primary">
-                      {t('companyWideAssetStats', 'Company-Wide Asset Statistics')}
-                  </CardTitle>
-                  <CardDescription>
-                      {t('overviewOfAllCompanyAssets', 'An overview of all assets across your company.')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                      <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Card className="bg-card/50">
-                            <CardHeader className="pb-2">
-                                <CardDescription>{t('totalAssetsStatLabel', 'Total Assets in Company')}</CardDescription>
-                                <CardTitle className="text-4xl">{allCompanyAssets.length}</CardTitle>
-                            </CardHeader>
-                        </Card>
-                      </div>
-                      <div className="flex gap-2 border rounded-md p-1 bg-muted">
-                        <Button variant={assetFilter === 'active' ? 'default' : 'ghost'} onClick={() => setAssetFilter('active')} size="sm"> <List className="mr-2 h-4 w-4"/> {t('activeAssetsFilter', 'Active')} </Button>
-                        <Button variant={assetFilter === 'completed' ? 'default' : 'ghost'} onClick={() => setAssetFilter('completed')} size="sm"> <CheckCircle className="mr-2 h-4 w-4"/> {t('completedAssetsFilter', 'Completed')} </Button>
-                        <Button variant={assetFilter === 'all' ? 'default' : 'ghost'} onClick={() => setAssetFilter('all')} size="sm">All</Button>
-                      </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                    <CardTitle className="text-xl font-semibold flex items-center">
-                        <Briefcase className="mr-2 h-5 w-5 text-primary" />
-                        {t('companyProjectsListTitle', 'Company Projects')}
-                    </CardTitle>
-                    <CardDescription>
-                        {t('selectProjectToViewDetailsPrompt', 'Select a project from the sidebar or click "View Content" below to view its specific folders and assets.')}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {companyProjects.length > 0 ? (
-                        <ScrollArea className="h-[calc(100vh-30rem)] md:h-[350px] pr-3">
-                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {companyProjects.map(project => (
-                                    <Card key={project.id} className="flex flex-col">
-                                        <CardHeader className="pb-2">
-                                            <CardTitle className="text-base font-semibold truncate" title={project.name}> {project.name} </CardTitle>
-                                             <CardDescription className="text-xs"> {project.description || t('noDescriptionAvailable', 'No description available.')} </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="flex-grow flex items-end pt-2">
-                                            <Button variant="outline" size="sm" className="w-full" onClick={() => handleSelectProject(project)}> <Eye className="mr-2 h-4 w-4" /> {t('viewContentButton', 'View Content')} </Button>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    ) : (
-                        <p className="text-muted-foreground text-center py-6">{t('noProjectsInCompany', 'No projects in company.')}</p>
-                    )}
-                </CardContent>
-              </Card>
-            </div>
+             <div className="space-y-6">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="text-2xl font-bold font-headline text-primary">{t('companyWideAssetStats', 'Company-Wide Asset Statistics')}</CardTitle>
+                        <CardDescription>{t('selectProjectToViewDetailsPrompt', 'Select a project from the sidebar to view its specific folders and assets.')}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                       <p className="text-muted-foreground">{t('selectProjectToViewDetailsPrompt', 'Select a project from the sidebar to view its specific folders and assets.')}</p>
+                    </CardContent>
+                 </Card>
+             </div>
           )}
 
           {currentView === 'projectContent' && selectedProject && (
             <div className="space-y-6">
                 <CardHeader className="px-0 pt-0">
-                    <CardTitle className="text-2xl sm:text-3xl font-bold font-headline text-primary"> {selectedProject.name} </CardTitle>
-                    <CardDescription> {selectedFolder ? `${t('reviewingFolder', 'Reviewing folder:')} ${selectedFolder.name}` : t('reviewingProjectRoot', 'Reviewing project root assets')} </CardDescription>
+                    <CardTitle className="text-2xl sm:text-3xl font-bold font-headline text-primary"> {selectedFolder ? selectedFolder.name : selectedProject.name} </CardTitle>
+                    <CardDescription> 
+                        {selectedFolder ? `${t('reviewingFolder', 'Reviewing folder:')}` : t('reviewingProjectRoot', 'Reviewing project root assets')}
+                    </CardDescription>
                 </CardHeader>
                 {projectContentLoading ? (
                     <div className="flex justify-center items-center py-10">
                         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                        <p className="ml-3 text-muted-foreground">{t('loadingProjectContent', 'Loading folder content...')}</p>
+                        <p className="ml-3 text-muted-foreground">{t('loadingProjectContent', 'Loading project content...')}</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                         <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2"><List className="h-5 w-5 text-primary"/>{t('activeAssets', 'Active Assets')} ({activeAssets.length})</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <ScrollArea className="h-96">
-                                        <div className="space-y-2 pr-2">
+                        <div className="md:col-span-2 space-y-6">
+                            {/* Folder View or Asset Split View */}
+                            {!selectedFolderId ? (
+                                <>
+                                    <Card>
+                                        <CardHeader><CardTitle>{t('folders', 'Folders')} ({rootFolders.length})</CardTitle></CardHeader>
+                                        <CardContent>
+                                            <ScrollArea className="h-60"><div className="space-y-2 pr-2">
+                                                {rootFolders.length > 0 ? rootFolders.map(folder => (
+                                                    <FolderListItem key={folder.id} folder={folder} onSelect={handleSelectFolder} isActive={false} assetCount={0}/>
+                                                )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noFoldersInProject', 'This project has no folders yet.')}</p>}
+                                            </div></ScrollArea>
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader><CardTitle>{t('assetsInProjectRoot', 'Assets in Project Root')} ({rootAssets.length})</CardTitle></CardHeader>
+                                        <CardContent>
+                                            <ScrollArea className="h-60"><div className="space-y-2 pr-2">
+                                                {rootAssets.length > 0 ? rootAssets.map(asset => (
+                                                    <AssetListItem key={asset.id} asset={asset} onSelect={setAssetToPreview} isActive={assetToPreview?.id === asset.id}/>
+                                                )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noAssetsInFolder', 'No assets in this folder.')}</p>}
+                                            </div></ScrollArea>
+                                        </CardContent>
+                                    </Card>
+                                </>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <Card>
+                                        <CardHeader><CardTitle className="flex items-center gap-2"><List className="h-5 w-5 text-primary"/>{t('activeAssets', 'Active Assets')} ({activeAssets.length})</CardTitle></CardHeader>
+                                        <CardContent><ScrollArea className="h-96"><div className="space-y-2 pr-2">
                                             {activeAssets.length > 0 ? activeAssets.map(asset => (
-                                                <AssetListItem key={asset.id} asset={asset} onSelect={setAssetToPreview} isActive={assetToPreview?.id === asset.id && !assetToPreview.isDone}/>
+                                                <AssetListItem key={asset.id} asset={asset} onSelect={setAssetToPreview} isActive={assetToPreview?.id === asset.id}/>
                                             )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noActiveAssets', 'No active assets in this folder.')}</p>}
-                                        </div>
-                                    </ScrollArea>
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                 <CardHeader>
-                                    <CardTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-green-600"/>{t('completedAssets', 'Completed Assets')} ({completedAssets.length})</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <ScrollArea className="h-96">
-                                        <div className="space-y-2 pr-2">
+                                        </div></ScrollArea></CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-green-600"/>{t('completedAssets', 'Completed Assets')} ({completedAssets.length})</CardTitle></CardHeader>
+                                        <CardContent><ScrollArea className="h-96"><div className="space-y-2 pr-2">
                                             {completedAssets.length > 0 ? completedAssets.map(asset => (
-                                                <AssetListItem key={asset.id} asset={asset} onSelect={setAssetToPreview} isActive={assetToPreview?.id === asset.id && assetToPreview.isDone}/>
+                                                <AssetListItem key={asset.id} asset={asset} onSelect={setAssetToPreview} isActive={assetToPreview?.id === asset.id}/>
                                             )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noCompletedAssets', 'No completed assets in this folder.')}</p>}
-                                        </div>
-                                    </ScrollArea>
-                                </CardContent>
-                            </Card>
+                                        </div></ScrollArea></CardContent>
+                                    </Card>
+                                </div>
+                            )}
                          </div>
                          <div className="md:col-span-1">
                             <AssetPreviewer asset={assetToPreview} onEdit={handleEditAsset} />
@@ -438,8 +506,9 @@ export default function ReviewAllAssetsPage() {
                 )}
             </div>
           )}
-        </SidebarInset>
+        </main>
       </div>
     </SidebarProvider>
+    </ReviewContextProvider>
   );
 }
