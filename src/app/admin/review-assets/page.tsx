@@ -180,7 +180,6 @@ export default function ReviewAllAssetsPage() {
         setCurrentView('projectContent');
         setProjectContentLoading(true);
         try {
-            // Fetch all assets for the project initially, then filter for root assets
             const allAssets = await FirestoreService.getAllAssetsForProject(project.id, 'all');
             const rootAssets = allAssets.filter(asset => !asset.folderId);
             setAssetsInFolder(rootAssets); // Show root assets by default
