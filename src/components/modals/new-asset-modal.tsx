@@ -1029,11 +1029,38 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       }}>
         <DialogContent 
           className={cn(
-            "sm:max-w-2xl max-h-[85vh] flex flex-col"
+            "sm:max-w-2xl max-h-[85vh] flex flex-col",
+            isCustomCameraOpen && "p-0 border-none bg-transparent shadow-none"
           )} 
-          hideCloseButton={isAudioDescRecording || isRecording}
+          hideCloseButton={isAudioDescRecording || isRecording || isCustomCameraOpen}
         >
-          {renderStepContent()}
+          {isCustomCameraOpen ? (
+             <CustomCameraDialog
+                isOpen={isCustomCameraOpen}
+                onOpenChange={setIsCustomCameraOpen}
+                handleCancelCustomCamera={handleCancelCustomCamera}
+                captureMode={captureMode}
+                setCaptureMode={setCaptureMode}
+                hasCameraPermission={hasCameraPermission}
+                isRecording={isRecording}
+                isFlashOn={isFlashOn}
+                handleToggleFlash={handleToggleFlash}
+                videoRef={videoRef}
+                mediaStream={mediaStream}
+                isProcessingMedia={isProcessingMedia}
+                capturedPhotosInSession={capturedPhotosInSession}
+                capturedVideosInSession={capturedVideosInSession}
+                removeMediaFromSession={removeMediaFromSession}
+                handleCapturePhotoFromStream={handleCapturePhotoFromStream}
+                handleToggleVideoRecording={handleToggleVideoRecording}
+                handleAddSessionMediaToBatch={handleAddSessionMediaToBatch}
+                zoomState={zoomState}
+                handleZoomChange={handleZoomChange}
+                t={t}
+            />
+          ) : (
+            renderStepContent()
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1050,32 +1077,6 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           setIsCustomCameraOpen={setIsCustomCameraOpen}
           galleryInputRef={galleryInputModalRef}
           project={project}
-          t={t}
-        />
-      )}
-     
-      {isCustomCameraOpen && (
-        <CustomCameraDialog
-          isOpen={isCustomCameraOpen}
-          onOpenChange={setIsCustomCameraOpen}
-          handleCancelCustomCamera={handleCancelCustomCamera}
-          captureMode={captureMode}
-          setCaptureMode={setCaptureMode}
-          hasCameraPermission={hasCameraPermission}
-          isRecording={isRecording}
-          isFlashOn={isFlashOn}
-          handleToggleFlash={handleToggleFlash}
-          videoRef={videoRef}
-          mediaStream={mediaStream}
-          isProcessingMedia={isProcessingMedia}
-          capturedPhotosInSession={capturedPhotosInSession}
-          capturedVideosInSession={capturedVideosInSession}
-          removeMediaFromSession={removeMediaFromSession}
-          handleCapturePhotoFromStream={handleCapturePhotoFromStream}
-          handleToggleVideoRecording={handleToggleVideoRecording}
-          handleAddSessionMediaToBatch={handleAddSessionMediaToBatch}
-          zoomState={zoomState}
-          handleZoomChange={handleZoomChange}
           t={t}
         />
       )}
