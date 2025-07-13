@@ -474,6 +474,8 @@ const translations: Record<Language, Record<string, string>> = {
     miscellaneousData: "Additional Data",
     markAssetAsDone: "Mark Asset as Done",
     markAssetAsDoneDesc: "A \"Done\" asset will be hidden from lists and searches.",
+    activeAssetsFilter: "Active",
+    completedAssetsFilter: "Completed",
   },
   ar: {
     appName: "فالتيك للتقييم",
@@ -933,6 +935,8 @@ const translations: Record<Language, Record<string, string>> = {
     miscellaneousData: "بيانات إضافية",
     markAssetAsDone: "وضع علامة على الأصل كمكتمل",
     markAssetAsDoneDesc: "سيتم إخفاء الأصل \"المكتمل\" من القوائم والبحث.",
+    activeAssetsFilter: "الأصول النشطة",
+    completedAssetsFilter: "الأصول المكتملة",
   },
 };
 

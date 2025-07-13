@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import * as FirestoreService from '@/lib/firestore-service';
 import type { AssetWithContext } from '@/lib/firestore-service';
 import type { Project, Folder as FolderType, Asset } from '@/data/mock-data';
-import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye, Edit, Briefcase, ArrowRight } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, ArrowLeft, LayoutDashboard, FileText, BarChart3, SettingsIcon, FolderIcon as ProjectFolderIcon, Eye, Edit, Briefcase, ArrowRight, CheckCircle, List } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 
 
 type ReviewPageView = 'companyStats' | 'projectContent' | 'assetDetail';
+type AssetFilter = 'active' | 'completed' | 'all';
 
 export default function ReviewAllAssetsPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
@@ -46,6 +47,7 @@ export default function ReviewAllAssetsPage() {
   const [refreshFolderTreeKey, setRefreshFolderTreeKey] = useState(0);
 
   const [currentView, setCurrentView] = useState<ReviewPageView>('companyStats');
+  const [assetFilter, setAssetFilter] = useState<AssetFilter>('active');
   const [assetForDetailView, setAssetForDetailView] = useState<Asset | null>(null);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
 
@@ -55,7 +57,7 @@ export default function ReviewAllAssetsPage() {
       setPageLoading(true);
       try {
         const [assets, projects] = await Promise.all([
-          FirestoreService.getAllAssetsForCompany(currentUser.companyId),
+          FirestoreService.getAllAssetsForCompany(currentUser.companyId, assetFilter),
           FirestoreService.getProjects(currentUser.companyId) 
         ]);
         setAllCompanyAssets(assets);
@@ -69,7 +71,7 @@ export default function ReviewAllAssetsPage() {
     } else if (!authLoading) {
       setPageLoading(false); 
     }
-  }, [currentUser, authLoading, toast, t]);
+  }, [currentUser, authLoading, toast, t, assetFilter]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -80,7 +82,7 @@ export default function ReviewAllAssetsPage() {
       }
     }
   }, [authLoading, currentUser, router, loadInitialAdminData]);
-
+  
   const handleProjectSelect = useCallback(async (project: Project | null) => {
     setSelectedProject(project);
     setSelectedProjectCurrentFolder(null); 
@@ -92,7 +94,7 @@ export default function ReviewAllAssetsPage() {
       try {
         const [folders, allAssets] = await Promise.all([
           FirestoreService.getFolders(project.id),
-          FirestoreService.getAllAssetsForProject(project.id) 
+          FirestoreService.getAllAssetsForProject(project.id, assetFilter) 
         ]);
         const rootAssetsForProject = allAssets.filter(asset => asset.folderId === null);
         setSelectedProjectFolders(folders);
@@ -117,7 +119,7 @@ export default function ReviewAllAssetsPage() {
       setCurrentAssetsInSelectedProjectFolder([]);
       setSelectedProjectAllAssets([]);
     }
-  }, [toast, t]);
+  }, [toast, t, assetFilter]);
 
   const handleSelectFolderInTree = useCallback(async (folder: FolderType | null) => {
     setSelectedProjectCurrentFolder(folder);
@@ -127,7 +129,7 @@ export default function ReviewAllAssetsPage() {
     if (selectedProject) {
       setProjectContentLoading(true);
       try {
-        const allAssets = await FirestoreService.getAllAssetsForProject(selectedProject.id);
+        const allAssets = await FirestoreService.getAllAssetsForProject(selectedProject.id, assetFilter);
         const assetsInFolder = allAssets.filter(asset => asset.folderId === (folder ? folder.id : null));
         setCurrentAssetsInSelectedProjectFolder(assetsInFolder);
         setSelectedProjectAllAssets(allAssets);
@@ -140,7 +142,7 @@ export default function ReviewAllAssetsPage() {
         setRefreshFolderTreeKey(prev => prev + 1);
       }
     }
-  }, [selectedProject, toast, t]);
+  }, [selectedProject, toast, t, assetFilter]);
 
 
   const handleViewAssetDetail = useCallback((asset: Asset) => {
@@ -306,14 +308,25 @@ export default function ReviewAllAssetsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card className="bg-card/50">
-                          <CardHeader className="pb-2">
-                              <CardDescription>{t('totalAssetsStatLabel', 'Total Assets in Company')}</CardDescription>
-                              <CardTitle className="text-4xl">{allCompanyAssets.length}</CardTitle>
-                          </CardHeader>
-                      </Card>
-                      {/* You can add more stats cards here if needed */}
+                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                      <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card className="bg-card/50">
+                            <CardHeader className="pb-2">
+                                <CardDescription>{t('totalAssetsStatLabel', 'Total Assets in Company')}</CardDescription>
+                                <CardTitle className="text-4xl">{allCompanyAssets.length}</CardTitle>
+                            </CardHeader>
+                        </Card>
+                      </div>
+                      <div className="flex gap-2 border rounded-md p-1 bg-muted">
+                        <Button variant={assetFilter === 'active' ? 'default' : 'ghost'} onClick={() => setAssetFilter('active')} size="sm">
+                           <List className="mr-2 h-4 w-4"/>
+                           {t('activeAssetsFilter', 'Active')}
+                        </Button>
+                        <Button variant={assetFilter === 'completed' ? 'default' : 'ghost'} onClick={() => setAssetFilter('completed')} size="sm">
+                            <CheckCircle className="mr-2 h-4 w-4"/>
+                            {t('completedAssetsFilter', 'Completed')}
+                        </Button>
+                      </div>
                   </div>
                 </CardContent>
               </Card>

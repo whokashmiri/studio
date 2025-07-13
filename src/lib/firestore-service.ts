@@ -534,9 +534,16 @@ export async function getAssetsPaginated(
   }
 }
 
-export async function getAllAssetsForProject(projectId: string): Promise<Asset[]> {
+export async function getAllAssetsForProject(projectId: string, filter?: 'active' | 'completed' | 'all'): Promise<Asset[]> {
   try {
-    const q = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "==", projectId));
+    const constraints = [where("projectId", "==", projectId)];
+    if (filter === 'active') {
+      constraints.push(where("isDone", "!=", true));
+    } else if (filter === 'completed') {
+      constraints.push(where("isDone", "==", true));
+    }
+    
+    const q = query(collection(getDb(), ASSETS_COLLECTION), ...constraints);
     const snapshot = await getDocs(q);
     return processSnapshot<Asset>(snapshot);
   } catch (error) {
@@ -718,7 +725,7 @@ export async function getAssociatedCompanyIdsForUser(userId: string, primaryComp
 // Function to get all assets for a company, augmented with project and folder names
 export type AssetWithContext = Asset & { projectName: string; folderName?: string };
 
-export async function getAllAssetsForCompany(companyId: string): Promise<AssetWithContext[]> {
+export async function getAllAssetsForCompany(companyId: string, filter?: 'active' | 'completed' | 'all'): Promise<AssetWithContext[]> {
   const allAssetsProcessed: AssetWithContext[] = [];
   try {
     // 1. Fetch all projects for the company
@@ -748,7 +755,14 @@ export async function getAllAssetsForCompany(companyId: string): Promise<AssetWi
     for (let i = 0; i < projectIds.length; i += 30) { // Firestore 'in' query limit
       const batchProjectIds = projectIds.slice(i, i + 30);
       if (batchProjectIds.length > 0) {
-        const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), where("projectId", "in", batchProjectIds));
+        const assetConstraints = [where("projectId", "in", batchProjectIds)];
+        if (filter === 'active') {
+          assetConstraints.push(where("isDone", "!=", true));
+        } else if (filter === 'completed') {
+          assetConstraints.push(where("isDone", "==", true));
+        }
+
+        const assetsQuery = query(collection(getDb(), ASSETS_COLLECTION), ...assetConstraints);
         const assetsSnapshot = await getDocs(assetsQuery);
         const assetsInBatch = processSnapshot<Asset>(assetsSnapshot);
         
@@ -765,7 +779,7 @@ export async function getAllAssetsForCompany(companyId: string): Promise<AssetWi
     allAssetsProcessed.sort((a, b) => {
       const projectCompare = a.projectName.localeCompare(b.projectName);
       if (projectCompare !== 0) return projectCompare;
-      if (a.folderName && b.folderName) { // Corrected: a.folderName instead of a.folderNamgete
+      if (a.folderName && b.folderName) { 
         const folderCompare = a.folderName.localeCompare(b.folderName);
         if (folderCompare !== 0) return folderCompare;
       } else if (a.folderName) {
@@ -833,5 +847,3 @@ export async function searchAssets(
     return { assets: [], lastDoc: null };
   }
 }
-
-    
