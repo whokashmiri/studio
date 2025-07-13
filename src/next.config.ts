@@ -1,7 +1,15 @@
 
 import type {NextConfig} from 'next';
 
-const baseNextConfig: NextConfig = {
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const withPWA = require('next-pwa')({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development', // Disable PWA in development
+  register: true,
+  skipWaiting: true,
+});
+
+const nextConfig: NextConfig = {
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,
@@ -37,18 +45,5 @@ const baseNextConfig: NextConfig = {
   },
 };
 
-// Only enable PWA in production builds to avoid development server issues.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  disable: process.env.NODE_ENV === 'development', // Disable PWA in development
-  register: true,
-  skipWaiting: true,
-});
 
-const finalConfig: NextConfig = process.env.NODE_ENV === 'production' 
-  ? withPWA(baseNextConfig) 
-  : baseNextConfig;
-
-
-export default finalConfig;
+export default withPWA(nextConfig);
