@@ -17,7 +17,6 @@ import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
-import { processImageForSaving } from '@/lib/image-handler-service';
 import { uploadMedia } from '@/actions/cloudinary-actions';
 import { useAuth } from '@/contexts/auth-context';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -517,15 +516,7 @@ export default function NewAssetPage() {
             reader.readAsDataURL(file);
           });
 
-          let uploadResult;
-          if (isVideo) {
-             uploadResult = await uploadMedia(dataUrl);
-          } else {
-            const processedUrl = await processImageForSaving(dataUrl);
-            if (processedUrl) {
-                uploadResult = await uploadMedia(processedUrl);
-            }
-          }
+          const uploadResult = await uploadMedia(dataUrl);
           
           if (uploadResult && uploadResult.success && uploadResult.url) {
             if (isVideo) uploadedVideoUrls.push(uploadResult.url);
@@ -655,14 +646,9 @@ export default function NewAssetPage() {
     const uploadedVideoUrls: string[] = [];
     try {
       for (const photoDataUrl of capturedPhotosInSession) {
-        const processedUrl = await processImageForSaving(photoDataUrl);
-        if (processedUrl) {
-           const uploadResult = await uploadMedia(processedUrl);
-           if (uploadResult.success && uploadResult.url) uploadedPhotoUrls.push(uploadResult.url);
-           else toast({ title: "Image Upload Error", description: uploadResult.error || "A photo from session failed to upload.", variant: "destructive" });
-        } else {
-          toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive" });
-        }
+         const uploadResult = await uploadMedia(photoDataUrl);
+         if (uploadResult.success && uploadResult.url) uploadedPhotoUrls.push(uploadResult.url);
+         else toast({ title: "Image Upload Error", description: uploadResult.error || "A photo from session failed to upload.", variant: "destructive" });
       }
       for (const videoDataUrl of capturedVideosInSession) {
          const uploadResult = await uploadMedia(videoDataUrl);

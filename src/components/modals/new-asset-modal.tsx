@@ -14,7 +14,6 @@ import type { Project, Asset, ProjectStatus, Folder as FolderType } from '@/data
 import * as FirestoreService from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
-import { processImageForSaving } from '@/lib/image-handler-service'; 
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
 import { uploadMedia } from '@/actions/cloudinary-actions';
@@ -504,20 +503,9 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
             reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
             reader.readAsDataURL(file);
           });
-
-          let finalDataUrl;
-          if (isVideo) {
-             finalDataUrl = dataUrl;
-          } else {
-            finalDataUrl = await processImageForSaving(dataUrl);
-          }
           
-          if (finalDataUrl) {
-            if (isVideo) dataUriVideos.push(finalDataUrl);
-            else dataUriPhotos.push(finalDataUrl);
-          } else {
-            toast({ title: "Media Processing Error", description: `Failed to process ${file.name}.`, variant: "destructive" });
-          }
+          if (isVideo) dataUriVideos.push(dataUrl);
+          else dataUriPhotos.push(dataUrl);
         }
         setPhotoPreviews(prev => [...prev, ...dataUriPhotos]);
         setVideoPreviews(prev => [...prev, ...dataUriVideos]);
@@ -633,21 +621,9 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   const handleAddSessionMediaToBatch = useCallback(async () => {
     if (capturedPhotosInSession.length === 0 && capturedVideosInSession.length === 0) return;
     setIsProcessingMedia(true);
-    const dataUriPhotos: string[] = [];
-    const dataUriVideos: string[] = [];
     try {
-      for (const photoDataUrl of capturedPhotosInSession) {
-        const processedUrl = await processImageForSaving(photoDataUrl);
-        if (processedUrl) {
-           dataUriPhotos.push(processedUrl);
-        } else {
-          toast({ title: "Image Processing Error", description: "A photo from session failed to process.", variant: "destructive" });
-        }
-      }
-      dataUriVideos.push(...capturedVideosInSession);
-      
-      setPhotoPreviews(prev => [...prev, ...dataUriPhotos]);
-      setVideoPreviews(prev => [...prev, ...dataUriVideos]);
+      setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession]);
+      setVideoPreviews(prev => [...prev, ...capturedVideosInSession]);
       setCapturedPhotosInSession([]);
       setCapturedVideosInSession([]);
       setIsCustomCameraOpen(false); 
