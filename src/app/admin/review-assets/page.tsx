@@ -19,91 +19,18 @@ import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import Image from 'next/image';
 
 type ReviewPageView = 'companyStats' | 'projectContent';
-type MediaItem = { type: 'image' | 'video'; url: string; };
-
-
-function AssetPreviewer({ asset, onEdit }: { asset: Asset | null, onEdit: (asset: Asset) => void }) {
-    const { t } = useLanguage();
-    const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
-
-    const mediaItems: MediaItem[] = useMemo(() => {
-        if (!asset) return [];
-        return [
-            ...(asset.photos || []).map(url => ({ type: 'image' as const, url })),
-            ...(asset.videos || []).map(url => ({ type: 'video' as const, url }))
-        ];
-    }, [asset]);
-
-    useEffect(() => {
-        setCurrentMediaIndex(0);
-    }, [asset]);
-
-    if (!asset) {
-        return (
-            <div className="h-full flex flex-col items-center justify-center bg-muted/50 rounded-lg p-4 text-center sticky top-8">
-                <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold text-muted-foreground">{t('selectAssetToPreview', 'Select an Asset')}</h3>
-                <p className="text-sm text-muted-foreground">{t('selectAssetFromList', 'Select an asset from the list to see its details here.')}</p>
-            </div>
-        );
-    }
-    
-    const currentMedia = mediaItems[currentMediaIndex];
-
-    return (
-        <Card className="flex flex-col h-full sticky top-8">
-            <CardHeader className="pb-3">
-                <CardTitle className="text-xl font-headline text-primary truncate" title={asset.name}>{asset.name}</CardTitle>
-                <CardDescription>{t('assetDetailsForReview', 'Asset Details (Review Mode)')}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col gap-4 overflow-y-auto">
-                <div className="relative w-full aspect-video bg-muted rounded-lg group border shadow-inner">
-                    {currentMedia ? (
-                        currentMedia.type === 'image' ? (
-                            <Image src={currentMedia.url} alt={asset.name} layout="fill" objectFit="contain" className="rounded-lg" />
-                        ) : (
-                            <video src={currentMedia.url} controls autoPlay muted className="w-full h-full object-contain rounded-lg" />
-                        )
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-muted-foreground flex-col">
-                            <ImageOff className="h-12 w-12" />
-                            <p className="mt-2 text-sm">{t('noMediaAvailable', 'No Media Available')}</p>
-                        </div>
-                    )}
-
-                    {mediaItems.length > 1 && (
-                        <>
-                            <Button variant="ghost" size="icon" onClick={() => setCurrentMediaIndex((prev) => (prev - 1 + mediaItems.length) % mediaItems.length)} className="absolute left-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white hover:bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"> <ArrowLeft className="h-4 w-4" /> </Button>
-                            <Button variant="ghost" size="icon" onClick={() => setCurrentMediaIndex((prev) => (prev + 1) % mediaItems.length)} className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white hover:bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"> <ArrowRight className="h-4 w-4" /> </Button>
-                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs rounded-full px-2 py-0.5">{currentMediaIndex + 1} / {mediaItems.length}</div>
-                        </>
-                    )}
-                </div>
-
-                <ScrollArea className="flex-grow h-48">
-                   <div className="space-y-4 pr-3">
-                        {asset.textDescription && <p className="text-sm whitespace-pre-wrap"><strong>{t('textDescriptionLabel', 'Written Description')}:</strong><br/>{asset.textDescription}</p>}
-                        {asset.voiceDescription && <p className="text-sm whitespace-pre-wrap"><strong>{t('voiceDescriptionLabel', 'Voice Description')}:</strong><br/>{asset.voiceDescription}</p>}
-                   </div>
-                </ScrollArea>
-            </CardContent>
-            <CardFooter>
-                 <Button onClick={() => onEdit(asset)} className="w-full">
-                    <Edit className="mr-2 h-4 w-4" />
-                    {t('goToEditPageButton', 'Edit Full Asset')}
-                </Button>
-            </CardFooter>
-        </Card>
-    );
-}
 
 function AssetListItem({ asset, onSelect, isActive }: { asset: Asset, onSelect: (asset: Asset) => void, isActive: boolean }) {
+    const hasMedia = (asset.photos && asset.photos.length > 0) || (asset.videos && asset.videos.length > 0);
+    
     return (
         <button
-            onClick={() => onSelect(asset)}
+            onClick={() => hasMedia && onSelect(asset)}
+            disabled={!hasMedia}
             className={cn(
                 "w-full text-left p-2 rounded-md hover:bg-muted transition-colors flex items-center gap-2 border",
-                isActive ? "bg-primary/10 border-primary" : "bg-card"
+                isActive && hasMedia ? "bg-primary/10 border-primary" : "bg-card",
+                !hasMedia && "opacity-60 cursor-not-allowed"
             )}
         >
             {asset.photos && asset.photos.length > 0 ? (
@@ -234,6 +161,8 @@ export default function ReviewAllAssetsPage() {
   const [projectContentLoading, setProjectContentLoading] = useState(false);
 
   const [assetToPreview, setAssetToPreview] = useState<Asset | null>(null);
+  const [isImagePreviewModalOpen, setIsImagePreviewModalOpen] = useState(false);
+
   const [currentView, setCurrentView] = useState<ReviewPageView>('companyStats');
   
   const loadInitialAdminData = useCallback(async () => {
@@ -296,17 +225,18 @@ export default function ReviewAllAssetsPage() {
     setAssetToPreview(null);
   }, []);
 
-  const handleEditAsset = (assetToEdit: Asset) => {
-    const editUrl = `/project/${assetToEdit.projectId}/new-asset?assetId=${assetToEdit.id}${assetToEdit.folderId ? `&folderId=${assetToEdit.folderId}` : ''}`;
-    router.push(editUrl);
+  const handleOpenImagePreview = (asset: Asset) => {
+    setAssetToPreview(asset);
+    setIsImagePreviewModalOpen(true);
   };
   
   const { activeAssets, completedAssets, rootFolders, rootAssets } = useMemo(() => {
-    let active: Asset[] = [];
-    let completed: Asset[] = [];
-    
-    const assetsInScope = projectAssets.filter(asset => asset.folderId === selectedFolderId);
+    const isRootSelected = !selectedFolderId;
+    const assetsInScope = isRootSelected ? projectAssets.filter(asset => !asset.folderId) : projectAssets.filter(asset => asset.folderId === selectedFolderId);
 
+    const active: Asset[] = [];
+    const completed: Asset[] = [];
+    
     assetsInScope.forEach(asset => {
       if (asset.isDone) completed.push(asset);
       else active.push(asset);
@@ -453,56 +383,50 @@ export default function ReviewAllAssetsPage() {
                         <p className="ml-3 text-muted-foreground">{t('loadingProjectContent', 'Loading project content...')}</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="md:col-span-2 space-y-6">
-                            {/* Folder View or Asset Split View */}
-                            {!selectedFolderId ? (
-                                <>
-                                    <Card>
-                                        <CardHeader><CardTitle>{t('folders', 'Folders')} ({rootFolders.length})</CardTitle></CardHeader>
-                                        <CardContent>
-                                            <ScrollArea className="h-60"><div className="space-y-2 pr-2">
-                                                {rootFolders.length > 0 ? rootFolders.map(folder => (
-                                                    <FolderListItem key={folder.id} folder={folder} onSelect={handleSelectFolder} isActive={false} assetCount={0}/>
-                                                )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noFoldersInProject', 'This project has no folders yet.')}</p>}
-                                            </div></ScrollArea>
-                                        </CardContent>
-                                    </Card>
-                                    <Card>
-                                        <CardHeader><CardTitle>{t('assetsInProjectRoot', 'Assets in Project Root')} ({rootAssets.length})</CardTitle></CardHeader>
-                                        <CardContent>
-                                            <ScrollArea className="h-60"><div className="space-y-2 pr-2">
-                                                {rootAssets.length > 0 ? rootAssets.map(asset => (
-                                                    <AssetListItem key={asset.id} asset={asset} onSelect={setAssetToPreview} isActive={assetToPreview?.id === asset.id}/>
-                                                )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noAssetsInFolder', 'No assets in this folder.')}</p>}
-                                            </div></ScrollArea>
-                                        </CardContent>
-                                    </Card>
-                                </>
-                            ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <Card>
-                                        <CardHeader><CardTitle className="flex items-center gap-2"><List className="h-5 w-5 text-primary"/>{t('activeAssets', 'Active Assets')} ({activeAssets.length})</CardTitle></CardHeader>
-                                        <CardContent><ScrollArea className="h-96"><div className="space-y-2 pr-2">
-                                            {activeAssets.length > 0 ? activeAssets.map(asset => (
-                                                <AssetListItem key={asset.id} asset={asset} onSelect={setAssetToPreview} isActive={assetToPreview?.id === asset.id}/>
-                                            )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noActiveAssets', 'No active assets in this folder.')}</p>}
-                                        </div></ScrollArea></CardContent>
-                                    </Card>
-                                    <Card>
-                                        <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-green-600"/>{t('completedAssets', 'Completed Assets')} ({completedAssets.length})</CardTitle></CardHeader>
-                                        <CardContent><ScrollArea className="h-96"><div className="space-y-2 pr-2">
-                                            {completedAssets.length > 0 ? completedAssets.map(asset => (
-                                                <AssetListItem key={asset.id} asset={asset} onSelect={setAssetToPreview} isActive={assetToPreview?.id === asset.id}/>
-                                            )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noCompletedAssets', 'No completed assets in this folder.')}</p>}
-                                        </div></ScrollArea></CardContent>
-                                    </Card>
-                                </div>
-                            )}
-                         </div>
-                         <div className="md:col-span-1">
-                            <AssetPreviewer asset={assetToPreview} onEdit={handleEditAsset} />
-                         </div>
+                    <div className="space-y-6">
+                        {!selectedFolderId ? (
+                            <>
+                                <Card>
+                                    <CardHeader><CardTitle>{t('folders', 'Folders')} ({rootFolders.length})</CardTitle></CardHeader>
+                                    <CardContent>
+                                        <ScrollArea className="h-60"><div className="space-y-2 pr-2">
+                                            {rootFolders.length > 0 ? rootFolders.map(folder => (
+                                                <FolderListItem key={folder.id} folder={folder} onSelect={handleSelectFolder} isActive={false} assetCount={0}/>
+                                            )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noFoldersInProject', 'This project has no folders yet.')}</p>}
+                                        </div></ScrollArea>
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardHeader><CardTitle>{t('assetsInProjectRoot', 'Assets in Project Root')} ({rootAssets.length})</CardTitle></CardHeader>
+                                    <CardContent>
+                                        <ScrollArea className="h-60"><div className="space-y-2 pr-2">
+                                            {rootAssets.length > 0 ? rootAssets.map(asset => (
+                                                <AssetListItem key={asset.id} asset={asset} onSelect={handleOpenImagePreview} isActive={assetToPreview?.id === asset.id}/>
+                                            )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noAssetsInFolder', 'No assets in this folder.')}</p>}
+                                        </div></ScrollArea>
+                                    </CardContent>
+                                </Card>
+                            </>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <Card>
+                                    <CardHeader><CardTitle className="flex items-center gap-2"><List className="h-5 w-5 text-primary"/>{t('activeAssets', 'Active Assets')} ({activeAssets.length})</CardTitle></CardHeader>
+                                    <CardContent><ScrollArea className="h-96"><div className="space-y-2 pr-2">
+                                        {activeAssets.length > 0 ? activeAssets.map(asset => (
+                                            <AssetListItem key={asset.id} asset={asset} onSelect={handleOpenImagePreview} isActive={assetToPreview?.id === asset.id}/>
+                                        )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noActiveAssets', 'No active assets in this folder.')}</p>}
+                                    </div></ScrollArea></CardContent>
+                                </Card>
+                                <Card>
+                                    <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-green-600"/>{t('completedAssets', 'Completed Assets')} ({completedAssets.length})</CardTitle></CardHeader>
+                                    <CardContent><ScrollArea className="h-96"><div className="space-y-2 pr-2">
+                                        {completedAssets.length > 0 ? completedAssets.map(asset => (
+                                            <AssetListItem key={asset.id} asset={asset} onSelect={handleOpenImagePreview} isActive={assetToPreview?.id === asset.id}/>
+                                        )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noCompletedAssets', 'No completed assets in this folder.')}</p>}
+                                    </div></ScrollArea></CardContent>
+                                </Card>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -510,11 +434,17 @@ export default function ReviewAllAssetsPage() {
         </main>
       </div>
     </SidebarProvider>
+    
+    {assetToPreview && (
+        <ImagePreviewModal
+            isOpen={isImagePreviewModalOpen}
+            onClose={() => {
+                setIsImagePreviewModalOpen(false);
+                setAssetToPreview(null);
+            }}
+            asset={assetToPreview}
+        />
+    )}
     </ReviewContextProvider>
   );
 }
-
-
-    
-
-    
