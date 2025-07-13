@@ -17,6 +17,7 @@ import { useLanguage } from '@/contexts/language-context';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
 import { uploadMedia } from '@/actions/cloudinary-actions';
+import { compressImage } from '@/lib/image-handler-service';
 
 type AssetCreationStep = 'photos_capture' | 'name_input' | 'descriptions';
 type CaptureMode = 'photo' | 'video';
@@ -489,28 +490,58 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
         setIsProcessingMedia(false);
         return;
       }
-      const dataUriPhotos: string[] = [];
-      const dataUriVideos: string[] = [];
-      try {
-        for (const file of newFiles) {
+
+      const processingPromises = newFiles.map(file => new Promise<string | null>((resolve) => {
           const isVideo = file.type.startsWith('video/');
           const reader = new FileReader();
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = (loadEvent) => {
-              if (loadEvent.target?.result) resolve(loadEvent.target.result as string);
-              else reject(new Error('Failed to read file.'));
-            };
-            reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
-            reader.readAsDataURL(file);
-          });
           
-          if (isVideo) dataUriVideos.push(dataUrl);
-          else dataUriPhotos.push(dataUrl);
-        }
-        setPhotoPreviews(prev => [...prev, ...dataUriPhotos]);
-        setVideoPreviews(prev => [...prev, ...dataUriVideos]);
-      } catch (error: any) {
-        toast({ title: "Error", description: error.message || "An error occurred processing gallery files.", variant: "destructive" });
+          reader.onload = async (loadEvent) => {
+              if (loadEvent.target?.result) {
+                  try {
+                      if (isVideo) {
+                          resolve(loadEvent.target.result as string);
+                      } else {
+                          const compressedUrl = await compressImage(file);
+                          resolve(compressedUrl);
+                      }
+                  } catch (compressionError) {
+                      console.error("Error processing file:", compressionError);
+                      toast({ title: "Processing Error", description: `Could not process ${file.name}.`, variant: "destructive" });
+                      resolve(null);
+                  }
+              } else {
+                  resolve(null);
+              }
+          };
+          
+          reader.onerror = () => {
+              toast({ title: "File Read Error", description: `Could not read ${file.name}.`, variant: "destructive" });
+              resolve(null);
+          };
+
+          reader.readAsDataURL(file);
+      }));
+      
+      try {
+          const results = await Promise.all(processingPromises);
+          const dataUriPhotos: string[] = [];
+          const dataUriVideos: string[] = [];
+          
+          newFiles.forEach((file, index) => {
+              const resultUrl = results[index];
+              if (resultUrl) {
+                  if (file.type.startsWith('video/')) {
+                      dataUriVideos.push(resultUrl);
+                  } else {
+                      dataUriPhotos.push(resultUrl);
+                  }
+              }
+          });
+
+          setPhotoPreviews(prev => [...prev, ...dataUriPhotos]);
+          setVideoPreviews(prev => [...prev, ...dataUriVideos]);
+      } catch (error) {
+          toast({ title: "Error", description: "An error occurred during media processing.", variant: "destructive" });
       } finally {
         setIsProcessingMedia(false);
       }
@@ -620,13 +651,22 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
 
   const handleAddSessionMediaToBatch = useCallback(async () => {
     if (capturedPhotosInSession.length === 0 && capturedVideosInSession.length === 0) return;
+    
     setIsProcessingMedia(true);
+    
     try {
-      setPhotoPreviews(prev => [...prev, ...capturedPhotosInSession]);
-      setVideoPreviews(prev => [...prev, ...capturedVideosInSession]);
-      setCapturedPhotosInSession([]);
-      setCapturedVideosInSession([]);
-      setIsCustomCameraOpen(false); 
+        const photoCompressionPromises = capturedPhotosInSession.map(photoDataUrl =>
+            fetch(photoDataUrl).then(res => res.blob()).then(blob => compressImage(blob as File))
+        );
+        
+        const compressedPhotos = await Promise.all(photoCompressionPromises);
+
+        setPhotoPreviews(prev => [...prev, ...compressedPhotos]);
+        setVideoPreviews(prev => [...prev, ...capturedVideosInSession]);
+        
+        setCapturedPhotosInSession([]);
+        setCapturedVideosInSession([]);
+        setIsCustomCameraOpen(false); 
     } catch (error) {
        toast({ title: "Error", description: "Failed to process session media.", variant: "destructive"});
     } finally {

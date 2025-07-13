@@ -21,6 +21,8 @@ import { uploadMedia } from '@/actions/cloudinary-actions';
 import { useAuth } from '@/contexts/auth-context';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { compressImage } from '@/lib/image-handler-service';
+
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
 type CaptureMode = 'photo' | 'video';
@@ -501,20 +503,30 @@ export default function NewAssetPage() {
         setIsProcessingMedia(false);
         return;
       }
+      
       const uploadedPhotoUrls: string[] = [];
       const uploadedVideoUrls: string[] = [];
+
       try {
-        for (const file of newFiles) {
+        const processingPromises = newFiles.map(async (file) => {
           const isVideo = file.type.startsWith('video/');
-          const reader = new FileReader();
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = (loadEvent) => {
-              if (loadEvent.target?.result) resolve(loadEvent.target.result as string);
-              else reject(new Error('Failed to read file.'));
-            };
-            reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
-            reader.readAsDataURL(file);
-          });
+          let dataUrl: string;
+
+          if (isVideo) {
+            // Read video as data URL directly without compression
+            dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (loadEvent) => {
+                if (loadEvent.target?.result) resolve(loadEvent.target.result as string);
+                else reject(new Error('Failed to read video file.'));
+              };
+              reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
+              reader.readAsDataURL(file);
+            });
+          } else {
+            // Compress image
+            dataUrl = await compressImage(file);
+          }
 
           const uploadResult = await uploadMedia(dataUrl);
           
@@ -524,10 +536,14 @@ export default function NewAssetPage() {
           } else {
             toast({ title: "Media Upload Error", description: uploadResult?.error || `Failed to upload ${file.name}.`, variant: "destructive" });
           }
-        }
+        });
+
+        await Promise.all(processingPromises);
+        
         setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
         setVideoUrls(prev => [...prev, ...uploadedVideoUrls]);
         if (!isMediaModalOpen) setIsMediaModalOpen(true);
+
       } catch (error: any) {
         toast({ title: "Error", description: error.message || "An error occurred processing gallery files.", variant: "destructive" });
       } finally {
@@ -641,20 +657,28 @@ export default function NewAssetPage() {
 
   const handleAddSessionMediaToBatch = useCallback(async () => {
     if (capturedPhotosInSession.length === 0 && capturedVideosInSession.length === 0) return;
+    
     setIsProcessingMedia(true);
     const uploadedPhotoUrls: string[] = [];
     const uploadedVideoUrls: string[] = [];
+    
     try {
-      for (const photoDataUrl of capturedPhotosInSession) {
-         const uploadResult = await uploadMedia(photoDataUrl);
-         if (uploadResult.success && uploadResult.url) uploadedPhotoUrls.push(uploadResult.url);
-         else toast({ title: "Image Upload Error", description: uploadResult.error || "A photo from session failed to upload.", variant: "destructive" });
-      }
-      for (const videoDataUrl of capturedVideosInSession) {
-         const uploadResult = await uploadMedia(videoDataUrl);
-         if (uploadResult.success && uploadResult.url) uploadedVideoUrls.push(uploadResult.url);
-         else toast({ title: "Video Upload Error", description: uploadResult.error || "A video from session failed to upload.", variant: "destructive" });
-      }
+      // Create a single array of promises to process in parallel
+      const uploadPromises = [
+        ...capturedPhotosInSession.map(async (photoDataUrl) => {
+          const compressedDataUrl = await compressImage(await (await fetch(photoDataUrl)).blob() as File);
+          const result = await uploadMedia(compressedDataUrl);
+          if (result.success && result.url) uploadedPhotoUrls.push(result.url);
+          else throw new Error(result.error || "A photo from session failed to upload.");
+        }),
+        ...capturedVideosInSession.map(async (videoDataUrl) => {
+          const result = await uploadMedia(videoDataUrl);
+          if (result.success && result.url) uploadedVideoUrls.push(result.url);
+          else throw new Error(result.error || "A video from session failed to upload.");
+        })
+      ];
+
+      await Promise.all(uploadPromises);
       
       setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
       setVideoUrls(prev => [...prev, ...uploadedVideoUrls]);
@@ -664,8 +688,8 @@ export default function NewAssetPage() {
       if (!isMediaModalOpen && (photoUrls.length + videoUrls.length + uploadedPhotoUrls.length + uploadedVideoUrls.length > 0)) {
         setIsMediaModalOpen(true);
       }
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to process session media.", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Upload Error", description: error.message || "Failed to process session media.", variant: "destructive" });
     } finally {
       setIsProcessingMedia(false);
     }
