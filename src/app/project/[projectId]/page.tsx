@@ -25,6 +25,7 @@ import { ProjectSearchResults } from '@/components/project-search-results';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
 import { NewAssetModal } from '@/components/modals/new-asset-modal';
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
+import { cn } from '@/lib/utils';
 
 
 export default function ProjectPage() {
@@ -208,7 +209,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     loadProjectData();
-  }, [projectId]);
+  }, [loadProjectData]);
 
   // Offline Sync
   useEffect(() => {
@@ -269,7 +270,9 @@ export default function ProjectPage() {
     
     // Create a Set of all offline item IDs for quick lookup
     const offlineItemIds = new Set(
-        offlineQueue.map(action => 'localId' in action ? action.localId : 'assetId' in action ? action.assetId : action.folderId)
+        offlineQueue
+            .map(action => 'localId' in action ? action.localId : 'assetId' in action ? action.assetId : action.folderId)
+            .filter(Boolean)
     );
 
     const offlineFoldersForView = offlineQueue
@@ -412,7 +415,8 @@ export default function ProjectPage() {
         const success = await FirestoreService.deleteAsset(assetToDelete.id);
         if (success) {
           toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-          await loadProjectData();
+          // Instead of full reload, just remove from the displayed list
+          setDisplayedAssets(prev => prev.filter(a => a.id !== assetToDelete.id));
         } else {
           toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
         }
@@ -423,7 +427,7 @@ export default function ProjectPage() {
         setDeletingItemId(null);
       }
     }
-  }, [loadProjectData, t, toast, isOnline]);
+  }, [isOnline, t, toast]);
 
   const handleAssetCreatedInModal = useCallback(async (assetDataWithDataUris: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!project) return;
@@ -771,7 +775,10 @@ export default function ProjectPage() {
                 {breadcrumbItems.map((item, index) => (
                     <React.Fragment key={item.id || `project_root_${project.id}`}>
                     <span
-                        className={`cursor-pointer hover:underline ${index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={cn(
+                          'cursor-pointer hover:underline',
+                          index === breadcrumbItems.length - 1 ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'
+                        )}
                         onClick={() => {
                         if (item.type === 'project') {
                             handleSelectFolder(null);
