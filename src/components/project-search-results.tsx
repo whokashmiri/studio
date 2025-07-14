@@ -48,7 +48,10 @@ export function ProjectSearchResults({ project, searchTerm, assetFilter, onEditA
   }, [foldersMap, project]);
 
   const handleSearch = useCallback(async (term: string, filter: 'all' | 'done' | 'notDone', loadMore = false) => {
-    if (!project) return;
+    if (!project || !term) {
+        setIsSearchLoading(false);
+        return;
+    };
     
     setIsSearchLoading(true);
 
@@ -80,7 +83,10 @@ export function ProjectSearchResults({ project, searchTerm, assetFilter, onEditA
         setHasMoreSearchResults(true);
         handleSearch(term, assetFilter);
     } else {
+        // When search term is cleared, reset the search state
         setSearchedAssets([]);
+        setLastSearchedDoc(null);
+        setHasMoreSearchResults(true);
     }
   }, [searchTerm, assetFilter, handleSearch]);
 
