@@ -502,6 +502,7 @@ export async function getAssets(projectId: string, folderId: string | null): Pro
 export async function getAssetsPaginated(
   projectId: string,
   folderId: string | null,
+  filter: 'all' | 'done' | 'notDone',
   pageSize: number,
   startAfterDoc?: DocumentData | null
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
@@ -512,10 +513,16 @@ export async function getAssetsPaginated(
     const constraints: any[] = [
       where("projectId", "==", projectId),
       where("folderId", "==", folderId),
-      where("isDone", "!=", true),
       orderBy("name_lowercase"),
       limit(pageSize)
     ];
+
+    if (filter === 'done') {
+      constraints.unshift(where("isDone", "==", true));
+    } else if (filter === 'notDone') {
+      constraints.unshift(where("isDone", "!=", true));
+    }
+    // For 'all', we don't add an `isDone` filter.
 
     if (startAfterDoc) {
       constraints.push(startAfter(startAfterDoc));

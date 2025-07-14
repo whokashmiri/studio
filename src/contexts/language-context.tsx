@@ -28,6 +28,8 @@ const translations: Record<Language, Record<string, string>> = {
     favorite: "Favorite",
     recent: "Recent",
     new: "New",
+    all: "All",
+    notDone: "Not Done",
     next: "Next",
     edit: "Edit",
     delete: "Delete",
@@ -507,6 +509,8 @@ const translations: Record<Language, Record<string, string>> = {
     favorite: "مفضل",
     recent: "الأخيرة",
     new: "جديد",
+    all: "الكل",
+    notDone: "غير مكتمل",
     next: "التالي",
     edit: "تعديل",
     delete: "حذف",
@@ -1007,5 +1011,3 @@ export function useLanguage() {
   }
   return context;
 }
-
-    

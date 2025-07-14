@@ -72,6 +72,9 @@ export default function ProjectPage() {
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [isSearching, setIsSearching] = useState(false);
   
+  // State for asset filtering
+  const [assetFilter, setAssetFilter] = useState<'all' | 'done' | 'notDone'>('notDone');
+  
   const { toast } = useToast();
   const { t } = useLanguage();
   const { currentUser } = useAuth();
@@ -99,6 +102,7 @@ export default function ProjectPage() {
         const { assets: newAssets, lastDoc } = await FirestoreService.getAssetsPaginated(
             projectId,
             currentUrlFolderId,
+            assetFilter,
             20,
             lastVisibleAssetDoc
         );
@@ -112,7 +116,7 @@ export default function ProjectPage() {
     } finally {
         setIsFetchingMoreAssets(false);
     }
-  }, [isFetchingMoreAssets, hasMoreAssets, projectId, currentUrlFolderId, lastVisibleAssetDoc, toast, isSearching]);
+  }, [isFetchingMoreAssets, hasMoreAssets, projectId, currentUrlFolderId, assetFilter, lastVisibleAssetDoc, toast, isSearching]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -151,7 +155,7 @@ export default function ProjectPage() {
       setHasMoreAssets(true);
 
       try {
-          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, 20);
+          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, assetFilter, 20);
           setDisplayedAssets(assets);
           setLastVisibleAssetDoc(lastDoc);
           setHasMoreAssets(lastDoc !== null);
@@ -161,7 +165,7 @@ export default function ProjectPage() {
       } finally {
           setIsContentLoading(false);
       }
-  }, [projectId, toast]);
+  }, [projectId, assetFilter, toast]);
 
   const loadProjectData = useCallback(async () => {
     if (!projectId) return;
@@ -194,6 +198,12 @@ export default function ProjectPage() {
       setLoadingFolderId(null);
     }
   }, [projectId, router, toast, t, fetchInitialFolderContent, currentUrlFolderId]);
+  
+  // Refetch content when filter changes
+  useEffect(() => {
+    fetchInitialFolderContent(currentUrlFolderId);
+  }, [assetFilter, currentUrlFolderId, fetchInitialFolderContent]);
+
 
   useEffect(() => {
     loadProjectData();
@@ -805,6 +815,8 @@ export default function ProjectPage() {
                 loadMoreAssetsRef={loadMoreAssetsRef}
                 hasMoreAssets={hasMoreAssets}
                 isFetchingMoreAssets={isFetchingMoreAssets}
+                assetFilter={assetFilter}
+                onSetAssetFilter={setAssetFilter}
               />
             )}
         </div>

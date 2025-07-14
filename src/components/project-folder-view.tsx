@@ -9,6 +9,8 @@ import { useLanguage } from '@/contexts/language-context';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 interface ProjectFolderViewProps {
   project: Project;
@@ -33,6 +35,8 @@ interface ProjectFolderViewProps {
   loadMoreAssetsRef: React.RefObject<HTMLDivElement>;
   hasMoreAssets: boolean;
   isFetchingMoreAssets: boolean;
+  assetFilter: 'all' | 'done' | 'notDone';
+  onSetAssetFilter: (filter: 'all' | 'done' | 'notDone') => void;
 }
 
 export function ProjectFolderView({
@@ -58,6 +62,8 @@ export function ProjectFolderView({
   loadMoreAssetsRef,
   hasMoreAssets,
   isFetchingMoreAssets,
+  assetFilter,
+  onSetAssetFilter,
 }: ProjectFolderViewProps) {
   const { t } = useLanguage();
 
@@ -79,6 +85,17 @@ export function ProjectFolderView({
             isOverRoot && 'bg-primary/10 ring-2 ring-primary ring-inset'
         )}
     >
+      {selectedFolder && (
+          <div className="mb-4">
+              <Tabs value={assetFilter} onValueChange={(value) => onSetAssetFilter(value as any)}>
+                  <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="notDone">{t('notDone', 'Not Done')}</TabsTrigger>
+                      <TabsTrigger value="done">{t('done', 'Done')}</TabsTrigger>
+                      <TabsTrigger value="all">{t('all', 'All')}</TabsTrigger>
+                  </TabsList>
+              </Tabs>
+          </div>
+      )}
       <ScrollArea className="h-full pr-3" viewportRef={scrollAreaRef}>
         {isContentLoading ? (
           <div className="flex justify-center items-center h-40">
@@ -128,5 +145,3 @@ export function ProjectFolderView({
     </div>
   );
 }
-
-    
