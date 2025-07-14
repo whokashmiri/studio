@@ -265,7 +265,7 @@ export default function ProjectPage() {
 
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
-  
+
     // Filter offline folders based on the current view context
     const offlineFoldersForView = offlineQueue
       .filter(a => 
@@ -274,12 +274,6 @@ export default function ProjectPage() {
         (a.payload.parentId || null) === currentUrlFolderId
       )
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
-
-    // Get online folders for the current view and de-duplicate with offline ones
-    const onlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
-    const uniqueOnlineFolders = allProjectFolders.filter(f => 
-      f.parentId === (currentUrlFolderId || null) && !onlineFolderIds.has(f.id)
-    );
     
     // Filter offline assets based on the current view context
     const offlineAssetsForView = offlineQueue
@@ -290,9 +284,16 @@ export default function ProjectPage() {
       )
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
 
+    const offlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
+    const offlineAssetIds = new Set(offlineAssetsForView.map(a => a.id));
+
+    // Get online folders for the current view and de-duplicate with offline ones
+    const uniqueOnlineFolders = allProjectFolders.filter(f => 
+      f.parentId === (currentUrlFolderId || null) && !offlineFolderIds.has(f.id)
+    );
+    
     // Get online assets for the current view and de-duplicate with offline ones
-    const onlineAssetIds = new Set(offlineAssetsForView.map(a => a.id));
-    const uniqueOnlineAssets = displayedAssets.filter(a => !onlineAssetIds.has(a.id));
+    const uniqueOnlineAssets = displayedAssets.filter(a => !offlineAssetIds.has(a.id));
   
     const finalFolders = [...offlineFoldersForView, ...uniqueOnlineFolders];
     const finalAssets = [...offlineAssetsForView, ...uniqueOnlineAssets];
