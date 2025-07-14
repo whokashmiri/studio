@@ -266,34 +266,21 @@ export default function ProjectPage() {
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
 
-    // Filter offline folders based on the current view context
     const offlineFoldersForView = offlineQueue
-      .filter(a => 
-        a.type === 'add-folder' && 
-        a.projectId === projectId && 
-        (a.payload.parentId || null) === currentUrlFolderId
-      )
+      .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
-    
-    // Filter offline assets based on the current view context
+
     const offlineAssetsForView = offlineQueue
-      .filter(a => 
-        a.type === 'add-asset' && 
-        a.projectId === projectId && 
-        (a.payload.folderId || null) === currentUrlFolderId
-      )
+      .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
 
-    const offlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
-    const offlineAssetIds = new Set(offlineAssetsForView.map(a => a.id));
+    const offlineItemIds = new Set([
+        ...offlineFoldersForView.map(f => f.id),
+        ...offlineAssetsForView.map(a => a.id),
+    ]);
 
-    // Get online folders for the current view and de-duplicate with offline ones
-    const uniqueOnlineFolders = allProjectFolders.filter(f => 
-      f.parentId === (currentUrlFolderId || null) && !offlineFolderIds.has(f.id)
-    );
-    
-    // Get online assets for the current view and de-duplicate with offline ones
-    const uniqueOnlineAssets = displayedAssets.filter(a => !offlineAssetIds.has(a.id));
+    const uniqueOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null) && !offlineItemIds.has(f.id));
+    const uniqueOnlineAssets = displayedAssets.filter(a => !offlineItemIds.has(a.id));
   
     const finalFolders = [...offlineFoldersForView, ...uniqueOnlineFolders];
     const finalAssets = [...offlineAssetsForView, ...uniqueOnlineAssets];
