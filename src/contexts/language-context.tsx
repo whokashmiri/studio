@@ -381,6 +381,7 @@ const translations: Record<Language, Record<string, string>> = {
     fullSizePreviewAlt: "Full-size asset media preview",
     imagePreviewTitle: "Image Preview",
     close: "Close",
+    
 
     myDataOverviewMenuLink: "My Data Overview",
     myDataOverviewTitle: "My Data Overview",
