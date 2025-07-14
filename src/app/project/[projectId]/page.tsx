@@ -71,6 +71,7 @@ export default function ProjectPage() {
   // State for new project-wide search
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]); // For search results
   const [isSearching, setIsSearching] = useState(false);
   
   // State for asset filtering
@@ -204,7 +205,7 @@ export default function ProjectPage() {
     if (projectId && !isSearching) {
         fetchInitialFolderContent(currentUrlFolderId, assetFilter);
     }
-  }, [assetFilter, currentUrlFolderId, fetchInitialFolderContent, projectId, isSearching]);
+  }, [assetFilter, currentUrlFolderId, projectId, isSearching, fetchInitialFolderContent]);
 
 
   useEffect(() => {
@@ -229,15 +230,16 @@ export default function ProjectPage() {
 
   // --- Search Activation ---
   useEffect(() => {
-      const term = deferredSearchTerm.trim();
-      if (term) {
-          setIsSearching(true);
-      } else {
-          setIsSearching(false);
-          // When search is cleared, we must also clear the displayed assets to avoid clashes
-          // before the folder content re-fetches via the other useEffect.
-          setDisplayedAssets([]);
-      }
+    const term = deferredSearchTerm.trim();
+    if (term) {
+        setIsSearching(true);
+    } else {
+        setIsSearching(false);
+        // CRITICAL FIX: Clear search results when term is cleared
+        setSearchedAssets([]); 
+        // Also clear paginated assets to force a refetch of folder content
+        setDisplayedAssets([]); 
+    }
   }, [deferredSearchTerm]);
 
   // --- Memoized Data and Folder Logic ---
@@ -264,7 +266,7 @@ export default function ProjectPage() {
     if (!project) return []; 
     return getFolderPath(currentUrlFolderId);
   }, [project, currentUrlFolderId, getFolderPath]);
-
+  
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
     
@@ -761,8 +763,7 @@ export default function ProjectPage() {
         <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="text-lg text-muted-foreground mt-4">
-            {t('loadingProjectContext', 'Loading project context...')}
-            </p>
+            {t('loadingProjectContext', 'Loading project context...')}</p>
         </div>
     );
   }
@@ -820,6 +821,8 @@ export default function ProjectPage() {
                       onPreviewAsset={onPreviewAsset}
                       loadingAssetId={loadingAssetId}
                       foldersMap={foldersMap}
+                      searchedAssets={searchedAssets}
+                      isSearchLoading={isContentLoading}
                   />
             ) : (
               <ProjectFolderView

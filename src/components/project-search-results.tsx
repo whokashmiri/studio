@@ -20,12 +20,23 @@ interface ProjectSearchResultsProps {
   onPreviewAsset: (asset: Asset) => void;
   loadingAssetId: string | null;
   foldersMap: Map<string, Folder>;
+  searchedAssets: Asset[]; // Receive as prop
+  isSearchLoading: boolean; // Receive as prop
 }
 
-export function ProjectSearchResults({ project, searchTerm, assetFilter, onEditAsset, onPreviewAsset, loadingAssetId, foldersMap }: ProjectSearchResultsProps) {
+export function ProjectSearchResults({ 
+  project, 
+  searchTerm, 
+  assetFilter, 
+  onEditAsset, 
+  onPreviewAsset, 
+  loadingAssetId, 
+  foldersMap,
+  searchedAssets, // Use prop
+  isSearchLoading, // Use prop
+}: ProjectSearchResultsProps) {
   const { t } = useLanguage();
-  const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]);
-  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  
   const [hasMoreSearchResults, setHasMoreSearchResults] = useState(true);
   const [lastSearchedDoc, setLastSearchedDoc] = useState<DocumentData | null>(null);
   const searchLoaderRef = useRef<HTMLDivElement>(null);
@@ -46,74 +57,6 @@ export function ProjectSearchResults({ project, searchTerm, assetFilter, onEditA
     path.unshift({ id: null, name: project.name, type: 'project' });
     return path;
   }, [foldersMap, project]);
-
-  const handleSearch = useCallback(async (term: string, filter: 'all' | 'done' | 'notDone', loadMore = false) => {
-    if (!project || !term) {
-        setIsSearchLoading(false);
-        return;
-    };
-    
-    setIsSearchLoading(true);
-
-    const { assets: newAssets, lastDoc } = await FirestoreService.searchAssets(
-        project.id,
-        term,
-        filter,
-        10,
-        loadMore ? lastSearchedDoc : null
-    );
-
-    if (loadMore) {
-        setSearchedAssets(prev => [...prev, ...newAssets]);
-    } else {
-        setSearchedAssets(newAssets);
-    }
-    
-    setLastSearchedDoc(lastDoc);
-    setHasMoreSearchResults(lastDoc !== null);
-    setIsSearchLoading(false);
-
-  }, [project, lastSearchedDoc]);
-
-  useEffect(() => {
-    const term = searchTerm.trim();
-    if (term) {
-        setSearchedAssets([]);
-        setLastSearchedDoc(null);
-        setHasMoreSearchResults(true);
-        handleSearch(term, assetFilter);
-    } else {
-        // When search term is cleared, reset the search state
-        setSearchedAssets([]);
-        setLastSearchedDoc(null);
-        setHasMoreSearchResults(true);
-    }
-  }, [searchTerm, assetFilter, handleSearch]);
-
-  // Infinite scroll for search results
-  useEffect(() => {
-    if (!searchLoaderRef.current || !hasMoreSearchResults || isSearchLoading) return;
-
-    const observer = new IntersectionObserver(
-        (entries) => {
-            if (entries[0].isIntersecting) {
-                handleSearch(searchTerm.trim(), assetFilter, true);
-            }
-        },
-        { root: scrollAreaRef.current, rootMargin: '0px', threshold: 1.0 }
-    );
-
-    const currentLoader = searchLoaderRef.current;
-    if (currentLoader) {
-        observer.observe(currentLoader);
-    }
-
-    return () => {
-        if (currentLoader) {
-            observer.unobserve(currentLoader);
-        }
-    };
-  }, [isSearchLoading, hasMoreSearchResults, searchTerm, assetFilter, handleSearch]);
   
   const truncateName = (name: string, maxLength: number = 20) => {
     if (name.length > maxLength) {
@@ -214,3 +157,5 @@ export function ProjectSearchResults({ project, searchTerm, assetFilter, onEditA
     </ScrollArea>
   );
 }
+
+    
