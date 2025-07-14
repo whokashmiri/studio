@@ -812,7 +812,7 @@ export default function ProjectPage() {
                   <ProjectSearchResults
                       project={project}
                       searchTerm={deferredSearchTerm}
-                      assetFilter={assetFilter}
+                      assetFilter="all"
                       onEditAsset={handleEditAsset}
                       onPreviewAsset={onPreviewAsset}
                       loadingAssetId={loadingAssetId}

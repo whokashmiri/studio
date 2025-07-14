@@ -818,7 +818,7 @@ export async function searchAssets(
 
     const constraints: any[] = [where("projectId", "==", projectId)];
 
-    // Add the filter condition
+    // Add the filter condition only if it's not 'all'
     if (filter === 'done') {
       constraints.push(where("isDone", "==", true));
     } else if (filter === 'notDone') {
