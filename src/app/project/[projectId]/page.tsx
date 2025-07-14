@@ -266,7 +266,6 @@ export default function ProjectPage() {
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
   
-    // Get all offline items for the current view
     const offlineFoldersForView = offlineQueue
       .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
@@ -279,7 +278,7 @@ export default function ProjectPage() {
     const offlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
     const offlineAssetIds = new Set(offlineAssetsForView.map(a => a.id));
   
-    // Filter out any online items that have a corresponding offline version
+    // Filter out any online items that have a corresponding offline version to prevent duplicate keys
     const uniqueOnlineFolders = allProjectFolders.filter(
       f => f.parentId === (currentUrlFolderId || null) && !offlineFolderIds.has(f.id)
     );
@@ -1031,4 +1030,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
