@@ -266,33 +266,30 @@ export default function ProjectPage() {
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
 
-    // Get all offline items for the current view
+    // Get all offline items for the current view and create a Set of their local IDs
     const offlineFoldersForView = offlineQueue
       .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
+    const offlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
 
     const offlineAssetsForView = offlineQueue
       .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
-
-    // Create sets of offline IDs for quick lookups
-    const offlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
     const offlineAssetIds = new Set(offlineAssetsForView.map(a => a.id));
 
-    // Filter online items to exclude any that are already in the offline list
+    // Filter online items to exclude any that are already represented in the offline list
     const uniqueOnlineFolders = allProjectFolders.filter(
         f => f.parentId === (currentUrlFolderId || null) && !offlineFolderIds.has(f.id)
     );
 
     const uniqueOnlineAssets = displayedAssets.filter(a => !offlineAssetIds.has(a.id));
 
-    // Combine the unique lists
+    // Combine the unique lists, with offline items first for immediate visibility
     return {
         finalFoldersToDisplay: [...offlineFoldersForView, ...uniqueOnlineFolders],
         finalAssetsToDisplay: [...offlineAssetsForView, ...uniqueOnlineAssets],
     };
 }, [allProjectFolders, displayedAssets, projectId, currentUrlFolderId]);
-
 
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
@@ -1028,3 +1025,5 @@ export default function ProjectPage() {
     </div>
   );
 }
+
+    
