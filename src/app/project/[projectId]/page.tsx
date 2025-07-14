@@ -264,20 +264,28 @@ export default function ProjectPage() {
   }, [project, currentUrlFolderId, getFolderPath]);
 
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
-    const offlineQueue = OfflineService.getOfflineQueue();
-    // In a paginated view, we'll only show offline items for the current folder.
-    // Full offline display might be complex with pagination.
-    // For now, let's keep it simple.
-
-    // Process folders
     const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
+    const onlineAssetIds = new Set(displayedAssets.map(a => a.id));
+    const offlineQueue = OfflineService.getOfflineQueue();
+  
     const offlineFoldersForView = offlineQueue
       .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId && !onlineFolderIds.has(a.localId))
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
+  
+    const offlineAssetsForView = offlineQueue
+      .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId && !onlineAssetIds.has(a.localId))
+      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
+  
     const currentOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null));
-    const finalFolders = [...offlineFoldersForView, ...currentOnlineFolders];
     
-    return { finalFoldersToDisplay: finalFolders, finalAssetsToDisplay: displayedAssets }; // Use displayedAssets here
+    // Combine and ensure uniqueness to prevent key errors
+    const finalFolders = [...offlineFoldersForView, ...currentOnlineFolders];
+    const finalAssets = [...offlineAssetsForView, ...displayedAssets];
+  
+    return { 
+      finalFoldersToDisplay: finalFolders, 
+      finalAssetsToDisplay: finalAssets 
+    };
   }, [allProjectFolders, displayedAssets, projectId, currentUrlFolderId]);
 
   useEffect(() => {
@@ -813,7 +821,7 @@ export default function ProjectPage() {
                 onDeleteFolder={handleDeleteFolder}
                 onEditAsset={handleEditAsset}
                 onDeleteAsset={handleDeleteAsset}
-                onPreviewAsset={handleOpenImagePreviewModal}
+                onPreviewAsset={onPreviewAsset}
                 isAdmin={isAdmin}
                 isOnline={isOnline}
                 loadMoreAssetsRef={loadMoreAssetsRef}
