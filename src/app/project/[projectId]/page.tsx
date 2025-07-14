@@ -208,7 +208,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     loadProjectData();
-  }, [projectId, loadProjectData]);
+  }, [projectId]);
 
   // Offline Sync
   useEffect(() => {
