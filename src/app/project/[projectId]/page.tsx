@@ -265,29 +265,35 @@ export default function ProjectPage() {
 
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
-
+  
+    // Get all offline items for the current view
     const offlineFoldersForView = offlineQueue
       .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
-
+  
     const offlineAssetsForView = offlineQueue
       .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
-
-    const offlineItemIds = new Set([
-        ...offlineFoldersForView.map(f => f.id),
-        ...offlineAssetsForView.map(a => a.id),
-    ]);
-
-    const uniqueOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null) && !offlineItemIds.has(f.id));
-    const uniqueOnlineAssets = displayedAssets.filter(a => !offlineItemIds.has(a.id));
   
+    // Create sets of offline IDs for quick lookups
+    const offlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
+    const offlineAssetIds = new Set(offlineAssetsForView.map(a => a.id));
+  
+    // Filter out any online items that have a corresponding offline version
+    const uniqueOnlineFolders = allProjectFolders.filter(
+      f => f.parentId === (currentUrlFolderId || null) && !offlineFolderIds.has(f.id)
+    );
+    const uniqueOnlineAssets = displayedAssets.filter(
+      a => !offlineAssetIds.has(a.id)
+    );
+  
+    // Combine offline and unique online items
     const finalFolders = [...offlineFoldersForView, ...uniqueOnlineFolders];
     const finalAssets = [...offlineAssetsForView, ...uniqueOnlineAssets];
   
-    return { 
-      finalFoldersToDisplay: finalFolders, 
-      finalAssetsToDisplay: finalAssets 
+    return {
+      finalFoldersToDisplay: finalFolders,
+      finalAssetsToDisplay: finalAssets,
     };
   }, [allProjectFolders, displayedAssets, projectId, currentUrlFolderId]);
 
@@ -1025,3 +1031,4 @@ export default function ProjectPage() {
     </div>
   );
 }
+
