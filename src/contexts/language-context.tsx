@@ -487,6 +487,11 @@ const translations: Record<Language, Record<string, string>> = {
     selectAssetToPreview: "Select an Asset",
     selectAssetFromList: "Select an asset from the list to see its details here.",
     noMediaAvailable: "No Media Available",
+    confirmStatusChangeTitle: 'Confirm Status Change',
+    confirmMarkActiveDesc: 'Are you sure you want to mark asset "{assetName}" as active? It will be moved to the "Active Assets" list.',
+    assetStatusUpdated: 'Asset Status Updated',
+    assetMarkedAsActive: 'Asset "{assetName}" has been marked as active.',
+    markAssetAsActive: 'Mark as Active',
   },
   ar: {
     appName: "فالتيك للتقييم",
@@ -958,6 +963,11 @@ const translations: Record<Language, Record<string, string>> = {
     selectAssetToPreview: "حدد أصلًا للمعاينة",
     selectAssetFromList: "حدد أصلًا من القائمة لرؤية تفاصيله هنا.",
     noMediaAvailable: "لا توجد وسائط متاحة",
+    confirmStatusChangeTitle: 'تأكيد تغيير الحالة',
+    confirmMarkActiveDesc: 'هل أنت متأكد من أنك تريد وضع علامة على الأصل "{assetName}" كنشط؟ سيتم نقله إلى قائمة "الأصول النشطة".',
+    assetStatusUpdated: 'تم تحديث حالة الأصل',
+    assetMarkedAsActive: 'تم وضع علامة على الأصل "{assetName}" كنشط.',
+    markAssetAsActive: 'وضع علامة كنشط',
   },
 };
 
@@ -997,3 +1007,5 @@ export function useLanguage() {
   }
   return context;
 }
+
+    

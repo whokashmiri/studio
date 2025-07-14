@@ -17,31 +17,46 @@ import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarMenu, S
 import { cn } from '@/lib/utils';
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import Image from 'next/image';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
-type ReviewPageView = 'companyStats' | 'projectContent';
 
-function AssetListItem({ asset, onSelect, isActive }: { asset: Asset, onSelect: (asset: Asset) => void, isActive: boolean }) {
+function AssetListItem({ asset, onSelect, isActive, isCompletedView, onMarkActive }: { asset: Asset, onSelect: (asset: Asset) => void, isActive: boolean, isCompletedView: boolean, onMarkActive: (asset: Asset) => void }) {
+    const { t } = useLanguage();
     const hasMedia = (asset.photos && asset.photos.length > 0) || (asset.videos && asset.videos.length > 0);
     
     return (
-        <button
-            onClick={() => hasMedia && onSelect(asset)}
-            disabled={!hasMedia}
-            className={cn(
-                "w-full text-left p-2 rounded-md hover:bg-muted transition-colors flex items-center gap-2 border",
-                isActive && hasMedia ? "bg-primary/10 border-primary" : "bg-card",
-                !hasMedia && "opacity-60 cursor-not-allowed"
+        <div className="flex items-center gap-2">
+            {isCompletedView && (
+                 <Checkbox
+                    id={`mark-active-${asset.id}`}
+                    checked={false} // Checkbox is just a trigger, not stateful
+                    onCheckedChange={(checked) => {
+                        if (checked) onMarkActive(asset);
+                    }}
+                    title={t('markAssetAsActive', 'Mark as Active')}
+                    className="h-5 w-5 rounded-full"
+                />
             )}
-        >
-            {asset.photos && asset.photos.length > 0 ? (
-                <Image src={asset.photos[0]} alt={asset.name} width={40} height={40} className="h-10 w-10 rounded object-cover" />
-            ) : (
-                 <div className="h-10 w-10 rounded bg-muted flex items-center justify-center shrink-0">
-                    <ImageOff className="h-5 w-5 text-muted-foreground" />
-                </div>
-            )}
-            <span className="text-sm font-medium truncate flex-grow">{asset.name}</span>
-        </button>
+            <button
+                onClick={() => hasMedia && onSelect(asset)}
+                disabled={!hasMedia}
+                className={cn(
+                    "w-full text-left p-2 rounded-md hover:bg-muted transition-colors flex items-center gap-2 border",
+                    isActive && hasMedia ? "bg-primary/10 border-primary" : "bg-card",
+                    !hasMedia && "opacity-60 cursor-not-allowed"
+                )}
+            >
+                {asset.photos && asset.photos.length > 0 ? (
+                    <Image src={asset.photos[0]} alt={asset.name} width={40} height={40} className="h-10 w-10 rounded object-cover" />
+                ) : (
+                    <div className="h-10 w-10 rounded bg-muted flex items-center justify-center shrink-0">
+                        <ImageOff className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                )}
+                <span className="text-sm font-medium truncate flex-grow">{asset.name}</span>
+            </button>
+        </div>
     );
 }
 
@@ -165,6 +180,12 @@ export default function ReviewAllAssetsPage() {
 
   const [currentView, setCurrentView] = useState<ReviewPageView>('companyStats');
   
+  const [assetToMarkActive, setAssetToMarkActive] = useState<Asset | null>(null);
+  const [isMarkActiveConfirmOpen, setIsMarkActiveConfirmOpen] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  type ReviewPageView = 'companyStats' | 'projectContent';
+  
   const loadInitialAdminData = useCallback(async () => {
     if (currentUser && currentUser.role === 'Admin' && currentUser.companyId) {
       setPageLoading(true);
@@ -229,6 +250,42 @@ export default function ReviewAllAssetsPage() {
     setAssetToPreview(asset);
     setIsImagePreviewModalOpen(true);
   };
+  
+  const promptMarkAssetAsActive = useCallback((asset: Asset) => {
+    setAssetToMarkActive(asset);
+    setIsMarkActiveConfirmOpen(true);
+  }, []);
+
+  const confirmMarkAssetAsActive = useCallback(async () => {
+    if (assetToMarkActive) {
+      setIsUpdatingStatus(true);
+      try {
+        const success = await FirestoreService.updateAsset(assetToMarkActive.id, { isDone: false });
+        if (success) {
+          toast({
+            title: t('assetStatusUpdated', 'Asset Status Updated'),
+            description: t('assetMarkedAsActive', 'Asset "{assetName}" has been marked as active.', { assetName: assetToMarkActive.name }),
+            variant: "success-yellow"
+          });
+          // Optimistic UI update
+          setProjectAssets(prevAssets =>
+            prevAssets.map(asset =>
+              asset.id === assetToMarkActive.id ? { ...asset, isDone: false } : asset
+            )
+          );
+        } else {
+          toast({ title: "Error", description: "Failed to update asset status.", variant: "destructive" });
+        }
+      } catch (error) {
+        console.error("Error updating asset status:", error);
+        toast({ title: "Error", description: "An unexpected error occurred while updating the asset.", variant: "destructive" });
+      } finally {
+        setIsUpdatingStatus(false);
+        setAssetToMarkActive(null);
+        setIsMarkActiveConfirmOpen(false);
+      }
+    }
+  }, [assetToMarkActive, t, toast]);
   
   const { activeAssets, completedAssets, rootFolders, rootAssets } = useMemo(() => {
     const isRootSelected = !selectedFolderId;
@@ -401,7 +458,7 @@ export default function ReviewAllAssetsPage() {
                                     <CardContent>
                                         <ScrollArea className="h-60"><div className="space-y-2 pr-2">
                                             {rootAssets.length > 0 ? rootAssets.map(asset => (
-                                                <AssetListItem key={asset.id} asset={asset} onSelect={handleOpenImagePreview} isActive={assetToPreview?.id === asset.id}/>
+                                                <AssetListItem key={asset.id} asset={asset} onSelect={handleOpenImagePreview} isActive={assetToPreview?.id === asset.id} isCompletedView={asset.isDone ?? false} onMarkActive={promptMarkAssetAsActive}/>
                                             )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noAssetsInFolder', 'No assets in this folder.')}</p>}
                                         </div></ScrollArea>
                                     </CardContent>
@@ -413,7 +470,7 @@ export default function ReviewAllAssetsPage() {
                                     <CardHeader><CardTitle className="flex items-center gap-2"><List className="h-5 w-5 text-primary"/>{t('activeAssets', 'Active Assets')} ({activeAssets.length})</CardTitle></CardHeader>
                                     <CardContent><ScrollArea className="h-96"><div className="space-y-2 pr-2">
                                         {activeAssets.length > 0 ? activeAssets.map(asset => (
-                                            <AssetListItem key={asset.id} asset={asset} onSelect={handleOpenImagePreview} isActive={assetToPreview?.id === asset.id}/>
+                                            <AssetListItem key={asset.id} asset={asset} onSelect={handleOpenImagePreview} isActive={assetToPreview?.id === asset.id} isCompletedView={false} onMarkActive={promptMarkAssetAsActive}/>
                                         )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noActiveAssets', 'No active assets in this folder.')}</p>}
                                     </div></ScrollArea></CardContent>
                                 </Card>
@@ -421,7 +478,7 @@ export default function ReviewAllAssetsPage() {
                                     <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-green-600"/>{t('completedAssets', 'Completed Assets')} ({completedAssets.length})</CardTitle></CardHeader>
                                     <CardContent><ScrollArea className="h-96"><div className="space-y-2 pr-2">
                                         {completedAssets.length > 0 ? completedAssets.map(asset => (
-                                            <AssetListItem key={asset.id} asset={asset} onSelect={handleOpenImagePreview} isActive={assetToPreview?.id === asset.id}/>
+                                            <AssetListItem key={asset.id} asset={asset} onSelect={handleOpenImagePreview} isActive={assetToPreview?.id === asset.id} isCompletedView={true} onMarkActive={promptMarkAssetAsActive}/>
                                         )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noCompletedAssets', 'No completed assets in this folder.')}</p>}
                                     </div></ScrollArea></CardContent>
                                 </Card>
@@ -445,6 +502,28 @@ export default function ReviewAllAssetsPage() {
             asset={assetToPreview}
         />
     )}
+     {assetToMarkActive && (
+        <AlertDialog open={isMarkActiveConfirmOpen} onOpenChange={setIsMarkActiveConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('confirmStatusChangeTitle', 'Confirm Status Change')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('confirmMarkActiveDesc', `Are you sure you want to mark asset "{assetName}" as active? It will be moved to the "Active Assets" list.`, { assetName: assetToMarkActive.name })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => { setAssetToMarkActive(null); setIsMarkActiveConfirmOpen(false); }}>{t('cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmMarkAssetAsActive} className="bg-primary text-primary-foreground hover:bg-primary/90" disabled={isUpdatingStatus}>
+                {isUpdatingStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {t('confirm', 'Confirm')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </ReviewContextProvider>
   );
 }
+
+
+    
