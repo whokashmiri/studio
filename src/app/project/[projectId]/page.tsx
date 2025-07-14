@@ -265,36 +265,29 @@ export default function ProjectPage() {
 
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
-  
+
     const offlineFoldersForView = offlineQueue
-      .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
-      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
-  
+        .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
+        .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
+
     const offlineAssetsForView = offlineQueue
-      .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
-      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
-  
-    // Create sets of offline IDs for quick lookups
+        .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
+        .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
+
     const offlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
     const offlineAssetIds = new Set(offlineAssetsForView.map(a => a.id));
-  
-    // Filter out any online items that have a corresponding offline version to prevent duplicate keys
+
     const uniqueOnlineFolders = allProjectFolders.filter(
-      f => f.parentId === (currentUrlFolderId || null) && !offlineFolderIds.has(f.id)
+        f => f.parentId === (currentUrlFolderId || null) && !offlineFolderIds.has(f.id)
     );
-    const uniqueOnlineAssets = displayedAssets.filter(
-      a => !offlineAssetIds.has(a.id)
-    );
-  
-    // Combine offline and unique online items
-    const finalFolders = [...offlineFoldersForView, ...uniqueOnlineFolders];
-    const finalAssets = [...offlineAssetsForView, ...uniqueOnlineAssets];
-  
+
+    const uniqueOnlineAssets = displayedAssets.filter(a => !offlineAssetIds.has(a.id));
+
     return {
-      finalFoldersToDisplay: finalFolders,
-      finalAssetsToDisplay: finalAssets,
+        finalFoldersToDisplay: [...offlineFoldersForView, ...uniqueOnlineFolders],
+        finalAssetsToDisplay: [...offlineAssetsForView, ...uniqueOnlineAssets],
     };
-  }, [allProjectFolders, displayedAssets, projectId, currentUrlFolderId]);
+}, [allProjectFolders, displayedAssets, projectId, currentUrlFolderId]);
 
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
