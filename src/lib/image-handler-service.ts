@@ -14,7 +14,7 @@ export async function compressImage(file: File): Promise<string> {
   const MAX_HEIGHT = 1080;
   const MIN_SIZE_KB = 350;
   const MAX_SIZE_KB = 700;
-  const TARGET_QUALITY = 0.9; // Start with a high quality
+  let quality = 0.9; // Start with a high quality
 
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -52,22 +52,29 @@ export async function compressImage(file: File): Promise<string> {
         ctx.drawImage(img, 0, 0, width, height);
 
         // --- Step 2: Iteratively adjust quality to meet size target ---
-        let quality = TARGET_QUALITY;
-        let dataUrl = canvas.toDataURL('image/jpeg', quality);
-        let currentSizeKB = dataUrl.length * 0.75 / 1024;
+        let dataUrl: string;
+        let currentSizeKB: number;
+        let attempts = 0;
+        const MAX_ATTEMPTS = 7; // To prevent infinite loops
 
-        // If it's already below min, just return it (it's a small image)
-        if (currentSizeKB <= MIN_SIZE_KB) {
-           return resolve(dataUrl);
-        }
-        
-        // If it's above max, reduce quality until it's in range
-        while (currentSizeKB > MAX_SIZE_KB && quality > 0.1) {
-            quality -= 0.1;
+        do {
             dataUrl = canvas.toDataURL('image/jpeg', quality);
-            currentSizeKB = dataUrl.length * 0.75 / 1024;
-        }
+            currentSizeKB = dataUrl.length * (3 / 4) / 1024;
+            attempts++;
+            
+            if (currentSizeKB < MIN_SIZE_KB && quality < 1.0) {
+              quality += 0.1; // Increase quality if too small
+            } else if (currentSizeKB > MAX_SIZE_KB && quality > 0.1) {
+              quality -= 0.1; // Decrease quality if too large
+            } else {
+              break; // It's in range or we can't adjust further
+            }
+            
+            // Clamp quality between 0.1 and 1.0
+            quality = Math.max(0.1, Math.min(1.0, quality));
 
+        } while ((currentSizeKB < MIN_SIZE_KB || currentSizeKB > MAX_SIZE_KB) && attempts < MAX_ATTEMPTS);
+        
         resolve(dataUrl);
       };
       img.onerror = (error) => reject(error);
