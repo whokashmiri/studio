@@ -266,29 +266,29 @@ export default function ProjectPage() {
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
 
-    // Get all offline items for the current view
+    // 1. Get all offline items for the current view
     const offlineFoldersForView = offlineQueue
       .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
-    
+
     const offlineAssetsForView = offlineQueue
       .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
 
+    // 2. Create a Set of all offline item IDs for efficient lookup
     const offlineItemIds = new Set([
         ...offlineFoldersForView.map(f => f.id),
         ...offlineAssetsForView.map(a => a.id),
     ]);
 
-    // Filter online items to exclude any that are already represented in the offline list
+    // 3. Filter online items to exclude any that are already represented in the offline list
     const uniqueOnlineFolders = allProjectFolders.filter(
         f => f.parentId === (currentUrlFolderId || null) && !offlineItemIds.has(f.id)
     );
     
-    // Explicitly filter out online assets that are also in the offline queue to prevent duplicates
     const uniqueOnlineAssets = displayedAssets.filter(a => !offlineItemIds.has(a.id));
 
-    // Combine the unique lists, with offline items first for immediate visibility
+    // 4. Combine the unique lists, with offline items first for immediate visibility
     return {
         finalFoldersToDisplay: [...offlineFoldersForView, ...uniqueOnlineFolders],
         finalAssetsToDisplay: [...offlineAssetsForView, ...uniqueOnlineAssets],
@@ -919,7 +919,7 @@ export default function ProjectPage() {
                 {t('newAsset', 'New Asset')}
             </Button>
              {isAdmin && (
-              <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)}  className="shadow-lg" disabled={true}>
+              <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)}  className="shadow-lg" disabled={!isOnline}>
                 <Upload className="mr-2 h-4 w-4" />
                 {t('importAssetsButton', 'Import Assets')}
               </Button> 
