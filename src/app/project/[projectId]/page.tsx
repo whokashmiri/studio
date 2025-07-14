@@ -94,6 +94,26 @@ export default function ProjectPage() {
     })
   );
 
+  const fetchInitialFolderContent = useCallback(async (folderId: string | null, filter: 'all' | 'done' | 'notDone') => {
+      if (isSearching) return; // Do not fetch folder content while searching
+      setIsContentLoading(true);
+      setDisplayedAssets([]);
+      setLastVisibleAssetDoc(null);
+      setHasMoreAssets(true);
+
+      try {
+          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, filter, 20);
+          setDisplayedAssets(assets);
+          setLastVisibleAssetDoc(lastDoc);
+          setHasMoreAssets(lastDoc !== null);
+      } catch (error) {
+          console.error("Error fetching initial folder content:", error);
+          toast({ title: "Error", description: "Failed to load folder content.", variant: "destructive" });
+      } finally {
+          setIsContentLoading(false);
+      }
+  }, [projectId, toast, isSearching]);
+
   const loadMoreAssets = useCallback(async () => {
     if (isFetchingMoreAssets || !hasMoreAssets || isSearching) return;
     
@@ -148,25 +168,6 @@ export default function ProjectPage() {
   }, [hasMoreAssets, isFetchingMoreAssets, loadMoreAssets, currentUrlFolderId]); // Re-create observer when folder changes
 
 
-  const fetchInitialFolderContent = useCallback(async (folderId: string | null, filter: 'all' | 'done' | 'notDone') => {
-      setIsContentLoading(true);
-      setDisplayedAssets([]);
-      setLastVisibleAssetDoc(null);
-      setHasMoreAssets(true);
-
-      try {
-          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, filter, 20);
-          setDisplayedAssets(assets);
-          setLastVisibleAssetDoc(lastDoc);
-          setHasMoreAssets(lastDoc !== null);
-      } catch (error) {
-          console.error("Error fetching initial folder content:", error);
-          toast({ title: "Error", description: "Failed to load folder content.", variant: "destructive" });
-      } finally {
-          setIsContentLoading(false);
-      }
-  }, [projectId, toast]);
-
   const loadProjectData = useCallback(async () => {
     if (!projectId) return;
     setIsLoading(true);
@@ -188,10 +189,6 @@ export default function ProjectPage() {
       setAllProjectFolders(projectFolders);
       setAllProjectAssets(allProjAssets); // For asset counts
       
-      // Initial content load is now handled by the useEffect watching folder/filter changes
-      // to avoid double-loading.
-      // await fetchInitialFolderContent(currentUrlFolderId, assetFilter);
-
     } catch (error) {
       console.error("Error loading project data:", error);
       toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
@@ -203,16 +200,15 @@ export default function ProjectPage() {
   
   // Refetch content when filter or folder changes
   useEffect(() => {
-    // This effect now correctly handles fetching content when not searching
-    if (!isSearching && projectId) {
+    if (projectId && !isSearching) {
         fetchInitialFolderContent(currentUrlFolderId, assetFilter);
     }
-  }, [assetFilter, currentUrlFolderId, fetchInitialFolderContent, isSearching, projectId]);
+  }, [assetFilter, currentUrlFolderId, fetchInitialFolderContent, projectId, isSearching]);
 
 
   useEffect(() => {
     loadProjectData();
-  }, [projectId, loadProjectData]); // loadProjectData is now memoized correctly
+  }, [projectId, loadProjectData]);
 
   // Offline Sync
   useEffect(() => {
