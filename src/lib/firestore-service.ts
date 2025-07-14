@@ -520,7 +520,8 @@ export async function getAssetsPaginated(
     if (filter === 'done') {
       constraints.unshift(where("isDone", "==", true));
     } else if (filter === 'notDone') {
-      constraints.unshift(where("isDone", "!=", true));
+      // isDone can be false or not exist, which is handled by this.
+      constraints.unshift(where("isDone", "in", [false, null]));
     }
     // For 'all', we don't add an `isDone` filter.
 
@@ -807,6 +808,7 @@ export async function getAllAssetsForCompany(companyId: string, filter?: 'active
 export async function searchAssets(
   projectId: string,
   searchTerm: string,
+  filter: 'all' | 'done' | 'notDone',
   pageSize: number,
   startAfterDoc?: DocumentData | null
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
@@ -815,6 +817,13 @@ export async function searchAssets(
     const isSerialSearch = /^\d+(\.\d+)?$/.test(searchTerm.trim()) && searchTerm.trim().length > 0;
 
     const constraints: any[] = [where("projectId", "==", projectId)];
+
+    // Add the filter condition
+    if (filter === 'done') {
+      constraints.push(where("isDone", "==", true));
+    } else if (filter === 'notDone') {
+      constraints.push(where("isDone", "in", [false, null]));
+    }
 
     if (isSerialSearch) {
       constraints.push(where("serialNumber", "==", Number(searchTerm.trim())));
@@ -837,11 +846,7 @@ export async function searchAssets(
     
     const q = query(assetsCollectionRef, ...constraints);
     const snapshot = await getDocs(q);
-    let assets = processSnapshot<Asset>(snapshot);
-    
-    // Client-side filtering for 'isDone' status to avoid complex index requirements
-    assets = assets.filter(asset => asset.isDone !== true);
-
+    const assets = processSnapshot<Asset>(snapshot);
     const lastDoc = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
 
     return { assets, lastDoc };

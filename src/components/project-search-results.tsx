@@ -15,13 +15,14 @@ import { useLanguage } from '@/contexts/language-context';
 interface ProjectSearchResultsProps {
   project: Project;
   searchTerm: string;
+  assetFilter: 'all' | 'done' | 'notDone';
   onEditAsset: (asset: Asset) => void;
   onPreviewAsset: (asset: Asset) => void;
   loadingAssetId: string | null;
   foldersMap: Map<string, Folder>;
 }
 
-export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPreviewAsset, loadingAssetId, foldersMap }: ProjectSearchResultsProps) {
+export function ProjectSearchResults({ project, searchTerm, assetFilter, onEditAsset, onPreviewAsset, loadingAssetId, foldersMap }: ProjectSearchResultsProps) {
   const { t } = useLanguage();
   const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
@@ -46,7 +47,7 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
     return path;
   }, [foldersMap, project]);
 
-  const handleSearch = useCallback(async (term: string, loadMore = false) => {
+  const handleSearch = useCallback(async (term: string, filter: 'all' | 'done' | 'notDone', loadMore = false) => {
     if (!project) return;
     
     setIsSearchLoading(true);
@@ -54,6 +55,7 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
     const { assets: newAssets, lastDoc } = await FirestoreService.searchAssets(
         project.id,
         term,
+        filter,
         10,
         loadMore ? lastSearchedDoc : null
     );
@@ -76,12 +78,11 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
         setSearchedAssets([]);
         setLastSearchedDoc(null);
         setHasMoreSearchResults(true);
-        handleSearch(term);
+        handleSearch(term, assetFilter);
     } else {
         setSearchedAssets([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]); // We intentionally leave handleSearch out to prevent re-triggering on its own state changes
+  }, [searchTerm, assetFilter, handleSearch]);
 
   // Infinite scroll for search results
   useEffect(() => {
@@ -90,7 +91,7 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
     const observer = new IntersectionObserver(
         (entries) => {
             if (entries[0].isIntersecting) {
-                handleSearch(searchTerm.trim(), true);
+                handleSearch(searchTerm.trim(), assetFilter, true);
             }
         },
         { root: scrollAreaRef.current, rootMargin: '0px', threshold: 1.0 }
@@ -106,7 +107,7 @@ export function ProjectSearchResults({ project, searchTerm, onEditAsset, onPrevi
             observer.unobserve(currentLoader);
         }
     };
-  }, [isSearchLoading, hasMoreSearchResults, searchTerm, handleSearch]);
+  }, [isSearchLoading, hasMoreSearchResults, searchTerm, assetFilter, handleSearch]);
   
   const truncateName = (name: string, maxLength: number = 20) => {
     if (name.length > maxLength) {

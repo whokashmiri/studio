@@ -201,8 +201,11 @@ export default function ProjectPage() {
   
   // Refetch content when filter changes
   useEffect(() => {
-    fetchInitialFolderContent(currentUrlFolderId);
-  }, [assetFilter, currentUrlFolderId, fetchInitialFolderContent]);
+    // Don't refetch if searching
+    if (!isSearching) {
+        fetchInitialFolderContent(currentUrlFolderId);
+    }
+  }, [assetFilter, currentUrlFolderId, fetchInitialFolderContent, isSearching]);
 
 
   useEffect(() => {
@@ -786,6 +789,7 @@ export default function ProjectPage() {
                   <ProjectSearchResults
                       project={project}
                       searchTerm={deferredSearchTerm}
+                      assetFilter={assetFilter}
                       onEditAsset={handleEditAsset}
                       onPreviewAsset={handleOpenImagePreviewModal}
                       loadingAssetId={loadingAssetId}
