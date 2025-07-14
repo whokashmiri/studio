@@ -266,27 +266,27 @@ export default function ProjectPage() {
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
 
-    // 1. Get all offline items for the current view
+    // Get all offline items for the current view
     const offlineFoldersForView = offlineQueue
-        .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
-        .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
+      .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
+      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
 
     const offlineAssetsForView = offlineQueue
-        .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
-        .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
+      .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
+      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
 
-    // 2. Create sets of offline IDs for quick lookups
+    // Create sets of offline IDs for quick lookups
     const offlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
     const offlineAssetIds = new Set(offlineAssetsForView.map(a => a.id));
 
-    // 3. Filter online items to exclude any that are already in the offline list
+    // Filter online items to exclude any that are already in the offline list
     const uniqueOnlineFolders = allProjectFolders.filter(
         f => f.parentId === (currentUrlFolderId || null) && !offlineFolderIds.has(f.id)
     );
 
     const uniqueOnlineAssets = displayedAssets.filter(a => !offlineAssetIds.has(a.id));
 
-    // 4. Combine the unique lists
+    // Combine the unique lists
     return {
         finalFoldersToDisplay: [...offlineFoldersForView, ...uniqueOnlineFolders],
         finalAssetsToDisplay: [...offlineAssetsForView, ...uniqueOnlineAssets],
