@@ -52,3 +52,4 @@ const finalConfig: NextConfig = process.env.NODE_ENV === 'production'
 
 
 export default finalConfig;
+

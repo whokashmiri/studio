@@ -885,7 +885,7 @@ export default function ProjectPage() {
               <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)}  className="shadow-lg" disabled={true}>
                 <Upload className="mr-2 h-4 w-4" />
                 {t('importAssetsButton', 'Import Assets')}
-              </Button>
+              </Button> 
             )}
             {isAdmin && clipboardState.itemId && (
               <Button variant="secondary" size="lg" onClick={handlePaste} className="shadow-lg" disabled={!isOnline || isPasting}>
