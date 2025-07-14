@@ -1,4 +1,4 @@
-
+ 
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useContext } from 'react';
 import Link from 'next/link';
@@ -44,8 +44,8 @@ function AssetListItem({ asset, onSelect, isActive, isCompletedView, onMarkActiv
                 className={cn(
                     "w-full text-left p-2 rounded-md hover:bg-muted transition-colors flex items-center gap-2 border",
                     isActive && hasMedia ? "bg-primary/10 border-primary" : "bg-card",
-                    !hasMedia && "opacity-60 cursor-not-allowed"
-                )}
+                    !hasMedia && "opacity-60 cursor-allowed"
+                )} b aa
             >
                 {asset.photos && asset.photos.length > 0 ? (
                     <Image src={asset.photos[0]} alt={asset.name} width={40} height={40} className="h-10 w-10 rounded object-cover" />
