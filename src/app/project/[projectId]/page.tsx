@@ -188,7 +188,9 @@ export default function ProjectPage() {
       setAllProjectFolders(projectFolders);
       setAllProjectAssets(allProjAssets); // For asset counts
       
-      await fetchInitialFolderContent(currentUrlFolderId, assetFilter);
+      // Initial content load is now handled by the useEffect watching folder/filter changes
+      // to avoid double-loading.
+      // await fetchInitialFolderContent(currentUrlFolderId, assetFilter);
 
     } catch (error) {
       console.error("Error loading project data:", error);
@@ -197,20 +199,20 @@ export default function ProjectPage() {
       setIsLoading(false);
       setLoadingFolderId(null);
     }
-  }, [projectId, router, toast, t, currentUrlFolderId, assetFilter, fetchInitialFolderContent]);
+  }, [projectId, router, toast, t]);
   
   // Refetch content when filter or folder changes
   useEffect(() => {
-    // Don't refetch if searching
-    if (!isSearching) {
+    // This effect now correctly handles fetching content when not searching
+    if (!isSearching && projectId) {
         fetchInitialFolderContent(currentUrlFolderId, assetFilter);
     }
-  }, [assetFilter, currentUrlFolderId, fetchInitialFolderContent, isSearching]);
+  }, [assetFilter, currentUrlFolderId, fetchInitialFolderContent, isSearching, projectId]);
 
 
   useEffect(() => {
     loadProjectData();
-  }, [projectId]);
+  }, [projectId, loadProjectData]); // loadProjectData is now memoized correctly
 
   // Offline Sync
   useEffect(() => {
@@ -235,6 +237,9 @@ export default function ProjectPage() {
           setIsSearching(true);
       } else {
           setIsSearching(false);
+          // When search is cleared, we must also clear the displayed assets to avoid clashes
+          // before the folder content re-fetches via the other useEffect.
+          setDisplayedAssets([]);
       }
   }, [deferredSearchTerm]);
 
@@ -265,6 +270,11 @@ export default function ProjectPage() {
 
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
+    
+    // Create a Set of all offline item IDs for quick lookup
+    const offlineItemIds = new Set(
+        offlineQueue.map(action => 'localId' in action ? action.localId : 'assetId' in action ? action.assetId : action.folderId)
+    );
 
     const offlineFoldersForView = offlineQueue
       .filter(action => action.type === 'add-folder' && action.projectId === projectId && (action.payload.parentId || null) === currentUrlFolderId)
@@ -273,12 +283,8 @@ export default function ProjectPage() {
     const offlineAssetsForView = offlineQueue
       .filter(action => action.type === 'add-asset' && action.projectId === projectId && (action.payload.folderId || null) === currentUrlFolderId)
       .map(action => ({ ...(action as any).payload, id: (action as any).localId, isOffline: true }));
-
-    const offlineItemIds = new Set([
-      ...offlineFoldersForView.map(f => f.id),
-      ...offlineAssetsForView.map(a => a.id),
-    ]);
-
+    
+    // Filter online items to exclude any that are still in the offline queue (even if synced but UI not updated)
     const uniqueOnlineFolders = allProjectFolders.filter(
         f => f.parentId === (currentUrlFolderId || null) && !offlineItemIds.has(f.id)
     );
