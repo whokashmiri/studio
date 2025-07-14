@@ -264,26 +264,38 @@ export default function ProjectPage() {
   }, [project, currentUrlFolderId, getFolderPath]);
 
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
-    const onlineFolderIds = new Set(allProjectFolders.map(f => f.id));
-    const onlineAssetIds = new Set(displayedAssets.map(a => a.id));
     const offlineQueue = OfflineService.getOfflineQueue();
   
+    // Filter offline folders based on the current view context
     const offlineFoldersForView = offlineQueue
-      .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId && !onlineFolderIds.has(a.localId))
+      .filter(a => 
+        a.type === 'add-folder' && 
+        a.projectId === projectId && 
+        (a.payload.parentId || null) === currentUrlFolderId
+      )
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
-  
+
+    // Get online folders for the current view and de-duplicate with offline ones
+    const onlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
+    const uniqueOnlineFolders = allProjectFolders.filter(f => 
+      f.parentId === (currentUrlFolderId || null) && !onlineFolderIds.has(f.id)
+    );
+    
+    // Filter offline assets based on the current view context
     const offlineAssetsForView = offlineQueue
-      .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId && !onlineAssetIds.has(a.localId))
+      .filter(a => 
+        a.type === 'add-asset' && 
+        a.projectId === projectId && 
+        (a.payload.folderId || null) === currentUrlFolderId
+      )
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
+
+    // Get online assets for the current view and de-duplicate with offline ones
+    const onlineAssetIds = new Set(offlineAssetsForView.map(a => a.id));
+    const uniqueOnlineAssets = displayedAssets.filter(a => !onlineAssetIds.has(a.id));
   
-    const currentOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null));
-    
-    // Combine and ensure uniqueness to prevent key errors
-    const displayedAssetIds = new Set(displayedAssets.map(a => a.id));
-    const uniqueOfflineAssets = offlineAssetsForView.filter(oa => !displayedAssetIds.has(oa.id));
-    
-    const finalFolders = [...offlineFoldersForView, ...currentOnlineFolders];
-    const finalAssets = [...uniqueOfflineAssets, ...displayedAssets];
+    const finalFolders = [...offlineFoldersForView, ...uniqueOnlineFolders];
+    const finalAssets = [...offlineAssetsForView, ...uniqueOnlineAssets];
   
     return { 
       finalFoldersToDisplay: finalFolders, 
@@ -806,7 +818,7 @@ export default function ProjectPage() {
                       searchTerm={deferredSearchTerm}
                       assetFilter={assetFilter}
                       onEditAsset={handleEditAsset}
-                      onPreviewAsset={handleOpenImagePreviewModal}
+                      onPreviewAsset={onPreviewAsset}
                       loadingAssetId={loadingAssetId}
                       foldersMap={foldersMap}
                   />
