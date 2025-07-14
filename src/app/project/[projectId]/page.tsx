@@ -148,14 +148,14 @@ export default function ProjectPage() {
   }, [hasMoreAssets, isFetchingMoreAssets, loadMoreAssets, currentUrlFolderId]); // Re-create observer when folder changes
 
 
-  const fetchInitialFolderContent = useCallback(async (folderId: string | null) => {
+  const fetchInitialFolderContent = useCallback(async (folderId: string | null, filter: 'all' | 'done' | 'notDone') => {
       setIsContentLoading(true);
       setDisplayedAssets([]);
       setLastVisibleAssetDoc(null);
       setHasMoreAssets(true);
 
       try {
-          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, assetFilter, 20);
+          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, filter, 20);
           setDisplayedAssets(assets);
           setLastVisibleAssetDoc(lastDoc);
           setHasMoreAssets(lastDoc !== null);
@@ -165,7 +165,7 @@ export default function ProjectPage() {
       } finally {
           setIsContentLoading(false);
       }
-  }, [projectId, assetFilter, toast]);
+  }, [projectId, toast]);
 
   const loadProjectData = useCallback(async () => {
     if (!projectId) return;
@@ -188,7 +188,7 @@ export default function ProjectPage() {
       setAllProjectFolders(projectFolders);
       setAllProjectAssets(allProjAssets); // For asset counts
       
-      await fetchInitialFolderContent(currentUrlFolderId);
+      await fetchInitialFolderContent(currentUrlFolderId, assetFilter);
 
     } catch (error) {
       console.error("Error loading project data:", error);
@@ -197,13 +197,13 @@ export default function ProjectPage() {
       setIsLoading(false);
       setLoadingFolderId(null);
     }
-  }, [projectId, router, toast, t, fetchInitialFolderContent, currentUrlFolderId]);
+  }, [projectId, router, toast, t, currentUrlFolderId, assetFilter, fetchInitialFolderContent]);
   
   // Refetch content when filter changes
   useEffect(() => {
     // Don't refetch if searching
     if (!isSearching) {
-        fetchInitialFolderContent(currentUrlFolderId);
+        fetchInitialFolderContent(currentUrlFolderId, assetFilter);
     }
   }, [assetFilter, currentUrlFolderId, fetchInitialFolderContent, isSearching]);
 
@@ -270,20 +270,23 @@ export default function ProjectPage() {
     const offlineFoldersForView = offlineQueue
       .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
-    const offlineFolderIds = new Set(offlineFoldersForView.map(f => f.id));
-
+    
     const offlineAssetsForView = offlineQueue
       .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
       .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
-    const offlineAssetIds = new Set(offlineAssetsForView.map(a => a.id));
+
+    const offlineItemIds = new Set([
+        ...offlineFoldersForView.map(f => f.id),
+        ...offlineAssetsForView.map(a => a.id),
+    ]);
 
     // Filter online items to exclude any that are already represented in the offline list
     const uniqueOnlineFolders = allProjectFolders.filter(
-        f => f.parentId === (currentUrlFolderId || null) && !offlineFolderIds.has(f.id)
+        f => f.parentId === (currentUrlFolderId || null) && !offlineItemIds.has(f.id)
     );
     
     // Explicitly filter out online assets that are also in the offline queue to prevent duplicates
-    const uniqueOnlineAssets = displayedAssets.filter(a => !offlineAssetIds.has(a.id));
+    const uniqueOnlineAssets = displayedAssets.filter(a => !offlineItemIds.has(a.id));
 
     // Combine the unique lists, with offline items first for immediate visibility
     return {
