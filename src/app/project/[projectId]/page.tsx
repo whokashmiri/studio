@@ -199,7 +199,7 @@ export default function ProjectPage() {
     }
   }, [projectId, router, toast, t, currentUrlFolderId, assetFilter, fetchInitialFolderContent]);
   
-  // Refetch content when filter changes
+  // Refetch content when filter or folder changes
   useEffect(() => {
     // Don't refetch if searching
     if (!isSearching) {
@@ -266,22 +266,19 @@ export default function ProjectPage() {
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
 
-    // 1. Get all offline items for the current view
+    // 1. Get all offline items for the current view (folders and assets)
     const offlineFoldersForView = offlineQueue
       .filter(a => a.type === 'add-folder' && a.projectId === projectId && (a.payload.parentId || null) === currentUrlFolderId)
-      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType));
+      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as FolderType & { isOffline: true }));
 
     const offlineAssetsForView = offlineQueue
       .filter(a => a.type === 'add-asset' && a.projectId === projectId && (a.payload.folderId || null) === currentUrlFolderId)
-      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset));
+      .map(a => ({ ...a.payload, id: a.localId, isOffline: true } as Asset & { isOffline: true }));
 
-    // 2. Create a Set of all offline item IDs for efficient lookup
-    const offlineItemIds = new Set([
-        ...offlineFoldersForView.map(f => f.id),
-        ...offlineAssetsForView.map(a => a.id),
-    ]);
+    // 2. Create a Set of all offline item LOCAL IDs for efficient lookup
+    const offlineItemIds = new Set(offlineQueue.map(item => 'localId' in item ? item.localId : 'assetId' in item ? item.assetId : item.folderId));
 
-    // 3. Filter online items to exclude any that are already represented in the offline list
+    // 3. Filter online items to exclude any that are already represented in the offline list by their real ID
     const uniqueOnlineFolders = allProjectFolders.filter(
         f => f.parentId === (currentUrlFolderId || null) && !offlineItemIds.has(f.id)
     );
