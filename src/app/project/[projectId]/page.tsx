@@ -291,6 +291,7 @@ export default function ProjectPage() {
     };
 }, [allProjectFolders, displayedAssets, projectId, currentUrlFolderId]);
 
+
   useEffect(() => {
     if (!isLoading && currentUrlFolderId && allProjectFolders.length > 0 && !foldersMap.has(currentUrlFolderId)) {
         toast({ title: "Error", description: t('folderNotFoundOrInvalid', "Folder not found or invalid for this project."), variant: "destructive" });
@@ -502,6 +503,11 @@ export default function ProjectPage() {
     })();
   }, [isOnline, project, toast, t, loadProjectData]);
 
+  const onPreviewAsset = useCallback((asset: Asset) => {
+    if(asset.isUploading) return;
+    setAssetToPreview(asset);
+    setIsImagePreviewModalOpen(true);
+  }, []);
 
   const handleOpenImagePreviewModal = useCallback((asset: Asset) => {
     if(asset.isUploading) return;
@@ -513,10 +519,6 @@ export default function ProjectPage() {
     setIsImagePreviewModalOpen(false);
     setAssetToPreview(null);
   }, []);
-  
-  const onPreviewAsset = useCallback((asset: Asset) => {
-    handleOpenImagePreviewModal(asset);
-  }, [handleOpenImagePreviewModal]);
   
   const handleFileImport = async () => {
     if (!fileToImport || !project || !currentUser) return;
@@ -1025,5 +1027,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
-    
