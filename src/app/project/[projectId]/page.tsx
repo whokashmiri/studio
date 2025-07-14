@@ -279,8 +279,11 @@ export default function ProjectPage() {
     const currentOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null));
     
     // Combine and ensure uniqueness to prevent key errors
+    const displayedAssetIds = new Set(displayedAssets.map(a => a.id));
+    const uniqueOfflineAssets = offlineAssetsForView.filter(oa => !displayedAssetIds.has(oa.id));
+    
     const finalFolders = [...offlineFoldersForView, ...currentOnlineFolders];
-    const finalAssets = [...offlineAssetsForView, ...displayedAssets];
+    const finalAssets = [...uniqueOfflineAssets, ...displayedAssets];
   
     return { 
       finalFoldersToDisplay: finalFolders, 
@@ -510,6 +513,10 @@ export default function ProjectPage() {
     setIsImagePreviewModalOpen(false);
     setAssetToPreview(null);
   }, []);
+  
+  const onPreviewAsset = useCallback((asset: Asset) => {
+    handleOpenImagePreviewModal(asset);
+  }, [handleOpenImagePreviewModal]);
   
   const handleFileImport = async () => {
     if (!fileToImport || !project || !currentUser) return;
