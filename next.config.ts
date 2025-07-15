@@ -33,6 +33,7 @@ const baseNextConfig: NextConfig = {
     allowedDevOrigins: [
       'https://6000-firebase-studio-1748928733161.cluster-oayqgyglpfgseqclbygurw4xd4.cloudworkstations.dev',
       'https://9000-firebase-studio-1748928733161.cluster-oayqgyglpfgseqclbygurw4xd4.cloudworkstations.dev',
+      'https://9002-firebase-studio-1748928733161.cluster-oayqgyglpfgseqclbygurw4xd4.cloudworkstations.dev',
     ],
   },
 };
@@ -52,4 +53,5 @@ const finalConfig: NextConfig = process.env.NODE_ENV === 'production'
 
 
 export default finalConfig;
+
 

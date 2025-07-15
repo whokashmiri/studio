@@ -478,7 +478,7 @@ const translations: Record<Language, Record<string, string>> = {
     markAssetAsDone: "Mark Asset as Done",
     markAssetAsDoneDesc: "A \"Done\" asset will be hidden from lists and searches.",
     activeAssetsFilter: "Active",
-    completedAssetsFilter: "Completed",
+    completedAssetsFilter: "Completedd",
     totalAssetsStatLabel: "Total Assets in Company",
     reviewingFolder: "Reviewing folder:",
     reviewingProjectRoot: "Reviewing project root assets",
