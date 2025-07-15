@@ -341,6 +341,7 @@ export default function ProjectPage() {
       projectId: project.id,
       parentId: newFolderParentContext ? newFolderParentContext.id : null,
     };
+    
 
     if (isOnline) {
       try {
