@@ -287,10 +287,9 @@ export default function ReviewAllAssetsPage() {
     }
   }, [assetToMarkActive, t, toast]);
   
-  const { activeAssets, completedAssets, rootFolders, rootAssets } = useMemo(() => {
-    const isRootSelected = !selectedFolderId;
-    const assetsInScope = isRootSelected ? projectAssets.filter(asset => !asset.folderId) : projectAssets.filter(asset => asset.folderId === selectedFolderId);
-
+  const { activeAssets, completedAssets, subFolders, currentAssets } = useMemo(() => {
+    const assetsInScope = projectAssets.filter(asset => (asset.folderId || null) === selectedFolderId);
+    
     const active: Asset[] = [];
     const completed: Asset[] = [];
     
@@ -302,8 +301,8 @@ export default function ReviewAllAssetsPage() {
     return { 
         activeAssets: active, 
         completedAssets: completed,
-        rootFolders: projectFolders.filter(f => f.parentId === null).sort((a,b) => a.name.localeCompare(b.name)),
-        rootAssets: projectAssets.filter(a => a.folderId === null),
+        subFolders: projectFolders.filter(f => f.parentId === selectedFolderId).sort((a,b) => a.name.localeCompare(b.name)),
+        currentAssets: assetsInScope, // All assets in current folder/root
     };
   }, [projectAssets, projectFolders, selectedFolderId]);
 
@@ -441,30 +440,20 @@ export default function ReviewAllAssetsPage() {
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {!selectedFolderId ? (
-                            <>
-                                <Card>
-                                    <CardHeader><CardTitle>{t('folders', 'Folders')} ({rootFolders.length})</CardTitle></CardHeader>
-                                    <CardContent>
-                                        <ScrollArea className="h-60"><div className="space-y-2 pr-2">
-                                            {rootFolders.length > 0 ? rootFolders.map(folder => (
-                                                <FolderListItem key={folder.id} folder={folder} onSelect={handleSelectFolder} isActive={false} assetCount={0}/>
-                                            )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noFoldersInProject', 'This project has no folders yet.')}</p>}
-                                        </div></ScrollArea>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader><CardTitle>{t('assetsInProjectRoot', 'Assets in Project Root')} ({rootAssets.length})</CardTitle></CardHeader>
-                                    <CardContent>
-                                        <ScrollArea className="h-60"><div className="space-y-2 pr-2">
-                                            {rootAssets.length > 0 ? rootAssets.map(asset => (
-                                                <AssetListItem key={asset.id} asset={asset} onSelect={handleOpenImagePreview} isActive={assetToPreview?.id === asset.id} isCompletedView={asset.isDone ?? false} onMarkActive={promptMarkAssetAsActive}/>
-                                            )) : <p className="text-sm text-muted-foreground p-4 text-center">{t('noAssetsInFolder', 'No assets in this folder.')}</p>}
-                                        </div></ScrollArea>
-                                    </CardContent>
-                                </Card>
-                            </>
-                        ) : (
+                         {subFolders.length > 0 && (
+                            <Card>
+                                <CardHeader><CardTitle>{t('folders', 'Folders')} ({subFolders.length})</CardTitle></CardHeader>
+                                <CardContent>
+                                    <ScrollArea className="h-60"><div className="space-y-2 pr-2">
+                                        {subFolders.map(folder => (
+                                            <FolderListItem key={folder.id} folder={folder} onSelect={handleSelectFolder} isActive={false} assetCount={0}/>
+                                        ))}
+                                    </div></ScrollArea>
+                                </CardContent>
+                            </Card>
+                        )}
+                         
+                        {(activeAssets.length > 0 || completedAssets.length > 0) ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Card>
                                     <CardHeader><CardTitle className="flex items-center gap-2"><List className="h-5 w-5 text-primary"/>{t('activeAssets', 'Active Assets')} ({activeAssets.length})</CardTitle></CardHeader>
@@ -483,6 +472,8 @@ export default function ReviewAllAssetsPage() {
                                     </div></ScrollArea></CardContent>
                                 </Card>
                             </div>
+                        ) : (
+                             subFolders.length === 0 && <p className="text-sm text-muted-foreground p-4 text-center border rounded-md">{t('noAssetsInFolder', 'No assets in this folder.')}</p>
                         )}
                     </div>
                 )}
@@ -524,8 +515,3 @@ export default function ReviewAllAssetsPage() {
     </ReviewContextProvider>
   );
 }
-
-
-    
-
-    
