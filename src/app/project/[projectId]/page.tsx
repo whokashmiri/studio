@@ -202,7 +202,7 @@ export default function ProjectPage() {
     if (projectId && !isSearching) {
         fetchInitialFolderContent(currentUrlFolderId);
     }
-  }, [currentUrlFolderId, projectId, isSearching, assetFilter, fetchInitialFolderContent]);
+  }, [currentUrlFolderId, projectId, isSearching, assetFilter]);
 
 
   useEffect(() => {
@@ -324,6 +324,9 @@ export default function ProjectPage() {
     setSearchTerm('');
     if (folder) {
         setLoadingFolderId(folder.id);
+    } else {
+        // Explicitly set loading to null when navigating to root
+        setLoadingFolderId(null);
     }
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
     router.push(targetPath, { scroll: false }); 
