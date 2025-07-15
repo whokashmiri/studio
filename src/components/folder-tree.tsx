@@ -18,7 +18,6 @@ import { useToast } from '@/hooks/use-toast';
 import React, { useCallback, useMemo } from 'react'; 
 import { AssetCard } from '@/components/asset-card';
 import { FolderGridCard } from '@/components/folder-grid-card';
-import { useDraggable, useDroppable } from '@dnd-kit/core';
 
 interface FolderTreeDisplayProps {
   foldersToDisplay: Folder[];
@@ -40,52 +39,6 @@ interface FolderTreeDisplayProps {
   isAdmin: boolean;
   isOnline: boolean;
 }
-
-const DraggableAsset = ({ asset, children, isAdmin, isOnline }: { asset: Asset; children: React.ReactNode, isAdmin: boolean, isOnline: boolean }) => {
-    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-      id: asset.id,
-      data: { type: 'asset', item: asset },
-      disabled: !isAdmin || asset.isOffline || !isOnline,
-    });
-  
-    if (!isAdmin) return <>{children}</>;
-  
-    return (
-      <div ref={setNodeRef} style={{ opacity: isDragging ? 0.4 : 1 }} {...listeners} {...attributes}>
-        {children}
-      </div>
-    );
-};
-  
-const DraggableAndDroppableFolder = ({ folder, children, isAdmin, isOnline }: { folder: Folder, children: React.ReactNode, isAdmin: boolean, isOnline: boolean }) => {
-    const { setNodeRef: setDroppableRef, isOver } = useDroppable({
-        id: folder.id,
-        data: { type: 'folder', item: folder },
-        disabled: !isAdmin || folder.isOffline || !isOnline,
-    });
-
-    const { attributes, listeners, setNodeRef: setDraggableRef, isDragging } = useDraggable({
-        id: folder.id,
-        data: { type: 'folder', item: folder },
-        disabled: !isAdmin || folder.isOffline || !isOnline,
-    });
-
-    if (!isAdmin) return <>{children}</>;
-
-    const setCombinedRef = (node: HTMLElement | null) => {
-        setDraggableRef(node);
-        setDroppableRef(node);
-    };
-
-    return (
-        <div ref={setCombinedRef} style={{ opacity: isDragging ? 0.4 : 1 }} className={cn(isOver && !isDragging && 'outline outline-2 outline-offset-2 outline-primary rounded-lg transition-all duration-100')}>
-            <div {...listeners} {...attributes}>
-                {children}
-            </div>
-        </div>
-    );
-};
-
 
 export function FolderTreeDisplay({ 
   foldersToDisplay,
@@ -134,8 +87,9 @@ export function FolderTreeDisplay({
         <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
           {combinedItems.map(item => {
             if (item.type === 'folder') {
-                const folderCard = (
+                return (
                     <FolderGridCard
+                        key={`folder-${item.data.id}`}
                         folder={item.data}
                         assetCount={assetCountsByFolder.get(item.data.id)}
                         onSelectFolder={onSelectFolder}
@@ -147,15 +101,11 @@ export function FolderTreeDisplay({
                         isLoading={loadingFolderId === item.data.id}
                     />
                 );
-                return (
-                    <DraggableAndDroppableFolder key={`folder-${item.data.id}`} folder={item.data} isAdmin={isAdmin} isOnline={isOnline}>
-                        {folderCard}
-                    </DraggableAndDroppableFolder>
-                );
             }
             if (item.type === 'asset') {
-                const assetCard = (
+                return (
                     <AssetCard
+                        key={`asset-${item.data.id}`}
                         asset={item.data}
                         onEditAsset={onEditAsset}
                         onDeleteAsset={onDeleteAsset}
@@ -165,11 +115,6 @@ export function FolderTreeDisplay({
                         isLoading={loadingAssetId === item.data.id}
                         isOnline={isOnline}
                     />
-                );
-                return (
-                    <DraggableAsset key={`dnd-asset-${item.data.id}`} asset={item.data} isAdmin={isAdmin} isOnline={isOnline}>
-                        {assetCard}
-                    </DraggableAsset>
                 );
             }
             return null;

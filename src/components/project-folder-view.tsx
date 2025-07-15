@@ -8,7 +8,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Project, Folder as FolderType, Asset } from '@/data/mock-data';
 import { useLanguage } from '@/contexts/language-context';
 import { FolderTreeDisplay } from '@/components/folder-tree';
-import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
 
 
@@ -65,22 +64,8 @@ export function ProjectFolderView({
 
   const isCurrentLocationEmpty = foldersToDisplay.length === 0 && assetsToDisplay.length === 0;
 
-  const { setNodeRef: setRootDroppableRef, isOver: isOverRoot } = useDroppable({
-    id: 'root-droppable',
-    disabled: !isAdmin || !isOnline,
-    data: {
-      type: 'root'
-    }
-  });
-
   return (
-    <div 
-        ref={isAdmin ? setRootDroppableRef : null} 
-        className={cn(
-            'h-full p-1 rounded-lg',
-            isOverRoot && 'bg-primary/10 ring-2 ring-primary ring-inset'
-        )}
-    >
+    <div className='h-full p-1 rounded-lg'>
       <ScrollArea className="h-full pr-3" viewportRef={scrollAreaRef}>
         {isContentLoading ? (
           <div className="flex justify-center items-center h-40">

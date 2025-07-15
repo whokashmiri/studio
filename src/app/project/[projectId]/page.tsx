@@ -19,7 +19,6 @@ import * as OfflineService from '@/lib/offline-service';
 import type { DocumentData } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { uploadMedia } from '@/actions/cloudinary-actions';
-import { DndContext, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import { ProjectFolderView } from '@/components/project-folder-view';
 import { ProjectSearchResults } from '@/components/project-search-results';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
@@ -84,16 +83,6 @@ export default function ProjectPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const loadMoreAssetsRef = useRef<HTMLDivElement>(null);
 
-  // Drag and Drop state
-  const [activeDragItem, setActiveDragItem] = useState<{ id: string; type: 'folder' | 'asset'; data: any } | null>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // User must drag 8px before a drag event is initiated
-      },
-    })
-  );
   
   // This function fetches the assets for the currently selected folder.
   // It's called when you navigate to a different folder or when the filter changes.
@@ -216,8 +205,11 @@ export default function ProjectPage() {
 
 
   useEffect(() => {
-    loadProjectData();
-  }, [projectId]);
+    if (projectId) {
+      loadProjectData();
+    }
+  }, [projectId, loadProjectData]);
+
 
   // Offline Sync
   useEffect(() => {
@@ -677,61 +669,6 @@ export default function ProjectPage() {
     reader.readAsBinaryString(fileToImport);
   };
   
-    const handleDragStart = (event: any) => {
-        if (!isOnline) return;
-        const { active } = event;
-        const itemType = active.data.current?.type;
-        const itemData = active.data.current?.item;
-        if (itemData) {
-            setActiveDragItem({ id: active.id, type: itemType, data: itemData });
-        }
-    };
-
-    const handleDragEnd = async (event: any) => {
-        if (!isOnline) return;
-        setActiveDragItem(null);
-        const { active, over } = event;
-    
-        if (!over || active.id === over.id) {
-            return;
-        }
-
-        const draggedItemId = active.id as string;
-        const draggedItemType = active.data.current?.type as 'folder' | 'asset';
-        const droppedOnId = over.id as string;
-        const droppedOnType = over.data.current?.type;
-
-        if (droppedOnType === 'asset') {
-            toast({ title: "Invalid Move", description: "Cannot move an item into an asset.", variant: "destructive" });
-            return;
-        }
-
-        const newParentId = droppedOnId === 'root-droppable' ? null : droppedOnId;
-    
-        let success = false;
-        try {
-            if (draggedItemType === 'folder') {
-                const draggedFolder = active.data.current.item as FolderType;
-                if (draggedFolder.parentId === newParentId) return; // No change
-                success = await FirestoreService.updateFolder(draggedItemId, { parentId: newParentId });
-            } else if (draggedItemType === 'asset') {
-                const draggedAsset = active.data.current.item as Asset;
-                if (draggedAsset.folderId === newParentId) return; // No change
-                success = await FirestoreService.updateAsset(draggedItemId, { folderId: newParentId });
-            }
-        
-            if (success) {
-                toast({ title: "Item Moved", description: "The item has been moved successfully.", variant: "success-yellow" });
-                await loadProjectData();
-            } else {
-                throw new Error("Update operation failed.");
-            }
-        } catch (error) {
-            console.error("Error moving item:", error);
-            toast({ title: "Error", description: "Failed to move the item.", variant: "destructive" });
-        }
-    };
-
     const handlePaste = async () => {
         if (!clipboardState.itemId || !isOnline || isPasting) return;
     
@@ -925,26 +862,10 @@ export default function ProjectPage() {
         </div>
       </div>
       
-      {isAdmin ? (
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <Card>
-            {mainContent}
-          </Card>
-          <DragOverlay>
-            {activeDragItem ? (
-              <div className="rounded-lg bg-primary text-primary-foreground p-2 shadow-xl flex items-center gap-2">
-                 {activeDragItem.type === 'folder' ? <FolderIcon/> : <FileArchive/>}
-                 <span className="font-semibold text-sm">{activeDragItem.data.name}</span>
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      ) : (
-        <Card>
-          {mainContent}
-        </Card>
-      )}
-
+      <Card>
+        {mainContent}
+      </Card>
+      
       <div className="fixed bottom-0 inset-x-0 p-4 bg-background/80 backdrop-blur-sm border-t z-40">
         <div className="container mx-auto flex justify-center items-center gap-2 flex-wrap">
             <Button 
@@ -1079,5 +1000,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
-    
