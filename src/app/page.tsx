@@ -71,7 +71,7 @@ export default function HomePage() {
     
     fetchUserCompanies();
 
-  }, [authIsLoading, currentUser, router]);
+  }, [authIsLoading, currentUser]);
 
   const handleSelectCompany = (company: Company) => {
     setSelectedCompany(company);
