@@ -6,7 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2, Copy, Scissors, ClipboardPaste } from 'lucide-react';
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2, Copy, Scissors, ClipboardPaste, CheckCircle, ListFilter } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -27,6 +27,7 @@ import { EditFolderModal } from '@/components/modals/edit-folder-modal';
 import { NewAssetModal } from '@/components/modals/new-asset-modal';
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 export default function ProjectPage() {
@@ -74,6 +75,7 @@ export default function ProjectPage() {
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]); // For search results
   const [isSearching, setIsSearching] = useState(false);
+  const [assetFilter, setAssetFilter] = useState<'active' | 'completed' | 'all'>('active');
   
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -102,7 +104,7 @@ export default function ProjectPage() {
       setHasMoreAssets(true);
 
       try {
-          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, 20);
+          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, 20, null, assetFilter);
           setDisplayedAssets(assets);
           setLastVisibleAssetDoc(lastDoc);
           setHasMoreAssets(lastDoc !== null);
@@ -112,7 +114,7 @@ export default function ProjectPage() {
       } finally {
           setIsContentLoading(false);
       }
-  }, [projectId, toast, isSearching]);
+  }, [projectId, toast, isSearching, assetFilter]);
 
   const loadMoreAssets = useCallback(async () => {
     if (isFetchingMoreAssets || !hasMoreAssets || isSearching) return;
@@ -123,7 +125,8 @@ export default function ProjectPage() {
             projectId,
             currentUrlFolderId,
             20,
-            lastVisibleAssetDoc
+            lastVisibleAssetDoc,
+            assetFilter
         );
 
         setDisplayedAssets(prev => [...prev, ...newAssets]);
@@ -135,7 +138,7 @@ export default function ProjectPage() {
     } finally {
         setIsFetchingMoreAssets(false);
     }
-  }, [isFetchingMoreAssets, hasMoreAssets, projectId, currentUrlFolderId, lastVisibleAssetDoc, toast, isSearching]);
+  }, [isFetchingMoreAssets, hasMoreAssets, projectId, currentUrlFolderId, lastVisibleAssetDoc, toast, isSearching, assetFilter]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -175,7 +178,7 @@ export default function ProjectPage() {
       const [foundProject, projectFolders, allProjAssets] = await Promise.all([
         FirestoreService.getProjectById(projectId),
         FirestoreService.getFolders(projectId),
-        FirestoreService.getAllAssetsForProject(projectId), // Keep for counts
+        FirestoreService.getAllAssetsForProject(projectId, 'all'), // Fetch all for counts
       ]);
 
       if (!foundProject) {
@@ -197,12 +200,12 @@ export default function ProjectPage() {
     }
   }, [projectId, router, t, toast]);
   
-  // Refetch content when folder changes
+  // Refetch content when folder or filter changes
   useEffect(() => {
     if (projectId && !isSearching) {
         fetchInitialFolderContent(currentUrlFolderId);
     }
-  }, [currentUrlFolderId, projectId, isSearching, fetchInitialFolderContent]);
+  }, [currentUrlFolderId, projectId, isSearching, fetchInitialFolderContent, assetFilter]);
 
 
   useEffect(() => {
@@ -230,6 +233,8 @@ export default function ProjectPage() {
     const term = deferredSearchTerm.trim();
     if (term) {
         setIsSearching(true);
+        setDisplayedAssets([]);
+        setSearchedAssets([]);
         setIsContentLoading(true);
         FirestoreService.searchAssets(projectId, term, 50, null, 'all').then(({assets, lastDoc}) => {
           setSearchedAssets(assets);
@@ -272,13 +277,9 @@ export default function ProjectPage() {
   
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
-    const offlineFolderIds = new Set(
-      offlineQueue.filter(a => a.type === 'add-folder' || a.type === 'update-folder').map(a => 'localId' in a ? a.localId : a.folderId)
+    const allOfflineItemIds = new Set(
+        offlineQueue.map(a => 'localId' in a ? a.localId : 'folderId' in a ? a.folderId : a.assetId)
     );
-    const offlineAssetIds = new Set(
-      offlineQueue.filter(a => a.type === 'add-asset' || a.type === 'update-asset').map(a => 'localId' in a ? a.localId : a.assetId)
-    );
-    const allOfflineItemIds = new Set([...offlineFolderIds, ...offlineAssetIds]);
   
     const offlineFoldersForView = offlineQueue
       .filter((action): action is Extract<OfflineService.OfflineAction, {type: 'add-folder'}> => 
@@ -808,8 +809,23 @@ export default function ProjectPage() {
           )}
       </CardHeader>
       <CardContent className="transition-colors rounded-b-lg p-2 md:p-4 h-[calc(100vh-25rem)]">
-          <div className="flex justify-end mb-4">
-            <div className="relative w-full max-w-sm">
+        <div className="flex justify-between items-center mb-4 gap-2">
+            {!isSearching && (
+                <Tabs value={assetFilter} onValueChange={(value) => setAssetFilter(value as 'active' | 'completed' | 'all')}>
+                    <TabsList>
+                        <TabsTrigger value="active" className="text-xs sm:text-sm px-2 sm:px-3">
+                           <ListFilter className="mr-1 h-3.5 w-3.5" /> {t('activeAssetsFilter', 'Active')}
+                        </TabsTrigger>
+                        <TabsTrigger value="completed" className="text-xs sm:text-sm px-2 sm:px-3">
+                            <CheckCircle className="mr-1 h-3.5 w-3.5" /> {t('completedAssetsFilter', 'Completed')}
+                        </TabsTrigger>
+                        <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-3">
+                           {t('all', 'All')}
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            )}
+            <div className="relative w-full max-w-sm ml-auto">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                     placeholder={t('searchByNameOrSerial', 'Search by name or serial...')}

@@ -503,7 +503,8 @@ export async function getAssetsPaginated(
   projectId: string,
   folderId: string | null,
   pageSize: number,
-  startAfterDoc?: DocumentData | null
+  startAfterDoc?: DocumentData | null,
+  assetFilter?: 'active' | 'completed' | 'all'
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
   try {
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
@@ -515,6 +516,12 @@ export async function getAssetsPaginated(
       orderBy("name_lowercase"),
       limit(pageSize)
     ];
+
+    if (assetFilter === 'active') {
+        constraints.unshift(where("isDone", "!=", true));
+    } else if (assetFilter === 'completed') {
+        constraints.unshift(where("isDone", "==", true));
+    }
 
     if (startAfterDoc) {
       constraints.push(startAfter(startAfterDoc));
@@ -800,13 +807,20 @@ export async function searchAssets(
   projectId: string,
   searchTerm: string,
   pageSize: number,
-  startAfterDoc?: DocumentData | null
+  startAfterDoc?: DocumentData | null,
+  assetFilter: 'active' | 'completed' | 'all' = 'active'
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
   try {
     const assetsCollectionRef = collection(getDb(), ASSETS_COLLECTION);
     const isSerialSearch = /^\d+(\.\d+)?$/.test(searchTerm.trim()) && searchTerm.trim().length > 0;
 
     const constraints: any[] = [where("projectId", "==", projectId)];
+    
+    if (assetFilter === 'active') {
+      constraints.push(where("isDone", "!=", true));
+    } else if (assetFilter === 'completed') {
+      constraints.push(where("isDone", "==", true));
+    }
 
     if (isSerialSearch) {
       constraints.push(where("serialNumber", "==", Number(searchTerm.trim())));
@@ -842,3 +856,4 @@ export async function searchAssets(
     return { assets: [], lastDoc: null };
   }
 }
+

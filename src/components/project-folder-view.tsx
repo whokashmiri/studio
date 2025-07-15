@@ -10,7 +10,6 @@ import { useLanguage } from '@/contexts/language-context';
 import { FolderTreeDisplay } from '@/components/folder-tree';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 interface ProjectFolderViewProps {
