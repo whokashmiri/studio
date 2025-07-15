@@ -198,7 +198,7 @@ export default function ProjectPage() {
       setIsLoading(false);
       setLoadingFolderId(null);
     }
-  }, [projectId, router, toast, t]);
+  }, [projectId, router, t, toast]);
   
   // Refetch content when filter or folder changes
   useEffect(() => {
@@ -235,10 +235,8 @@ export default function ProjectPage() {
         setIsSearching(true);
     } else {
         setIsSearching(false);
-        // CRITICAL FIX: Clear search results when term is cleared
         setSearchedAssets([]); 
-        // Also clear paginated assets to force a refetch of folder content
-        setDisplayedAssets([]); 
+        setDisplayedAssets([]);
     }
   }, [deferredSearchTerm]);
 
@@ -269,13 +267,7 @@ export default function ProjectPage() {
   
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
-    
-    // Create a Set of all offline item IDs for quick lookup
-    const offlineItemIds = new Set(
-        offlineQueue
-            .map(action => 'localId' in action ? action.localId : 'assetId' in action ? action.assetId : action.folderId)
-            .filter(Boolean)
-    );
+    const offlineItemIds = new Set(offlineQueue.map(action => 'localId' in action ? action.localId : 'assetId' in action ? action.assetId : action.folderId).filter(Boolean));
 
     const offlineFoldersForView = offlineQueue
       .filter(action => action.type === 'add-folder' && action.projectId === projectId && (action.payload.parentId || null) === currentUrlFolderId)
@@ -284,17 +276,13 @@ export default function ProjectPage() {
     const offlineAssetsForView = offlineQueue
       .filter(action => action.type === 'add-asset' && action.projectId === projectId && (action.payload.folderId || null) === currentUrlFolderId)
       .map(action => ({ ...(action as any).payload, id: (action as any).localId, isOffline: true }));
-    
-    // Filter online items to exclude any that are still in the offline queue (even if synced but UI not updated)
-    const uniqueOnlineFolders = allProjectFolders.filter(
-        f => f.parentId === (currentUrlFolderId || null) && !offlineItemIds.has(f.id)
-    );
-    
+
+    const uniqueOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null) && !offlineItemIds.has(f.id));
     const uniqueOnlineAssets = displayedAssets.filter(a => !offlineItemIds.has(a.id));
 
     return {
-        finalFoldersToDisplay: [...offlineFoldersForView, ...uniqueOnlineFolders],
-        finalAssetsToDisplay: [...offlineAssetsForView, ...uniqueOnlineAssets],
+      finalFoldersToDisplay: [...offlineFoldersForView, ...uniqueOnlineFolders],
+      finalAssetsToDisplay: [...offlineAssetsForView, ...uniqueOnlineAssets],
     };
   }, [allProjectFolders, displayedAssets, projectId, currentUrlFolderId]);
 
