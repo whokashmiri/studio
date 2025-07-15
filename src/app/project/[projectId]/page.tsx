@@ -95,7 +95,13 @@ export default function ProjectPage() {
       },
     })
   );
-
+  
+  // =================================================================================
+  // == FUNCTION 1 (Folder Content Fetching)                                        ==
+  // =================================================================================
+  // This function fetches the assets for the currently selected folder. It's called
+  // when you navigate to a different folder or when the search is cleared.
+  // A race condition can occur if this runs while old search data is still in state.
   const fetchInitialFolderContent = useCallback(async (folderId: string | null) => {
       if (isSearching) return; // Do not fetch folder content while searching
       setIsContentLoading(true);
@@ -210,7 +216,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     loadProjectData();
-  }, [projectId]);
+  }, [loadProjectData]);
 
   // Offline Sync
   useEffect(() => {
@@ -228,7 +234,13 @@ export default function ProjectPage() {
     }
   }, [isOnline, loadProjectData, toast]);
 
-  // --- Search Activation ---
+  // =================================================================================
+  // == FUNCTION 2 (Search Activation)                                              ==
+  // =================================================================================
+  // This `useEffect` hook handles the search functionality. It activates when the user
+  // types in the search box. The key part related to the error is the `else` block,
+  // which runs when the search box is cleared. If the states (`searchedAssets`, 
+  // `displayedAssets`) are not reset correctly here, it leads to duplicate data.
   useEffect(() => {
     const term = deferredSearchTerm.trim();
     if (term) {
@@ -243,9 +255,9 @@ export default function ProjectPage() {
         });
     } else {
         if (isSearching) { // Only when transitioning from searching to not-searching
-          setIsSearching(false);
           setSearchedAssets([]); 
           setDisplayedAssets([]); // Fix: Explicitly clear assets before folder view re-fetches
+          setIsSearching(false);
         }
     }
   }, [deferredSearchTerm, projectId, isSearching]);
@@ -275,12 +287,22 @@ export default function ProjectPage() {
     return getFolderPath(currentUrlFolderId);
   }, [project, currentUrlFolderId, getFolderPath]);
   
+  // =================================================================================
+  // == FUNCTION 3 (Data Combination for Display)                                   ==
+  // =================================================================================
+  // This `useMemo` hook is where the final list of items to display is assembled.
+  // It combines data from the `offlineQueue` with the online data (`allProjectFolders`,
+  // `displayedAssets`). The "duplicate key" error happens here if this function
+  // receives data where an item (e.g., an asset) is present in both the offline
+  // queue and the `displayedAssets` list simultaneously.
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
+    // Create a set of all offline item IDs for quick lookups to prevent duplicates.
     const allOfflineItemIds = new Set(
         offlineQueue.map(a => 'localId' in a ? a.localId : 'folderId' in a ? a.folderId : a.assetId)
     );
   
+    // Get offline folders that belong in the current view.
     const offlineFoldersForView = offlineQueue
       .filter((action): action is Extract<OfflineService.OfflineAction, {type: 'add-folder'}> => 
         action.type === 'add-folder' &&
@@ -289,6 +311,7 @@ export default function ProjectPage() {
       )
       .map(action => ({ ...action.payload, id: action.localId, isOffline: true }));
   
+    // Get offline assets that belong in the current view.
     const offlineAssetsForView = offlineQueue
       .filter((action): action is Extract<OfflineService.OfflineAction, {type: 'add-asset'}> => 
         action.type === 'add-asset' &&
@@ -297,11 +320,14 @@ export default function ProjectPage() {
       )
       .map(action => ({ ...action.payload, id: action.localId, isOffline: true, photos: [], videos: [] }));
   
+    // Get online folders, ensuring they are not duplicates of pending offline folders.
     const uniqueOnlineFolders = allProjectFolders.filter(
       f => f.parentId === (currentUrlFolderId || null) && !allOfflineItemIds.has(f.id)
     );
+    // Get online assets, ensuring they are not duplicates of pending offline assets.
     const uniqueOnlineAssets = displayedAssets.filter(a => !allOfflineItemIds.has(a.id));
   
+    // Return the final combined and de-duplicated lists for rendering.
     return {
       finalFoldersToDisplay: [...offlineFoldersForView, ...uniqueOnlineFolders],
       finalAssetsToDisplay: [...offlineAssetsForView, ...uniqueOnlineAssets],
@@ -1061,4 +1087,5 @@ export default function ProjectPage() {
     </div>
   );
 }
+
 
