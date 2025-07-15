@@ -202,7 +202,7 @@ export default function ProjectPage() {
     if (projectId && !isSearching) {
         fetchInitialFolderContent(currentUrlFolderId);
     }
-  }, [currentUrlFolderId, projectId, isSearching, assetFilter]);
+  }, [currentUrlFolderId, projectId, isSearching, assetFilter, fetchInitialFolderContent]);
 
 
   useEffect(() => {
