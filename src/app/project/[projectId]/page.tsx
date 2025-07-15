@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useDeferredValue, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -105,7 +104,7 @@ export default function ProjectPage() {
   const fetchInitialFolderContent = useCallback(async (folderId: string | null) => {
       if (isSearching) return; // Do not fetch folder content while searching
       setIsContentLoading(true);
-      setDisplayedAssets([]);
+      setDisplayedAssets([]); // Explicitly clear displayed assets before fetching new ones
       setLastVisibleAssetDoc(null);
       setHasMoreAssets(true);
 
@@ -216,7 +215,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     loadProjectData();
-  }, [loadProjectData]);
+  }, [projectId]);
 
   // Offline Sync
   useEffect(() => {
@@ -1087,5 +1086,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
-
