@@ -207,7 +207,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     loadProjectData();
-  }, [loadProjectData, projectId]);
+  }, [loadProjectData]);
 
   // Offline Sync
   useEffect(() => {
@@ -230,13 +230,20 @@ export default function ProjectPage() {
     const term = deferredSearchTerm.trim();
     if (term) {
         setIsSearching(true);
-        setDisplayedAssets([]);
+        setIsContentLoading(true);
+        FirestoreService.searchAssets(projectId, term, 50, null, 'all').then(({assets, lastDoc}) => {
+          setSearchedAssets(assets);
+          setLastVisibleAssetDoc(lastDoc); // Or a new state for search pagination if needed
+          setIsContentLoading(false);
+        });
     } else {
-        setIsSearching(false);
-        setSearchedAssets([]); 
-        setDisplayedAssets([]);
+        if (isSearching) { // Only when transitioning from searching to not-searching
+          setIsSearching(false);
+          setSearchedAssets([]); 
+          setDisplayedAssets([]); // Fix: Explicitly clear assets before folder view re-fetches
+        }
     }
-  }, [deferredSearchTerm]);
+  }, [deferredSearchTerm, projectId, isSearching, toast]);
 
   // --- Memoized Data and Folder Logic ---
   const foldersMap = useMemo(() => new Map(allProjectFolders.map(f => [f.id, f])), [allProjectFolders]);
@@ -265,19 +272,35 @@ export default function ProjectPage() {
   
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
-    const offlineItemIds = new Set(offlineQueue.map(action => 'localId' in action ? action.localId : 'assetId' in action ? action.assetId : action.folderId).filter(Boolean));
-
+    const offlineFolderIds = new Set(
+      offlineQueue.filter(a => a.type === 'add-folder' || a.type === 'update-folder').map(a => 'localId' in a ? a.localId : a.folderId)
+    );
+    const offlineAssetIds = new Set(
+      offlineQueue.filter(a => a.type === 'add-asset' || a.type === 'update-asset').map(a => 'localId' in a ? a.localId : a.assetId)
+    );
+    const allOfflineItemIds = new Set([...offlineFolderIds, ...offlineAssetIds]);
+  
     const offlineFoldersForView = offlineQueue
-      .filter(action => action.type === 'add-folder' && action.projectId === projectId && (action.payload.parentId || null) === currentUrlFolderId)
-      .map(action => ({ ...(action as any).payload, id: (action as any).localId, isOffline: true }));
-
+      .filter((action): action is Extract<OfflineService.OfflineAction, {type: 'add-folder'}> => 
+        action.type === 'add-folder' &&
+        action.projectId === projectId &&
+        (action.payload.parentId || null) === currentUrlFolderId
+      )
+      .map(action => ({ ...action.payload, id: action.localId, isOffline: true }));
+  
     const offlineAssetsForView = offlineQueue
-      .filter(action => action.type === 'add-asset' && action.projectId === projectId && (action.payload.folderId || null) === currentUrlFolderId)
-      .map(action => ({ ...(action as any).payload, id: (action as any).localId, isOffline: true }));
-
-    const uniqueOnlineFolders = allProjectFolders.filter(f => f.parentId === (currentUrlFolderId || null) && !offlineItemIds.has(f.id));
-    const uniqueOnlineAssets = displayedAssets.filter(a => !offlineItemIds.has(a.id));
-
+      .filter((action): action is Extract<OfflineService.OfflineAction, {type: 'add-asset'}> => 
+        action.type === 'add-asset' &&
+        action.projectId === projectId &&
+        (action.payload.folderId || null) === currentUrlFolderId
+      )
+      .map(action => ({ ...action.payload, id: action.localId, isOffline: true, photos: [], videos: [] }));
+  
+    const uniqueOnlineFolders = allProjectFolders.filter(
+      f => f.parentId === (currentUrlFolderId || null) && !allOfflineItemIds.has(f.id)
+    );
+    const uniqueOnlineAssets = displayedAssets.filter(a => !allOfflineItemIds.has(a.id));
+  
     return {
       finalFoldersToDisplay: [...offlineFoldersForView, ...uniqueOnlineFolders],
       finalAssetsToDisplay: [...offlineAssetsForView, ...uniqueOnlineAssets],
@@ -1022,3 +1045,4 @@ export default function ProjectPage() {
     </div>
   );
 }
+
