@@ -210,7 +210,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     loadProjectData();
-  }, [loadProjectData]);
+  }, [projectId]);
 
   // Offline Sync
   useEffect(() => {
@@ -233,8 +233,8 @@ export default function ProjectPage() {
     const term = deferredSearchTerm.trim();
     if (term) {
         setIsSearching(true);
-        setDisplayedAssets([]);
         setSearchedAssets([]);
+        setDisplayedAssets([]); // Explicitly clear folder assets
         setIsContentLoading(true);
         FirestoreService.searchAssets(projectId, term, 50, null, 'all').then(({assets, lastDoc}) => {
           setSearchedAssets(assets);
@@ -248,7 +248,7 @@ export default function ProjectPage() {
           setDisplayedAssets([]); // Fix: Explicitly clear assets before folder view re-fetches
         }
     }
-  }, [deferredSearchTerm, projectId, isSearching, toast]);
+  }, [deferredSearchTerm, projectId, isSearching]);
 
   // --- Memoized Data and Folder Logic ---
   const foldersMap = useMemo(() => new Map(allProjectFolders.map(f => [f.id, f])), [allProjectFolders]);
