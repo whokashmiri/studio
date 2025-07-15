@@ -502,7 +502,6 @@ export async function getAssets(projectId: string, folderId: string | null): Pro
 export async function getAssetsPaginated(
   projectId: string,
   folderId: string | null,
-  filter: 'all' | 'done' | 'notDone',
   pageSize: number,
   startAfterDoc?: DocumentData | null
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
@@ -516,14 +515,6 @@ export async function getAssetsPaginated(
       orderBy("name_lowercase"),
       limit(pageSize)
     ];
-
-    if (filter === 'done') {
-      constraints.unshift(where("isDone", "==", true));
-    } else if (filter === 'notDone') {
-      // isDone can be false or not exist, which is handled by this.
-      constraints.unshift(where("isDone", "in", [false, null]));
-    }
-    // For 'all', we don't add an `isDone` filter.
 
     if (startAfterDoc) {
       constraints.push(startAfter(startAfterDoc));
@@ -808,7 +799,6 @@ export async function getAllAssetsForCompany(companyId: string, filter?: 'active
 export async function searchAssets(
   projectId: string,
   searchTerm: string,
-  filter: 'all' | 'done' | 'notDone',
   pageSize: number,
   startAfterDoc?: DocumentData | null
 ): Promise<{ assets: Asset[]; lastDoc: DocumentData | null }> {
@@ -817,13 +807,6 @@ export async function searchAssets(
     const isSerialSearch = /^\d+(\.\d+)?$/.test(searchTerm.trim()) && searchTerm.trim().length > 0;
 
     const constraints: any[] = [where("projectId", "==", projectId)];
-
-    // Add the filter condition only if it's not 'all'
-    if (filter === 'done') {
-      constraints.push(where("isDone", "==", true));
-    } else if (filter === 'notDone') {
-      constraints.push(where("isDone", "in", [false, null]));
-    }
 
     if (isSerialSearch) {
       constraints.push(where("serialNumber", "==", Number(searchTerm.trim())));

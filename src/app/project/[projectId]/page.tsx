@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useDeferredValue, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -74,9 +75,6 @@ export default function ProjectPage() {
   const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]); // For search results
   const [isSearching, setIsSearching] = useState(false);
   
-  // State for asset filtering
-  const [assetFilter, setAssetFilter] = useState<'all' | 'done' | 'notDone'>('notDone');
-  
   const { toast } = useToast();
   const { t } = useLanguage();
   const { currentUser } = useAuth();
@@ -96,7 +94,7 @@ export default function ProjectPage() {
     })
   );
 
-  const fetchInitialFolderContent = useCallback(async (folderId: string | null, filter: 'all' | 'done' | 'notDone') => {
+  const fetchInitialFolderContent = useCallback(async (folderId: string | null) => {
       if (isSearching) return; // Do not fetch folder content while searching
       setIsContentLoading(true);
       setDisplayedAssets([]);
@@ -104,7 +102,7 @@ export default function ProjectPage() {
       setHasMoreAssets(true);
 
       try {
-          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, filter, 20);
+          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, 20);
           setDisplayedAssets(assets);
           setLastVisibleAssetDoc(lastDoc);
           setHasMoreAssets(lastDoc !== null);
@@ -124,7 +122,6 @@ export default function ProjectPage() {
         const { assets: newAssets, lastDoc } = await FirestoreService.getAssetsPaginated(
             projectId,
             currentUrlFolderId,
-            assetFilter,
             20,
             lastVisibleAssetDoc
         );
@@ -138,7 +135,7 @@ export default function ProjectPage() {
     } finally {
         setIsFetchingMoreAssets(false);
     }
-  }, [isFetchingMoreAssets, hasMoreAssets, projectId, currentUrlFolderId, assetFilter, lastVisibleAssetDoc, toast, isSearching]);
+  }, [isFetchingMoreAssets, hasMoreAssets, projectId, currentUrlFolderId, lastVisibleAssetDoc, toast, isSearching]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -200,17 +197,17 @@ export default function ProjectPage() {
     }
   }, [projectId, router, t, toast]);
   
-  // Refetch content when filter or folder changes
+  // Refetch content when folder changes
   useEffect(() => {
     if (projectId && !isSearching) {
-        fetchInitialFolderContent(currentUrlFolderId, assetFilter);
+        fetchInitialFolderContent(currentUrlFolderId);
     }
-  }, [assetFilter, currentUrlFolderId, projectId, isSearching, fetchInitialFolderContent]);
+  }, [currentUrlFolderId, projectId, isSearching, fetchInitialFolderContent]);
 
 
   useEffect(() => {
     loadProjectData();
-  }, [loadProjectData]);
+  }, [loadProjectData, projectId]);
 
   // Offline Sync
   useEffect(() => {
@@ -233,6 +230,7 @@ export default function ProjectPage() {
     const term = deferredSearchTerm.trim();
     if (term) {
         setIsSearching(true);
+        setDisplayedAssets([]);
     } else {
         setIsSearching(false);
         setSearchedAssets([]); 
@@ -804,7 +802,6 @@ export default function ProjectPage() {
                   <ProjectSearchResults
                       project={project}
                       searchTerm={deferredSearchTerm}
-                      assetFilter="all"
                       onEditAsset={handleEditAsset}
                       onPreviewAsset={onPreviewAsset}
                       loadingAssetId={loadingAssetId}
@@ -836,8 +833,6 @@ export default function ProjectPage() {
                 loadMoreAssetsRef={loadMoreAssetsRef}
                 hasMoreAssets={hasMoreAssets}
                 isFetchingMoreAssets={isFetchingMoreAssets}
-                assetFilter={assetFilter}
-                onSetAssetFilter={setAssetFilter}
               />
             )}
         </div>

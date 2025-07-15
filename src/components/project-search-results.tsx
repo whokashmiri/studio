@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { Loader2, FileArchive, Eye } from 'lucide-react';
@@ -15,7 +16,6 @@ import { useLanguage } from '@/contexts/language-context';
 interface ProjectSearchResultsProps {
   project: Project;
   searchTerm: string;
-  assetFilter: 'all' | 'done' | 'notDone';
   onEditAsset: (asset: Asset) => void;
   onPreviewAsset: (asset: Asset) => void;
   loadingAssetId: string | null;
@@ -27,7 +27,6 @@ interface ProjectSearchResultsProps {
 export function ProjectSearchResults({ 
   project, 
   searchTerm, 
-  assetFilter, 
   onEditAsset, 
   onPreviewAsset, 
   loadingAssetId, 
@@ -157,5 +156,3 @@ export function ProjectSearchResults({
     </ScrollArea>
   );
 }
-
-    
