@@ -95,14 +95,10 @@ export default function ProjectPage() {
     })
   );
   
-  // =================================================================================
-  // == FUNCTION 1 (Folder Content Fetching)                                        ==
-  // =================================================================================
-  // This function fetches the assets for the currently selected folder. It's called
-  // when you navigate to a different folder or when the search is cleared.
-  // A race condition can occur if this runs while old search data is still in state.
+  // This function fetches the assets for the currently selected folder.
+  // It's called when you navigate to a different folder or when the filter changes.
   const fetchInitialFolderContent = useCallback(async (folderId: string | null) => {
-      if (isSearching) return; // Do not fetch folder content while searching
+      if (isSearching) return;
       setIsContentLoading(true);
       setDisplayedAssets([]); // Explicitly clear displayed assets before fetching new ones
       setLastVisibleAssetDoc(null);
@@ -134,7 +130,13 @@ export default function ProjectPage() {
             assetFilter
         );
 
-        setDisplayedAssets(prev => [...prev, ...newAssets]);
+        // De-duplication logic: only add assets that are not already in the list.
+        setDisplayedAssets(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const uniqueNewAssets = newAssets.filter(a => !existingIds.has(a.id));
+          return [...prev, ...uniqueNewAssets];
+        });
+
         setLastVisibleAssetDoc(lastDoc);
         setHasMoreAssets(lastDoc !== null);
     } catch (error) {
@@ -233,30 +235,26 @@ export default function ProjectPage() {
     }
   }, [isOnline, loadProjectData, toast]);
 
-  // =================================================================================
-  // == FUNCTION 2 (Search Activation)                                              ==
-  // =================================================================================
-  // This `useEffect` hook handles the search functionality. It activates when the user
-  // types in the search box. The key part related to the error is the `else` block,
-  // which runs when the search box is cleared. If the states (`searchedAssets`, 
-  // `displayedAssets`) are not reset correctly here, it leads to duplicate data.
+  // This `useEffect` hook handles the search functionality.
+  // When the search box is cleared, it resets the search state and allows the
+  // other useEffect hook to refetch the correct folder content.
   useEffect(() => {
     const term = deferredSearchTerm.trim();
     if (term) {
         setIsSearching(true);
-        setSearchedAssets([]);
-        setDisplayedAssets([]); // Explicitly clear folder assets
+        setSearchedAssets([]); // Clear previous results
+        setDisplayedAssets([]); // Explicitly clear folder assets to avoid key conflicts
         setIsContentLoading(true);
         FirestoreService.searchAssets(projectId, term, 50, null, 'all').then(({assets, lastDoc}) => {
           setSearchedAssets(assets);
-          setLastVisibleAssetDoc(lastDoc); // Or a new state for search pagination if needed
+          setLastVisibleAssetDoc(lastDoc); // Store for potential search pagination
           setIsContentLoading(false);
         });
     } else {
         if (isSearching) { // Only when transitioning from searching to not-searching
-          setSearchedAssets([]); 
-          setDisplayedAssets([]); // Fix: Explicitly clear assets before folder view re-fetches
-          setIsSearching(false);
+          setSearchedAssets([]); // Clear search results
+          setDisplayedAssets([]); // CRITICAL: Clear displayed assets before folder view re-fetches
+          setIsSearching(false); // This triggers the other useEffect to fetch folder content
         }
     }
   }, [deferredSearchTerm, projectId, isSearching]);
@@ -286,14 +284,9 @@ export default function ProjectPage() {
     return getFolderPath(currentUrlFolderId);
   }, [project, currentUrlFolderId, getFolderPath]);
   
-  // =================================================================================
-  // == FUNCTION 3 (Data Combination for Display)                                   ==
-  // =================================================================================
   // This `useMemo` hook is where the final list of items to display is assembled.
-  // It combines data from the `offlineQueue` with the online data (`allProjectFolders`,
-  // `displayedAssets`). The "duplicate key" error happens here if this function
-  // receives data where an item (e.g., an asset) is present in both the offline
-  // queue and the `displayedAssets` list simultaneously.
+  // It combines data from the `offlineQueue` with the online data.
+  // The robust de-duplication logic here prevents "duplicate key" errors.
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
     // Create a set of all offline item IDs for quick lookups to prevent duplicates.
@@ -1086,3 +1079,5 @@ export default function ProjectPage() {
     </div>
   );
 }
+
+    
