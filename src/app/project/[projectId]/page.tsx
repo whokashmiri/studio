@@ -202,7 +202,7 @@ export default function ProjectPage() {
     if (projectId && !isSearching) {
         fetchInitialFolderContent(currentUrlFolderId);
     }
-  }, [currentUrlFolderId, projectId, isSearching, assetFilter]);
+  }, [currentUrlFolderId, projectId, isSearching, assetFilter, fetchInitialFolderContent]);
 
 
   useEffect(() => {
@@ -872,7 +872,7 @@ export default function ProjectPage() {
                 title={selectedFolder ? t('addNewFolder', 'New Folder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
                 className="shadow-lg"
             >
-                <FolderPlus className="mr-2 h-4 w-4" />
+                {/* <FolderPlus className="mr-2 h-4 w-4" /> */}
                 {t('addNewFolder', 'New Folder')}
             </Button>
             <Button
@@ -881,12 +881,12 @@ export default function ProjectPage() {
                 size="lg"
                 title={t('newAsset', 'New Asset')}
             >
-                <FilePlus className="mr-2 h-4 w-4" />
+                {/* <FilePlus className="mr-2 h-4 w-4" /> */}
                 {t('newAsset', 'New Asset')}
             </Button>
              {isAdmin && (
               <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)}  className="shadow-lg" disabled={true}>
-                <Upload className="mr-2 h-4 w-4" />
+                {/* <Upload className="mr-2 h-4 w-4" /> */}
                 {t('importAssetsButton', 'Import Assets')}
               </Button> 
             )}
