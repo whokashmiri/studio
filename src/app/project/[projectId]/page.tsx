@@ -912,6 +912,7 @@ export default function ProjectPage() {
             <DialogTitle>
                 {newFolderParentContext ? t('addNewFolderTo', 'New Folder in "{parentName}"', { parentName: newFolderParentContext.name }) : t('addRootFolderTitle', 'Add Folder to Project Root')}
             </DialogTitle>
+            
           </DialogHeader>
           <div className="pt-4 pb-0 space-y-2 flex-grow overflow-y-auto">
             <Label htmlFor="new-folder-name">{t('folderName', 'Folder Name')}</Label>
