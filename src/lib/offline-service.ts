@@ -1,10 +1,39 @@
 
 
-import { addFolder, addAsset, updateProject, updateAsset, updateFolder as updateFolderInDb } from './firestore-service';
+import { 
+  addFolder, 
+  addAsset, 
+  updateProject, 
+  updateAsset, 
+  updateFolder as updateFolderInDb,
+  getAllAssetsForProject,
+  getFolders as getFoldersFromFirestore
+} from './firestore-service';
 import type { Folder, Asset, ProjectStatus } from '@/data/mock-data';
 import { v4 as uuidv4 } from 'uuid';
+import Dexie, { type EntityTable } from 'dexie';
 
 const OFFLINE_QUEUE_KEY = 'offlineQueue-v2'; // Version bump for new structure
+
+// --- Dexie (IndexedDB) Setup ---
+interface OfflineProjectData {
+  id: string; // The original project ID
+  downloadedAt: number;
+}
+interface OfflineFolder extends Folder { isCached: true; }
+interface OfflineAsset extends Asset { isCached: true; }
+
+const db = new Dexie('AssetInspectorDB-v2') as Dexie & {
+  offlineProjects: EntityTable<OfflineProjectData, 'id'>;
+  folders: EntityTable<OfflineFolder, 'id'>;
+  assets: EntityTable<OfflineAsset, 'id'>;
+};
+
+db.version(2).stores({
+  offlineProjects: '&id, downloadedAt',
+  folders: '&id, projectId, parentId',
+  assets: '&id, projectId, folderId, name_lowercase, serialNumber'
+});
 
 export type OfflineAction = 
   | { type: 'add-folder'; payload: Omit<Folder, 'id' | 'isOffline'>; localId: string; projectId: string }
@@ -105,4 +134,66 @@ export async function syncOfflineActions(): Promise<{syncedCount: number, errorC
   }
 
   return { syncedCount, errorCount };
+}
+
+// ---- New Functions for Offline Project Caching ----
+
+/**
+ * Checks if a project has been downloaded for offline use.
+ * @param projectId The ID of the project to check.
+ * @returns A boolean indicating if the project is available offline.
+ */
+export async function isProjectOffline(projectId: string): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  const project = await db.offlineProjects.get(projectId);
+  return !!project;
+}
+
+/**
+ * Downloads all data for a project (folders, assets) and saves it to IndexedDB.
+ * @param projectId The ID of the project to download.
+ */
+export async function saveProjectForOffline(projectId: string): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  // 1. Fetch all data from Firestore
+  const [folders, assets] = await Promise.all([
+    getFoldersFromFirestore(projectId),
+    getAllAssetsForProject(projectId, 'all') // Fetch all assets regardless of status
+  ]);
+
+  const foldersToCache: OfflineFolder[] = folders.map(f => ({ ...f, isCached: true }));
+  const assetsToCache: OfflineAsset[] = assets.map(a => ({ ...a, isCached: true }));
+
+  // 2. Clear old data for this project and save new data in a transaction
+  await db.transaction('rw', db.offlineProjects, db.folders, db.assets, async () => {
+    // Clear existing data for this project
+    await db.folders.where({ projectId }).delete();
+    await db.assets.where({ projectId }).delete();
+
+    // Add new data
+    await db.offlineProjects.put({ id: projectId, downloadedAt: Date.now() });
+    await db.folders.bulkPut(foldersToCache);
+    await db.assets.bulkPut(assetsToCache);
+  });
+}
+
+/**
+ * Gets all folders for a project from the local cache.
+ * @param projectId The ID of the project.
+ * @returns An array of Folder objects.
+ */
+export async function getFoldersFromCache(projectId: string): Promise<Folder[]> {
+  if (typeof window === 'undefined') return [];
+  return await db.folders.where({ projectId }).toArray();
+}
+
+/**
+ * Gets all assets for a project from the local cache.
+ * @param projectId The ID of the project.
+ * @returns An array of Asset objects.
+ */
+export async function getAssetsFromCache(projectId: string): Promise<Asset[]> {
+  if (typeof window === 'undefined') return [];
+  return await db.assets.where({ projectId }).toArray();
 }
