@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2, Copy, Scissors, ClipboardPaste, CheckCircle, ListFilter, Download, Wifi, WifiOff } from 'lucide-react';
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2, Copy, Scissors, ClipboardPaste, CheckCircle, ListFilter, Download, Wifi, WifiOff } from 'lucide-react'; 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -810,7 +810,7 @@ export default function ProjectPage() {
                   <ProjectSearchResults
                       project={project}
                       searchTerm={deferredSearchTerm}
-                      onEditAsset={onEditAsset}
+                      onEditAsset={handleEditAsset}
                       onPreviewAsset={onPreviewAsset}
                       loadingAssetId={loadingAssetId}
                       foldersMap={foldersMap}
@@ -833,8 +833,8 @@ export default function ProjectPage() {
                 onAddSubfolder={openNewFolderDialog}
                 onEditFolder={handleOpenEditFolderModal}
                 onDeleteFolder={handleDeleteFolder}
-                onEditAsset={onEditAsset}
-                onDeleteAsset={onDeleteAsset}
+                onEditAsset={handleEditAsset}
+                onDeleteAsset={handleDeleteAsset}
                 onPreviewAsset={onPreviewAsset}
                 isAdmin={isAdmin}
                 isOnline={isOnline}
