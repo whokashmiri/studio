@@ -2,10 +2,12 @@
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getAuth as getFirebaseAuthSDK, type Auth } from "firebase/auth";
+import { getStorage as getFirebaseStorage, type FirebaseStorage } from "firebase/storage";
 
 let appInstance: FirebaseApp | null = null;
 let dbInstance: Firestore | null = null;
 let authInstance: Auth | null = null;
+let storageInstance: FirebaseStorage | null = null;
 
 // Define the expected structure of your Firebase config
 interface FirebaseConfig {
@@ -73,6 +75,7 @@ function initializeFirebase() {
   appInstance = !getApps().length ? initializeApp(validatedConfig) : getApp();
   dbInstance = getFirestore(appInstance);
   authInstance = getFirebaseAuthSDK(appInstance);
+  storageInstance = getFirebaseStorage(appInstance); // Initialize storage
 }
 
 // Getter functions that ensure Firebase is initialized before returning the instance
@@ -97,3 +100,9 @@ export function getAuth(): Auth {
   return authInstance!;
 }
 
+export function getStorage(): FirebaseStorage {
+  if (!storageInstance) {
+    initializeFirebase();
+  }
+  return storageInstance!;
+}

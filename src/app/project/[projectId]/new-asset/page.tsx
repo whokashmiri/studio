@@ -22,7 +22,9 @@ import { useAuth } from '@/contexts/auth-context';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { compressImage } from '@/lib/image-handler-service';
-
+import { getStorage } from '@/lib/firebase/config';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { v4 as uuidv4 } from 'uuid';
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
 type CaptureMode = 'photo' | 'video';
@@ -495,6 +497,24 @@ export default function NewAssetPage() {
   }, [language]);
 
 
+  // New client-side function to upload videos to Firebase Storage
+  const uploadVideoToFirebase = async (videoFile: File): Promise<string> => {
+    const storage = getStorage();
+    const videoFileName = `videos/${uuidv4()}-${videoFile.name}`;
+    const videoStorageRef = storageRef(storage, videoFileName);
+  
+    try {
+      const snapshot = await uploadBytes(videoStorageRef, videoFile);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      return downloadURL;
+    } catch (error) {
+      console.error("Firebase Video Upload Error:", error);
+      toast({ title: "Video Upload Error", description: `Failed to upload ${videoFile.name}.`, variant: "destructive" });
+      throw error; // Re-throw to be caught by the calling function
+    }
+  };
+
+
   const handleMediaUploadFromGallery = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       setIsProcessingMedia(true);
@@ -509,32 +529,20 @@ export default function NewAssetPage() {
 
       try {
         const processingPromises = newFiles.map(async (file) => {
-          const isVideo = file.type.startsWith('video/');
-          let dataUrl: string;
-
-          if (isVideo) {
-            // Read video as data URL directly without compression
-            dataUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = (loadEvent) => {
-                if (loadEvent.target?.result) resolve(loadEvent.target.result as string);
-                else reject(new Error('Failed to read video file.'));
-              };
-              reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
-              reader.readAsDataURL(file);
-            });
-          } else {
-            // Compress image
-            dataUrl = await compressImage(file);
-          }
-
-          const uploadResult = await uploadMedia(dataUrl);
-          
-          if (uploadResult && uploadResult.success && uploadResult.url) {
-            if (isVideo) uploadedVideoUrls.push(uploadResult.url);
-            else uploadedPhotoUrls.push(uploadResult.url);
-          } else {
-            toast({ title: "Media Upload Error", description: uploadResult?.error || `Failed to upload ${file.name}.`, variant: "destructive" });
+          if (file.type.startsWith('video/')) {
+            // Handle video upload to Firebase Storage
+            const videoUrl = await uploadVideoToFirebase(file);
+            uploadedVideoUrls.push(videoUrl);
+          } else if (file.type.startsWith('image/')) {
+            // Handle image upload to Cloudinary
+            const compressedDataUrl = await compressImage(file);
+            const uploadResult = await uploadMedia(compressedDataUrl);
+            
+            if (uploadResult && uploadResult.success && uploadResult.url) {
+              uploadedPhotoUrls.push(uploadResult.url);
+            } else {
+              toast({ title: "Image Upload Error", description: uploadResult?.error || `Failed to upload ${file.name}.`, variant: "destructive" });
+            }
           }
         });
 
@@ -663,22 +671,20 @@ export default function NewAssetPage() {
     const uploadedVideoUrls: string[] = [];
     
     try {
-      // Create a single array of promises to process in parallel
-      const uploadPromises = [
-        ...capturedPhotosInSession.map(async (photoDataUrl) => {
-          const compressedDataUrl = await compressImage(await (await fetch(photoDataUrl)).blob() as File);
-          const result = await uploadMedia(compressedDataUrl);
-          if (result.success && result.url) uploadedPhotoUrls.push(result.url);
-          else throw new Error(result.error || "A photo from session failed to upload.");
-        }),
-        ...capturedVideosInSession.map(async (videoDataUrl) => {
-          const result = await uploadMedia(videoDataUrl);
-          if (result.success && result.url) uploadedVideoUrls.push(result.url);
-          else throw new Error(result.error || "A video from session failed to upload.");
-        })
-      ];
+      const photoUploadPromises = capturedPhotosInSession.map(async (photoDataUrl) => {
+        const compressedDataUrl = await compressImage(await (await fetch(photoDataUrl)).blob() as File);
+        const result = await uploadMedia(compressedDataUrl);
+        if (result.success && result.url) uploadedPhotoUrls.push(result.url);
+        else throw new Error(result.error || "A photo from session failed to upload.");
+      });
 
-      await Promise.all(uploadPromises);
+      const videoUploadPromises = capturedVideosInSession.map(async (videoDataUrl) => {
+        const videoBlob = await (await fetch(videoDataUrl)).blob();
+        const videoUrl = await uploadVideoToFirebase(new File([videoBlob], "session-video.webm", { type: "video/webm" }));
+        uploadedVideoUrls.push(videoUrl);
+      });
+      
+      await Promise.all([...photoUploadPromises, ...videoUploadPromises]);
       
       setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
       setVideoUrls(prev => [...prev, ...uploadedVideoUrls]);
