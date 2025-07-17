@@ -1,7 +1,7 @@
 
 "use client";
 import Link from 'next/link';
-import { Building, LogOut, UserCircle, Briefcase, LogIn, LayoutDashboard, Loader2, LayoutGrid } from 'lucide-react'; 
+import { Building, LogOut, UserCircle, Briefcase, LogIn, LayoutDashboard, Loader2, LayoutGrid, Download } from 'lucide-react'; 
 import { LanguageToggle } from '@/components/language-toggle';
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/language-context';
 import { useState, useEffect } from 'react'; 
 import { usePathname, useRouter } from 'next/navigation';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 
 
@@ -19,7 +20,35 @@ export function Header() {
   const [isNavigatingToAdmin, setIsNavigatingToAdmin] = useState(false);
   const [isNavigatingToMyData, setIsNavigatingToMyData] = useState(false);
   const pathname = usePathname(); 
-  const router = useRouter(); // Initialize useRouter
+  const router = useRouter(); 
+  const isOnline = useOnlineStatus();
+  
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstallable(false);
+      setInstallPrompt(null);
+    }
+  };
 
   const getInitials = (email?: string) => {
     if (!email) return '';
@@ -57,6 +86,12 @@ export function Header() {
           <span className="font-headline">{t('appName', 'Asset Inspector Pro')}</span>
         </Link>
         <div className="flex items-center gap-2 sm:gap-4">
+          {isInstallable && (
+            <Button variant="outline" size="sm" onClick={handleInstallClick}>
+              <Download className="mr-2 h-4 w-4" />
+              {t('installApp', 'Install App')}
+            </Button>
+          )}
           <LanguageToggle />
           {isLoading ? (
              <UserCircle className="h-5 w-5 animate-pulse text-muted-foreground" />
@@ -92,7 +127,7 @@ export function Header() {
                   )}
                   {isNavigatingToMyData && pathname !== '/my-data' ? t('loading', 'Loading...') : t('myDataOverviewMenuLink', 'My Data Overview')}
                 </DropdownMenuItem>
-                {currentUser.role === 'Admin' && (
+                {currentUser.role === 'Admin' && isOnline && (
                   <DropdownMenuItem
                     onSelect={handleAdminDashboardNavigation}
                     disabled={isNavigatingToAdmin && pathname !== '/admin/dashboard'}

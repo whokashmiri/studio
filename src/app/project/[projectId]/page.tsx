@@ -334,7 +334,11 @@ export default function ProjectPage() {
 
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
     setSearchTerm('');
-    setLoadingFolderId(folder ? folder.id : null);
+    if (folder) {
+        setLoadingFolderId(folder.id);
+    } else {
+        setLoadingFolderId(null); 
+    }
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
     router.push(targetPath, { scroll: false }); 
   }, [projectId, router]);
@@ -644,57 +648,65 @@ export default function ProjectPage() {
   };
   
     const handlePaste = async () => {
-        if (!clipboardState.itemId || !isOnline || isPasting) return;
-    
-        const { itemId, itemType, operation, sourceProjectId } = clipboardState;
-    
-        if (sourceProjectId !== project?.id) {
-            toast({ title: "Paste Error", description: "Cannot paste items between different projects.", variant: "destructive" });
-            return;
-        }
-    
-        setIsPasting(true);
-    
-        const destinationFolderId = currentUrlFolderId;
-    
-        let success = false;
-        try {
-            if (itemType === 'asset') {
-                const originalAsset = allProjectAssets.find(a => a.id === itemId) || displayedAssets.find(a => a.id === itemId);
-                if (!originalAsset) throw new Error("Original asset not found");
-    
-                if (operation === 'cut') {
-                    success = await FirestoreService.updateAsset(itemId, { folderId: destinationFolderId });
-                } else { // copy
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    const { id, createdAt, updatedAt, ...assetToCopy } = originalAsset;
-                    success = !!await FirestoreService.addAsset({
-                        ...assetToCopy,
-                        folderId: destinationFolderId,
-                    });
-                }
-            } else if (itemType === 'folder') {
-                if (operation === 'cut') {
-                    success = await FirestoreService.updateFolder(itemId, { parentId: destinationFolderId });
-                } else { // copy
-                    success = await FirestoreService.copyFolderRecursively(itemId, destinationFolderId);
-                }
-            }
-    
-            if (success) {
-                toast({ title: "Success", description: `Item ${operation === 'copy' ? 'copied' : 'moved'} successfully.` });
-                await loadProjectData();
-            } else {
-                throw new Error(`Failed to ${operation} item.`);
-            }
-        } catch (error) {
-            console.error(`Error during paste operation:`, error);
-            toast({ title: "Error", description: `Could not complete the ${operation} operation.`, variant: "destructive" });
-        } finally {
-            clearClipboard();
-            setIsPasting(false);
-        }
+      if (!clipboardState.itemId || isPasting || !project) return;
+
+      const { itemId, itemType, operation, sourceProjectId } = clipboardState;
+      if (sourceProjectId !== project.id) {
+          toast({ title: "Paste Error", description: "Cannot paste items between different projects.", variant: "destructive" });
+          return;
+      }
+      setIsPasting(true);
+      const destinationFolderId = currentUrlFolderId;
+
+      let success = false;
+      try {
+          if (isOnline) {
+              if (itemType === 'asset') {
+                  if (operation === 'cut') {
+                      success = await FirestoreService.updateAsset(itemId, { folderId: destinationFolderId });
+                  } else { // copy
+                      const originalAsset = allProjectAssets.find(a => a.id === itemId) || displayedAssets.find(a => a.id === itemId);
+                      if (!originalAsset) throw new Error("Original asset not found for copy.");
+                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                      const { id, createdAt, updatedAt, ...assetToCopy } = originalAsset;
+                      success = !!await FirestoreService.addAsset({ ...assetToCopy, folderId: destinationFolderId });
+                  }
+              } else if (itemType === 'folder') {
+                  if (operation === 'cut') {
+                      success = await FirestoreService.updateFolder(itemId, { parentId: destinationFolderId });
+                  } else { // copy
+                      success = await FirestoreService.copyFolderRecursively(itemId, destinationFolderId);
+                  }
+              }
+          } else { // Offline
+              if (itemType === 'asset') {
+                  if (operation === 'cut') {
+                    OfflineService.queueOfflineAction('update-asset', { folderId: destinationFolderId }, project.id, itemId);
+                    success = true;
+                  } // Copy is too complex offline for now.
+              } else if (itemType === 'folder') {
+                 if (operation === 'cut') {
+                    OfflineService.queueOfflineAction('update-folder', { parentId: destinationFolderId }, project.id, itemId);
+                    success = true;
+                  } // Copy is too complex offline for now.
+              }
+          }
+
+          if (success) {
+              toast({ title: "Success", description: `Item ${operation === 'copy' ? 'copied' : 'moved'} successfully. ${!isOnline ? '(Queued for sync)' : ''}` });
+              await loadProjectData(); // This will now load from cache if offline
+          } else {
+              throw new Error(`Failed to ${operation} item.`);
+          }
+      } catch (error) {
+          console.error(`Error during paste operation:`, error);
+          toast({ title: "Error", description: `Could not complete the ${operation} operation.`, variant: "destructive" });
+      } finally {
+          clearClipboard();
+          setIsPasting(false);
+      }
     };
+
 
     const handleDownloadForOffline = async () => {
       if (!project) return;
@@ -904,8 +916,8 @@ export default function ProjectPage() {
                 {t('importAssetsButton', 'Import Assets')}
               </Button> 
             )}
-            {isAdmin && clipboardState.itemId && (
-              <Button variant="secondary" size="lg" onClick={handlePaste} className="shadow-lg" disabled={!isOnline || isPasting}>
+            {clipboardState.itemId && (
+              <Button variant="secondary" size="lg" onClick={handlePaste} className="shadow-lg" disabled={isPasting}>
                 {isPasting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ClipboardPaste className="mr-2 h-4 w-4" />}
                 {isPasting ? t('pasting', 'Pasting...') : t('paste', 'Paste')}
               </Button>

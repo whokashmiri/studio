@@ -16,6 +16,7 @@ interface LanguageContextType {
 const translations: Record<Language, Record<string, string>> = {
   en: {
     appName: "ValTech",
+    installApp: "Install App",
     selectCompany: "Select a Company",
     selectCompanyDesc: "Choose a company profile to manage its inspection projects.",
     noCompaniesAvailable: "No companies available for you.",
@@ -497,6 +498,7 @@ const translations: Record<Language, Record<string, string>> = {
   },
   ar: {
     appName: "فالتيك للتقييم",
+    installApp: "تثبيت التطبيق",
     selectCompany: "اختر شركة",
     selectCompanyDesc: "اختر ملف تعريف شركة لإدارة مشاريع الفحص الخاصة بها.",
     noCompaniesAvailable: "لا توجد شركات متاحة لك.",
