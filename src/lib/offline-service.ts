@@ -1,7 +1,8 @@
 
+
 import { 
-  addFolder, 
-  addAsset, 
+  addFolder as addFolderToDb, 
+  addAsset as addAssetToDb, 
   updateProject, 
   updateAsset as updateAssetInDb,
   updateFolder as updateFolderInDb,
@@ -103,10 +104,10 @@ export async function syncOfflineActions(): Promise<{syncedCount: number, errorC
     try {
       switch(action.type) {
         case 'add-folder':
-          success = !!(await addFolder(action.payload, action.localId));
+          success = !!(await addFolderToDb(action.payload, action.localId));
           break;
         case 'add-asset':
-          success = !!(await addAsset(action.payload, action.localId));
+          success = !!(await addAssetToDb(action.payload, action.localId));
           break;
         case 'update-asset':
           success = await updateAssetInDb(action.assetId, action.payload);
@@ -184,6 +185,11 @@ export async function getProjectDataFromCache(projectId: string): Promise<{ proj
 export async function getDownloadedProjectsFromCache(): Promise<Project[]> {
   if (typeof window === 'undefined') return [];
   return await db.projects.toArray();
+}
+
+export async function getAssetsFromCache(projectId: string): Promise<Asset[]> {
+  if (typeof window === 'undefined') return [];
+  return await db.assets.where({ projectId }).toArray();
 }
 
 export async function searchAssetsInCache(projectId: string, searchTerm: string): Promise<Asset[]> {
