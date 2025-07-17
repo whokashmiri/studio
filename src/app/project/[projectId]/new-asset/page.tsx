@@ -22,9 +22,6 @@ import { useAuth } from '@/contexts/auth-context';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { compressImage } from '@/lib/image-handler-service';
-import { getStorage } from '@/lib/firebase/config';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
 type CaptureMode = 'photo' | 'video';
@@ -497,24 +494,6 @@ export default function NewAssetPage() {
   }, [language]);
 
 
-  // New client-side function to upload videos to Firebase Storage
-  const uploadVideoToFirebase = async (videoFile: File): Promise<string> => {
-    const storage = getStorage();
-    const videoFileName = `videos/${uuidv4()}-${videoFile.name}`;
-    const videoStorageRef = storageRef(storage, videoFileName);
-  
-    try {
-      const snapshot = await uploadBytes(videoStorageRef, videoFile);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      return downloadURL;
-    } catch (error) {
-      console.error("Firebase Video Upload Error:", error);
-      toast({ title: "Video Upload Error", description: `Failed to upload ${videoFile.name}.`, variant: "destructive" });
-      throw error; // Re-throw to be caught by the calling function
-    }
-  };
-
-
   const handleMediaUploadFromGallery = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       setIsProcessingMedia(true);
@@ -525,31 +504,47 @@ export default function NewAssetPage() {
       }
       
       const uploadedPhotoUrls: string[] = [];
-      const uploadedVideoUrls: string[] = [];
+      const uploadedVideoDataUris: string[] = [];
 
       try {
         const processingPromises = newFiles.map(async (file) => {
           if (file.type.startsWith('video/')) {
-            // Handle video upload to Firebase Storage
-            const videoUrl = await uploadVideoToFirebase(file);
-            uploadedVideoUrls.push(videoUrl);
+            // Handle video as a data URI
+             return new Promise<string | null>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(file);
+            });
           } else if (file.type.startsWith('image/')) {
             // Handle image upload to Cloudinary
             const compressedDataUrl = await compressImage(file);
             const uploadResult = await uploadMedia(compressedDataUrl);
             
             if (uploadResult && uploadResult.success && uploadResult.url) {
-              uploadedPhotoUrls.push(uploadResult.url);
+              return uploadResult.url;
             } else {
               toast({ title: "Image Upload Error", description: uploadResult?.error || `Failed to upload ${file.name}.`, variant: "destructive" });
+              return null;
             }
           }
+          return null;
         });
 
-        await Promise.all(processingPromises);
+        const results = await Promise.all(processingPromises);
+        
+        results.forEach((resultUrl, index) => {
+            if (resultUrl) {
+                if(newFiles[index].type.startsWith('video/')) {
+                    uploadedVideoDataUris.push(resultUrl);
+                } else {
+                    uploadedPhotoUrls.push(resultUrl);
+                }
+            }
+        });
         
         setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
-        setVideoUrls(prev => [...prev, ...uploadedVideoUrls]);
+        setVideoUrls(prev => [...prev, ...uploadedVideoDataUris]);
         if (!isMediaModalOpen) setIsMediaModalOpen(true);
 
       } catch (error: any) {
@@ -667,31 +662,26 @@ export default function NewAssetPage() {
     if (capturedPhotosInSession.length === 0 && capturedVideosInSession.length === 0) return;
     
     setIsProcessingMedia(true);
-    const uploadedPhotoUrls: string[] = [];
-    const uploadedVideoUrls: string[] = [];
     
     try {
+      // Upload photos to Cloudinary
       const photoUploadPromises = capturedPhotosInSession.map(async (photoDataUrl) => {
         const compressedDataUrl = await compressImage(await (await fetch(photoDataUrl)).blob() as File);
         const result = await uploadMedia(compressedDataUrl);
-        if (result.success && result.url) uploadedPhotoUrls.push(result.url);
+        if (result.success && result.url) return result.url;
         else throw new Error(result.error || "A photo from session failed to upload.");
       });
-
-      const videoUploadPromises = capturedVideosInSession.map(async (videoDataUrl) => {
-        const videoBlob = await (await fetch(videoDataUrl)).blob();
-        const videoUrl = await uploadVideoToFirebase(new File([videoBlob], "session-video.webm", { type: "video/webm" }));
-        uploadedVideoUrls.push(videoUrl);
-      });
       
-      await Promise.all([...photoUploadPromises, ...videoUploadPromises]);
+      const uploadedPhotoUrls = await Promise.all(photoUploadPromises);
       
+      // Videos are passed as data URIs
       setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
-      setVideoUrls(prev => [...prev, ...uploadedVideoUrls]);
+      setVideoUrls(prev => [...prev, ...capturedVideosInSession]);
+
       setCapturedPhotosInSession([]);
       setCapturedVideosInSession([]);
       setIsCustomCameraOpen(false);
-      if (!isMediaModalOpen && (photoUrls.length + videoUrls.length + uploadedPhotoUrls.length + uploadedVideoUrls.length > 0)) {
+      if (!isMediaModalOpen && (photoUrls.length + videoUrls.length + uploadedPhotoUrls.length + capturedVideosInSession.length > 0)) {
         setIsMediaModalOpen(true);
       }
     } catch (error: any) {
@@ -700,6 +690,7 @@ export default function NewAssetPage() {
       setIsProcessingMedia(false);
     }
   }, [capturedPhotosInSession, capturedVideosInSession, toast, isMediaModalOpen, photoUrls.length, videoUrls.length]);
+
 
   const handleCancelCustomCamera = () => {
     setCapturedPhotosInSession([]);
@@ -892,13 +883,14 @@ export default function NewAssetPage() {
       
       const finalSerial = serialNumber.trim() ? parseFloat(serialNumber.trim()) : NaN;
 
+      // Videos are now passed as data URIs directly
       const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
         name: assetName,
         serialNumber: !isNaN(finalSerial) ? finalSerial : undefined,
         projectId: project.id,
         folderId: folderId,
         photos: photoUrls,
-        videos: videoUrls,
+        videos: videoUrls, // Pass data URIs
         voiceDescription: assetVoiceDescription.trim() || undefined,
         recordedAudioDataUrl: recordedAudioDataUrl || undefined,
         textDescription: assetTextDescription.trim() || undefined,
