@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info, Loader2, Video, Film, Flashlight, FlashlightOff, Upload, PauseCircle, PlayCircle } from 'lucide-react';
 import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
+import * as OfflineService from '@/lib/offline-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { uploadMedia } from '@/actions/cloudinary-actions';
@@ -22,6 +23,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { compressImage } from '@/lib/image-handler-service';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 
 type AssetCreationStep = 'photos_and_name' | 'descriptions';
@@ -290,6 +292,7 @@ export default function NewAssetPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isOnline = useOnlineStatus();
   
   const projectId = params.projectId as string;
   const folderId = searchParams.get('folderId') || null;
@@ -347,10 +350,35 @@ export default function NewAssetPage() {
 
   const loadProjectAndAsset = useCallback(async () => {
     setIsLoadingPage(true);
-    if (projectId) {
-      try {
-        const foundProject = await FirestoreService.getProjectById(projectId);
-        setProject(foundProject || null);
+    if (!projectId) return;
+    
+    try {
+        let foundProject: Project | null;
+        let allFolders: Folder[] = [];
+        let foundAsset: Asset | null = null;
+        
+        const isProjectCached = await OfflineService.isProjectOffline(projectId);
+
+        if (isOnline) {
+            foundProject = await FirestoreService.getProjectById(projectId);
+            if (foundProject) {
+                allFolders = await FirestoreService.getFolders(projectId);
+                if (assetIdToEdit) {
+                    foundAsset = await FirestoreService.getAssetById(assetIdToEdit);
+                }
+            }
+        } else if (isProjectCached) {
+            const cachedData = await OfflineService.getProjectDataFromCache(projectId);
+            foundProject = cachedData.project;
+            allFolders = cachedData.folders;
+            if (assetIdToEdit) {
+                foundAsset = cachedData.assets.find(a => a.id === assetIdToEdit) || null;
+            }
+        } else {
+             toast({ title: "Offline", description: "Project data not available offline.", variant: "destructive" });
+             router.push('/');
+             return;
+        }
 
         if (!foundProject) {
           toast({ title: t('projectNotFound', "Project Not Found"), variant: "destructive" });
@@ -358,18 +386,18 @@ export default function NewAssetPage() {
           return;
         }
 
+        setProject(foundProject);
+
         if (folderId) {
-          const allFolders = await FirestoreService.getFolders(projectId);
           const foundFolder = allFolders.find(f => f.id === folderId);
           setCurrentFolder(foundFolder || null);
         } else {
           setCurrentFolder(null);
         }
 
-        if (assetIdToEdit) {
+        if (assetIdToEdit && foundAsset) {
           setIsEditMode(true);
-          const foundAsset = await FirestoreService.getAssetById(assetIdToEdit);
-          if (foundAsset && foundAsset.projectId === projectId) {
+          if (foundAsset.projectId === projectId) {
             setAssetName(foundAsset.name);
             setSerialNumber(foundAsset.serialNumber ? String(foundAsset.serialNumber) : '');
             setAssetVoiceDescription(foundAsset.voiceDescription || '');
@@ -391,8 +419,7 @@ export default function NewAssetPage() {
       } finally {
         setIsLoadingPage(false);
       }
-    }
-  }, [projectId, assetIdToEdit, router, toast, t, folderId]);
+  }, [projectId, assetIdToEdit, router, toast, t, folderId, isOnline]);
 
   useEffect(() => {
     loadProjectAndAsset();
@@ -496,66 +523,61 @@ export default function NewAssetPage() {
 
 
   const handleMediaUploadFromGallery = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      setIsProcessingMedia(true);
-      const newFiles = Array.from(event.target.files);
-      if (newFiles.length === 0) {
-        setIsProcessingMedia(false);
-        return;
-      }
-      
-      const uploadedPhotoUrls: string[] = [];
-      const uploadedVideoDataUris: string[] = [];
+    if (!event.target.files) return;
 
-      try {
-        const processingPromises = newFiles.map(async (file) => {
-          if (file.type.startsWith('video/')) {
-            // Handle video as a data URI
-             return new Promise<string | null>((resolve) => {
-                const reader = new FileReader();
+    setIsProcessingMedia(true);
+    const newFiles = Array.from(event.target.files);
+
+    const uploadedPhotoUrls: string[] = [];
+    const uploadedVideoDataUris: string[] = [];
+    
+    const processingPromises = newFiles.map(async file => {
+        if (file.type.startsWith('video/')) {
+            const reader = new FileReader();
+            return new Promise<string | null>(resolve => {
                 reader.onloadend = () => resolve(reader.result as string);
                 reader.onerror = () => resolve(null);
                 reader.readAsDataURL(file);
             });
-          } else if (file.type.startsWith('image/')) {
-            // Handle image upload to Cloudinary
+        } else if (file.type.startsWith('image/')) {
             const compressedDataUrl = await compressImage(file);
-            const uploadResult = await uploadMedia(compressedDataUrl);
-            
-            if (uploadResult && uploadResult.success && uploadResult.url) {
-              return uploadResult.url;
+            if (isOnline) {
+              const uploadResult = await uploadMedia(compressedDataUrl);
+              if (uploadResult && uploadResult.success && uploadResult.url) {
+                return uploadResult.url;
+              } else {
+                toast({ title: "Image Upload Error", description: uploadResult?.error || `Failed to upload ${file.name}.`, variant: "destructive" });
+                return null;
+              }
             } else {
-              toast({ title: "Image Upload Error", description: uploadResult?.error || `Failed to upload ${file.name}.`, variant: "destructive" });
-              return null;
+              // Offline: Use the compressed data URL directly
+              return compressedDataUrl;
             }
-          }
-          return null;
-        });
+        }
+        return null;
+    });
 
+    try {
         const results = await Promise.all(processingPromises);
-        
         results.forEach((resultUrl, index) => {
             if (resultUrl) {
-                if(newFiles[index].type.startsWith('video/')) {
+                if (newFiles[index].type.startsWith('video/')) {
                     uploadedVideoDataUris.push(resultUrl);
                 } else {
                     uploadedPhotoUrls.push(resultUrl);
                 }
             }
         });
-        
         setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
         setVideoUrls(prev => [...prev, ...uploadedVideoDataUris]);
         if (!isMediaModalOpen) setIsMediaModalOpen(true);
-
-      } catch (error: any) {
+    } catch (error: any) {
         toast({ title: "Error", description: error.message || "An error occurred processing gallery files.", variant: "destructive" });
-      } finally {
+    } finally {
         setIsProcessingMedia(false);
-      }
+        if (event.target) event.target.value = '';
     }
-    if (event.target) event.target.value = '';
-  }, [toast, isMediaModalOpen]);
+  }, [isOnline, toast, isMediaModalOpen]);
 
   const handleCapturePhotoFromStream = useCallback(() => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream && mediaStream.active) {
@@ -665,24 +687,30 @@ export default function NewAssetPage() {
     setIsProcessingMedia(true);
     
     try {
-      // Upload photos to Cloudinary
-      const photoUploadPromises = capturedPhotosInSession.map(async (photoDataUrl) => {
-        const compressedDataUrl = await compressImage(await (await fetch(photoDataUrl)).blob() as File);
-        const result = await uploadMedia(compressedDataUrl);
-        if (result.success && result.url) return result.url;
-        else throw new Error(result.error || "A photo from session failed to upload.");
-      });
+      let finalPhotoUrls = [];
+      if (isOnline) {
+        const photoUploadPromises = capturedPhotosInSession.map(async (photoDataUrl) => {
+          const compressedDataUrl = await compressImage(await (await fetch(photoDataUrl)).blob() as File);
+          const result = await uploadMedia(compressedDataUrl);
+          if (result.success && result.url) return result.url;
+          else throw new Error(result.error || "A photo from session failed to upload.");
+        });
+        finalPhotoUrls = await Promise.all(photoUploadPromises);
+      } else {
+        // Offline: Use data URIs directly after compression
+        const compressionPromises = capturedPhotosInSession.map(async (photoDataUrl) => {
+           return compressImage(await (await fetch(photoDataUrl)).blob() as File);
+        });
+        finalPhotoUrls = await Promise.all(compressionPromises);
+      }
       
-      const uploadedPhotoUrls = await Promise.all(photoUploadPromises);
-      
-      // Videos are passed as data URIs
-      setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
+      setPhotoUrls(prev => [...prev, ...finalPhotoUrls]);
       setVideoUrls(prev => [...prev, ...capturedVideosInSession]);
 
       setCapturedPhotosInSession([]);
       setCapturedVideosInSession([]);
       setIsCustomCameraOpen(false);
-      if (!isMediaModalOpen && (photoUrls.length + videoUrls.length + uploadedPhotoUrls.length + capturedVideosInSession.length > 0)) {
+      if (!isMediaModalOpen && (photoUrls.length + videoUrls.length + finalPhotoUrls.length + capturedVideosInSession.length > 0)) {
         setIsMediaModalOpen(true);
       }
     } catch (error: any) {
@@ -690,7 +718,7 @@ export default function NewAssetPage() {
     } finally {
       setIsProcessingMedia(false);
     }
-  }, [capturedPhotosInSession, capturedVideosInSession, toast, isMediaModalOpen, photoUrls.length, videoUrls.length]);
+  }, [capturedPhotosInSession, capturedVideosInSession, toast, isMediaModalOpen, photoUrls.length, videoUrls.length, isOnline]);
 
 
   const handleCancelCustomCamera = () => {
@@ -856,81 +884,66 @@ export default function NewAssetPage() {
   }, []);
 
   const handleSaveAsset = async () => {
-    if (!project) {
-      toast({ title: t('projectContextLost', "Project context lost"), variant: "destructive" });
+    if (!project || !currentUser) {
+      toast({ title: t('error', 'Error'), description: !project ? t('projectContextLost', "Project context lost") : t('userNotAuthenticatedError', "User not authenticated."), variant: "destructive" });
       return;
     }
-    if (!currentUser) {
-      toast({ title: t('error', 'Error'), description: t('userNotAuthenticatedError', "User not authenticated. Cannot save asset."), variant: "destructive" });
-      return;
-    }
-     if (!assetName.trim()) {
+    if (!assetName.trim()) {
       toast({ title: t('assetNameRequiredTitle', "Asset Name Required"), variant: "destructive" });
-      setCurrentStep('photos_and_name'); 
-      return;
-    }
-    if (photoUrls.length === 0 && videoUrls.length === 0 && !isEditMode) { 
-      toast({ title: t('photosRequiredTitle', "Photos Required"), description: t('photosRequiredDesc', "Please add at least one photo or video for the asset."), variant: "destructive" });
       setCurrentStep('photos_and_name');
       return;
     }
 
     setIsSaving(true);
-    
+    const finalSerial = serialNumber.trim() ? parseFloat(serialNumber.trim()) : NaN;
+
     try {
-      await FirestoreService.updateProject(project.id, {
-        status: 'recent' as ProjectStatus,
-      });
-      
-      const finalSerial = serialNumber.trim() ? parseFloat(serialNumber.trim()) : NaN;
-
-      // Videos are now passed as data URIs directly
-      const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
-        name: assetName,
-        serialNumber: !isNaN(finalSerial) ? finalSerial : undefined,
-        projectId: project.id,
-        folderId: folderId,
-        photos: photoUrls,
-        videos: videoUrls, // Pass data URIs
-        voiceDescription: assetVoiceDescription.trim() || undefined,
-        recordedAudioDataUrl: recordedAudioDataUrl || undefined,
-        textDescription: assetTextDescription.trim() || undefined,
-        isDone: isDone,
-        userId: currentUser.id,
-      };
-      
-      let success = false;
-      let savedAssetName = assetName;
-
-      if (isEditMode && assetIdToEdit) {
-        success = await FirestoreService.updateAsset(assetIdToEdit, assetDataPayload);
-      } else {
-        const dataForCreation = {
-          ...assetDataPayload,
+        const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
+            name: assetName,
+            serialNumber: !isNaN(finalSerial) ? finalSerial : undefined,
+            projectId: project.id,
+            folderId: folderId,
+            photos: photoUrls,
+            videos: videoUrls,
+            voiceDescription: assetVoiceDescription.trim() || undefined,
+            recordedAudioDataUrl: recordedAudioDataUrl || undefined,
+            textDescription: assetTextDescription.trim() || undefined,
+            isDone: isDone,
+            userId: currentUser.id,
         };
-        const newAsset = await FirestoreService.addAsset(dataForCreation as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
-        if (newAsset) {
-          success = true;
-          savedAssetName = newAsset.name;
+
+        if (isOnline) {
+            let success;
+            if (isEditMode && assetIdToEdit) {
+                success = await FirestoreService.updateAsset(assetIdToEdit, assetDataPayload);
+            } else {
+                success = !!await FirestoreService.addAsset(assetDataPayload as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
+            }
+            if (success) {
+                await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
+            } else {
+                 throw new Error("Failed to save asset to Firestore.");
+            }
+        } else {
+            // Offline Logic
+            if (isEditMode && assetIdToEdit) {
+                OfflineService.queueOfflineAction('update-asset', assetDataPayload, project.id, assetIdToEdit);
+            } else {
+                OfflineService.queueOfflineAction('add-asset', assetDataPayload, project.id);
+            }
         }
-      }
-      
-      if (success) {
-          toast({ 
-              title: isEditMode ? t('assetUpdatedTitle', "Asset Updated") : t('assetSavedTitle', "Asset Saved"), 
-              description: isEditMode ? 
-                  t('assetUpdatedDesc', `Asset "${savedAssetName}" has been updated.`, { assetName: savedAssetName }) :
-                  t('assetSavedDesc', `Asset "${savedAssetName}" has been saved.`, { assetName: savedAssetName })
-          });
-          router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
-      } else {
-          toast({ title: "Error", description: isEditMode ? "Failed to update asset." : "Failed to save asset.", variant: "destructive" });
-      }
-    } catch(error) {
+
+        toast({
+            title: isEditMode ? t('assetUpdatedTitle', "Asset Updated") : t('assetSavedTitle', "Asset Saved"),
+            description: `${isEditMode ? t('assetUpdatedDesc', `Asset "${assetName}" has been updated.`, { assetName: assetName }) : t('assetSavedDesc', `Asset "${assetName}" has been saved.`, { assetName: assetName })} ${!isOnline ? '(Saved locally)' : ''}`,
+        });
+        router.push(`/project/${project.id}${folderId ? `?folderId=${folderId}` : ''}`);
+
+    } catch (error) {
         console.error("Error saving asset:", error);
         toast({ title: "Error", description: isEditMode ? "Failed to update asset." : "Failed to save asset.", variant: "destructive" });
     } finally {
-      setIsSaving(false);
+        setIsSaving(false);
     }
   };
 

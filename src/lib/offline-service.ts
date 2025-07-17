@@ -1,36 +1,36 @@
 
-
 import { 
   addFolder, 
   addAsset, 
   updateProject, 
-  updateAsset, 
+  updateAsset as updateAssetInDb,
   updateFolder as updateFolderInDb,
+  getProjectById,
   getAllAssetsForProject,
   getFolders as getFoldersFromFirestore
 } from './firestore-service';
-import type { Folder, Asset, ProjectStatus } from '@/data/mock-data';
+import type { Folder, Asset, Project, ProjectStatus } from '@/data/mock-data';
 import { v4 as uuidv4 } from 'uuid';
 import Dexie, { type EntityTable } from 'dexie';
 
-const OFFLINE_QUEUE_KEY = 'offlineQueue-v2'; // Version bump for new structure
+const OFFLINE_QUEUE_KEY = 'offlineQueue-v2';
 
 // --- Dexie (IndexedDB) Setup ---
-interface OfflineProjectData {
-  id: string; // The original project ID
+interface OfflineProjectData extends Project {
+  isCached: true;
   downloadedAt: number;
 }
 interface OfflineFolder extends Folder { isCached: true; }
 interface OfflineAsset extends Asset { isCached: true; }
 
-const db = new Dexie('AssetInspectorDB-v2') as Dexie & {
-  offlineProjects: EntityTable<OfflineProjectData, 'id'>;
+const db = new Dexie('AssetInspectorDB-v3') as Dexie & {
+  projects: EntityTable<OfflineProjectData, 'id'>;
   folders: EntityTable<OfflineFolder, 'id'>;
   assets: EntityTable<OfflineAsset, 'id'>;
 };
 
-db.version(2).stores({
-  offlineProjects: '&id, downloadedAt',
+db.version(3).stores({
+  projects: '&id, companyId, downloadedAt',
   folders: '&id, projectId, parentId',
   assets: '&id, projectId, folderId, name_lowercase, serialNumber'
 });
@@ -61,7 +61,7 @@ export function queueOfflineAction(
 
   const queue = getOfflineQueue();
   
-  const { isOffline, isUploading, ...restPayload } = payload;
+  const { isOffline, isUploading, isOfflineUpdate, ...restPayload } = payload;
   
   let action: OfflineAction;
   let returnVal: { localId?: string, itemId?: string } = {};
@@ -109,7 +109,7 @@ export async function syncOfflineActions(): Promise<{syncedCount: number, errorC
           success = !!(await addAsset(action.payload, action.localId));
           break;
         case 'update-asset':
-          success = await updateAsset(action.assetId, action.payload);
+          success = await updateAssetInDb(action.assetId, action.payload);
           break;
         case 'update-folder':
           success = await updateFolderInDb(action.folderId, action.payload);
@@ -136,64 +136,79 @@ export async function syncOfflineActions(): Promise<{syncedCount: number, errorC
   return { syncedCount, errorCount };
 }
 
-// ---- New Functions for Offline Project Caching ----
-
-/**
- * Checks if a project has been downloaded for offline use.
- * @param projectId The ID of the project to check.
- * @returns A boolean indicating if the project is available offline.
- */
 export async function isProjectOffline(projectId: string): Promise<boolean> {
   if (typeof window === 'undefined') return false;
-  const project = await db.offlineProjects.get(projectId);
+  const project = await db.projects.get(projectId);
   return !!project;
 }
 
-/**
- * Downloads all data for a project (folders, assets) and saves it to IndexedDB.
- * @param projectId The ID of the project to download.
- */
 export async function saveProjectForOffline(projectId: string): Promise<void> {
   if (typeof window === 'undefined') return;
 
-  // 1. Fetch all data from Firestore
-  const [folders, assets] = await Promise.all([
+  const [project, folders, assets] = await Promise.all([
+    getProjectById(projectId),
     getFoldersFromFirestore(projectId),
-    getAllAssetsForProject(projectId, 'all') // Fetch all assets regardless of status
+    getAllAssetsForProject(projectId, 'all')
   ]);
 
+  if (!project) {
+    throw new Error("Project not found to save for offline use.");
+  }
+
+  const projectToCache: OfflineProjectData = { ...project, isCached: true, downloadedAt: Date.now() };
   const foldersToCache: OfflineFolder[] = folders.map(f => ({ ...f, isCached: true }));
   const assetsToCache: OfflineAsset[] = assets.map(a => ({ ...a, isCached: true }));
 
-  // 2. Clear old data for this project and save new data in a transaction
-  await db.transaction('rw', db.offlineProjects, db.folders, db.assets, async () => {
-    // Clear existing data for this project
+  await db.transaction('rw', db.projects, db.folders, db.assets, async () => {
     await db.folders.where({ projectId }).delete();
     await db.assets.where({ projectId }).delete();
 
-    // Add new data
-    await db.offlineProjects.put({ id: projectId, downloadedAt: Date.now() });
-    await db.folders.bulkPut(foldersToCache);
-    await db.assets.bulkPut(assetsToCache);
+    await db.projects.put(projectToCache);
+    if (foldersToCache.length > 0) await db.folders.bulkPut(foldersToCache);
+    if (assetsToCache.length > 0) await db.assets.bulkPut(assetsToCache);
   });
 }
 
-/**
- * Gets all folders for a project from the local cache.
- * @param projectId The ID of the project.
- * @returns An array of Folder objects.
- */
-export async function getFoldersFromCache(projectId: string): Promise<Folder[]> {
-  if (typeof window === 'undefined') return [];
-  return await db.folders.where({ projectId }).toArray();
+export async function getProjectDataFromCache(projectId: string): Promise<{ project: Project | null; folders: Folder[]; assets: Asset[] }> {
+  if (typeof window === 'undefined') return { project: null, folders: [], assets: [] };
+  
+  const [project, folders, assets] = await Promise.all([
+    db.projects.get(projectId),
+    db.folders.where({ projectId }).toArray(),
+    db.assets.where({ projectId }).toArray()
+  ]);
+
+  return { project, folders, assets };
 }
 
-/**
- * Gets all assets for a project from the local cache.
- * @param projectId The ID of the project.
- * @returns An array of Asset objects.
- */
-export async function getAssetsFromCache(projectId: string): Promise<Asset[]> {
+export async function getDownloadedProjectsFromCache(): Promise<Project[]> {
   if (typeof window === 'undefined') return [];
-  return await db.assets.where({ projectId }).toArray();
+  return await db.projects.toArray();
+}
+
+export async function searchAssetsInCache(projectId: string, searchTerm: string): Promise<Asset[]> {
+    if (typeof window === 'undefined' || !searchTerm.trim()) return [];
+
+    const lowerCaseTerm = searchTerm.toLowerCase();
+    const isSerialSearch = /^\d+(\.\d+)?$/.test(searchTerm.trim());
+
+    try {
+        let collection;
+        if (isSerialSearch) {
+            const serialNumber = Number(searchTerm.trim());
+            collection = db.assets
+                .where({ projectId: projectId, serialNumber: serialNumber });
+        } else {
+            collection = db.assets
+                .where('name_lowercase')
+                .startsWith(lowerCaseTerm)
+                .and(asset => asset.projectId === projectId);
+        }
+        
+        const results = await collection.toArray();
+        return results;
+    } catch (error) {
+        console.error("Error searching assets in cache: ", error);
+        return [];
+    }
 }

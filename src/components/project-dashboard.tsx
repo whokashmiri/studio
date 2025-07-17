@@ -7,6 +7,7 @@ import { NewProjectModal } from '@/components/modals/new-project-modal';
 import { EditProjectModal } from '@/components/modals/edit-project-modal';
 import type { Company, Project, ProjectStatus } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
+import * as OfflineService from '@/lib/offline-service';
 import { FolderPlus, CheckCircle, Star, Clock, Sparkles, Loader2, ArrowLeftRight } from 'lucide-react';
 import { ProjectCard } from './project-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,6 +15,7 @@ import { useLanguage } from '@/contexts/language-context';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import Link from 'next/link';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 interface ProjectDashboardProps {
   company: Company;
@@ -25,6 +27,7 @@ type ProjectWithAssetCount = Project & { assetCount: number };
 
 export function ProjectDashboard({ company, onLogout, onSwitchCompany }: ProjectDashboardProps) {
   const { currentUser } = useAuth();
+  const isOnline = useOnlineStatus();
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -40,7 +43,15 @@ export function ProjectDashboard({ company, onLogout, onSwitchCompany }: Project
     if (!company?.id || !currentUser) return;
     setIsLoadingProjects(true);
     try {
-      const fetchedProjectsWithCounts = await FirestoreService.getProjects(company.id);
+      let fetchedProjectsWithCounts: ProjectWithAssetCount[] = [];
+      if (isOnline) {
+        fetchedProjectsWithCounts = await FirestoreService.getProjects(company.id);
+      } else {
+        const offlineProjects = await OfflineService.getDownloadedProjectsFromCache();
+        fetchedProjectsWithCounts = offlineProjects
+          .filter(p => p.companyId === company.id)
+          .map(p => ({ ...p, assetCount: 0 })); // Note: assetCount is not available offline easily yet
+      }
       setProjects(fetchedProjectsWithCounts);
     } catch (error) {
       console.error("Failed to fetch projects or assets:", error);
@@ -48,7 +59,7 @@ export function ProjectDashboard({ company, onLogout, onSwitchCompany }: Project
     } finally {
       setIsLoadingProjects(false);
     }
-  }, [company?.id, currentUser, toast]);
+  }, [company?.id, currentUser, toast, isOnline]);
 
   useEffect(() => {
     fetchProjectsAndCounts();
@@ -202,7 +213,7 @@ export function ProjectDashboard({ company, onLogout, onSwitchCompany }: Project
 
       {canCreateProject && (
         <div className="fixed bottom-4 left-0 right-0 p-2 bg-background/90 backdrop-blur-sm border-t z-40 flex justify-around items-center space-x-2 md:static md:bg-transparent md:p-0 md:border-none md:flex md:justify-end">
-          <Button size="lg" onClick={() => setIsNewModalOpen(true)} className="w-full md:w-auto shadow-lg md:shadow-none">
+          <Button size="lg" onClick={() => setIsNewModalOpen(true)} className="w-full md:w-auto shadow-lg md:shadow-none" disabled={!isOnline}>
             <FolderPlus className="mr-2 h-5 w-5" />
             {t('createNewProject', 'Create New Project')}
           </Button>

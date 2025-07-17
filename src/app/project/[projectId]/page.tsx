@@ -18,7 +18,6 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import * as OfflineService from '@/lib/offline-service';
 import type { DocumentData } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
-import { uploadMedia } from '@/actions/cloudinary-actions';
 import { ProjectFolderView } from '@/components/project-folder-view';
 import { ProjectSearchResults } from '@/components/project-search-results';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
@@ -39,8 +38,8 @@ export default function ProjectPage() {
   // State for project structure and folder view
   const [project, setProject] = useState<Project | null>(null);
   const [allProjectFolders, setAllProjectFolders] = useState<FolderType[]>([]);
-  const [displayedAssets, setDisplayedAssets] = useState<Asset[]>([]); // For paginated display
-  const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]); // For asset counts, might be removed later
+  const [displayedAssets, setDisplayedAssets] = useState<Asset[]>([]); 
+  const [allProjectAssets, setAllProjectAssets] = useState<Asset[]>([]); 
   const [isLoading, setIsLoading] = useState(true); 
   const [isContentLoading, setIsContentLoading] = useState(true); 
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false);
@@ -71,7 +70,7 @@ export default function ProjectPage() {
   // State for new project-wide search
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
-  const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]); // For search results
+  const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]); 
   const [isSearching, setIsSearching] = useState(false);
   const [assetFilter, setAssetFilter] = useState<'active' | 'completed' | 'all'>('active');
   const [isProjectAvailableOffline, setIsProjectAvailableOffline] = useState(false);
@@ -86,30 +85,36 @@ export default function ProjectPage() {
   const loadMoreAssetsRef = useRef<HTMLDivElement>(null);
 
   
-  // This function fetches the assets for the currently selected folder.
-  // It's called when you navigate to a different folder or when the filter changes.
   const fetchInitialFolderContent = useCallback(async (folderId: string | null) => {
       if (isSearching) return;
       setIsContentLoading(true);
-      setDisplayedAssets([]); // Explicitly clear displayed assets before fetching new ones
+      setDisplayedAssets([]); 
       setLastVisibleAssetDoc(null);
       setHasMoreAssets(true);
 
       try {
-          const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, 20, null, assetFilter);
-          setDisplayedAssets(assets);
-          setLastVisibleAssetDoc(lastDoc);
-          setHasMoreAssets(lastDoc !== null);
+          if (isOnline) {
+            const { assets, lastDoc } = await FirestoreService.getAssetsPaginated(projectId, folderId, 20, null, assetFilter);
+            setDisplayedAssets(assets);
+            setLastVisibleAssetDoc(lastDoc);
+            setHasMoreAssets(lastDoc !== null);
+          } else {
+             // Offline: No pagination for now, load all from cache
+             const allCachedAssets = await OfflineService.getAssetsFromCache(projectId);
+             const filtered = allCachedAssets.filter(a => (a.folderId || null) === folderId);
+             setDisplayedAssets(filtered);
+             setHasMoreAssets(false);
+          }
       } catch (error) {
           console.error("Error fetching initial folder content:", error);
           toast({ title: "Error", description: "Failed to load folder content.", variant: "destructive" });
       } finally {
           setIsContentLoading(false);
       }
-  }, [projectId, toast, isSearching, assetFilter]);
+  }, [projectId, toast, isSearching, assetFilter, isOnline]);
 
   const loadMoreAssets = useCallback(async () => {
-    if (isFetchingMoreAssets || !hasMoreAssets || isSearching) return;
+    if (isFetchingMoreAssets || !hasMoreAssets || isSearching || !isOnline) return;
     
     setIsFetchingMoreAssets(true);
     try {
@@ -121,7 +126,6 @@ export default function ProjectPage() {
             assetFilter
         );
 
-        // De-duplication logic: only add assets that are not already in the list.
         setDisplayedAssets(prev => {
           const existingIds = new Set(prev.map(a => a.id));
           const uniqueNewAssets = newAssets.filter(a => !existingIds.has(a.id));
@@ -136,16 +140,14 @@ export default function ProjectPage() {
     } finally {
         setIsFetchingMoreAssets(false);
     }
-  }, [isFetchingMoreAssets, hasMoreAssets, projectId, currentUrlFolderId, lastVisibleAssetDoc, toast, isSearching, assetFilter]);
+  }, [isFetchingMoreAssets, hasMoreAssets, projectId, currentUrlFolderId, lastVisibleAssetDoc, toast, isSearching, assetFilter, isOnline]);
 
   // Infinite scroll observer
   useEffect(() => {
     const scrollAreaElement = scrollAreaRef.current;
     const loaderElement = loadMoreAssetsRef.current;
   
-    if (!scrollAreaElement || !loaderElement) {
-      return;
-    }
+    if (!scrollAreaElement || !loaderElement || !isOnline) return;
   
     const observer = new IntersectionObserver(
       (entries) => {
@@ -153,69 +155,69 @@ export default function ProjectPage() {
           loadMoreAssets();
         }
       },
-      {
-        root: scrollAreaElement,
-        rootMargin: '0px 0px 100px 0px', // Trigger when loader is 100px from bottom
-        threshold: 0.1,
-      }
+      { root: scrollAreaElement, rootMargin: '0px 0px 100px 0px', threshold: 0.1 }
     );
   
     observer.observe(loaderElement);
-  
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasMoreAssets, isFetchingMoreAssets, loadMoreAssets, currentUrlFolderId]); // Re-create observer when folder changes
+    return () => observer.disconnect();
+  }, [hasMoreAssets, isFetchingMoreAssets, loadMoreAssets, currentUrlFolderId, isOnline]);
 
 
   const loadProjectData = useCallback(async () => {
     if (!projectId) return;
     setIsLoading(true);
-    
+
     try {
-      const [foundProject, projectFolders, allProjAssets] = await Promise.all([
-        FirestoreService.getProjectById(projectId),
-        FirestoreService.getFolders(projectId),
-        FirestoreService.getAllAssetsForProject(projectId, 'all'), // Fetch all for counts
-      ]);
+        const isProjectCached = await OfflineService.isProjectOffline(projectId);
+        setIsProjectAvailableOffline(isProjectCached);
+        
+        let foundProject: Project | null;
+        let projectFolders: FolderType[];
+        let allProjAssets: Asset[];
 
-      if (!foundProject) {
-        toast({ title: t('projectNotFound', "Project not found"), variant: "destructive" });
-        router.push('/');
-        return;
-      }
+        if (isOnline) {
+            [foundProject, projectFolders, allProjAssets] = await Promise.all([
+                FirestoreService.getProjectById(projectId),
+                FirestoreService.getFolders(projectId),
+                FirestoreService.getAllAssetsForProject(projectId, 'all'),
+            ]);
+        } else if (isProjectCached) {
+            const cachedData = await OfflineService.getProjectDataFromCache(projectId);
+            foundProject = cachedData.project;
+            projectFolders = cachedData.folders;
+            allProjAssets = cachedData.assets;
+        } else {
+            toast({ title: "Offline", description: "Project data not available offline.", variant: "destructive" });
+            router.push('/');
+            return;
+        }
 
-      setProject(foundProject);
-      setAllProjectFolders(projectFolders);
-      setAllProjectAssets(allProjAssets); // For asset counts
-      
+        if (!foundProject) {
+            toast({ title: t('projectNotFound', "Project not found"), variant: "destructive" });
+            router.push('/');
+            return;
+        }
+
+        setProject(foundProject);
+        setAllProjectFolders(projectFolders);
+        setAllProjectAssets(allProjAssets);
+
     } catch (error) {
-      console.error("Error loading project data:", error);
-      toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
+        console.error("Error loading project data:", error);
+        toast({ title: "Error", description: "Failed to load project data.", variant: "destructive" });
     } finally {
-      setIsLoading(false);
-      setLoadingFolderId(null);
+        setIsLoading(false);
+        setLoadingFolderId(null);
     }
-  }, [projectId, router, t, toast]);
-  
-  // This is the function that fetches content for the current folder view.
-  // It is triggered by changes in folder, search state, or filter.
-  useEffect(() => {
-    if (projectId && !isSearching) {
-        fetchInitialFolderContent(currentUrlFolderId);
-    }
-  }, [currentUrlFolderId, projectId, isSearching, assetFilter, fetchInitialFolderContent]);
-
+  }, [projectId, router, t, toast, isOnline]);
 
   useEffect(() => {
     if (projectId) {
       loadProjectData();
-      OfflineService.isProjectOffline(projectId).then(setIsProjectAvailableOffline);
     }
-  }, [projectId, loadProjectData]);
+  }, [projectId, loadProjectData, isOnline]);
 
 
-  // Offline Sync
   useEffect(() => {
     if (isOnline) {
       OfflineService.syncOfflineActions().then(({ syncedCount }) => {
@@ -231,32 +233,41 @@ export default function ProjectPage() {
     }
   }, [isOnline, loadProjectData, toast]);
 
-  // This is the function that handles searching.
-  // When the search term is cleared, it resets the component to show the folder view.
   useEffect(() => {
     const term = deferredSearchTerm.trim();
     if (term) {
         setIsSearching(true);
-        setSearchedAssets([]); // Clear previous results
-        setDisplayedAssets([]); // CRITICAL: Clear folder assets to avoid conflicts
+        setSearchedAssets([]); 
+        setDisplayedAssets([]); 
         setIsContentLoading(true);
-        FirestoreService.searchAssets(projectId, term, 50, null, 'all').then(({assets, lastDoc}) => {
+        
+        const performSearch = async () => {
+          let assets: Asset[] = [];
+          if (isOnline) {
+              const { assets: onlineAssets } = await FirestoreService.searchAssets(projectId, term, 50, null, 'all');
+              assets = onlineAssets;
+          } else {
+              assets = await OfflineService.searchAssetsInCache(projectId, term);
+          }
           setSearchedAssets(assets);
-          setLastVisibleAssetDoc(lastDoc); // Store for potential search pagination
           setIsContentLoading(false);
-        });
-    } else {
-        if (isSearching) {
-          setSearchedAssets([]); // Clear search results
-          setDisplayedAssets([]); // CRITICAL: Clear displayed assets before folder view re-fetches
-          setIsSearching(false); // This will trigger the folder content fetcher
-        }
+        };
+        performSearch();
+    } else if (isSearching) {
+        setSearchedAssets([]);
+        setDisplayedAssets([]); 
+        setIsSearching(false); // Triggers folder content refetch
     }
-  }, [deferredSearchTerm, projectId, isSearching]);
+  }, [deferredSearchTerm, projectId, isSearching, isOnline]);
+  
 
-  // This is where the final lists of folders and assets to display are calculated.
-  // It combines data from different sources (offline queue, online data) and de-duplicates them.
-  // A flaw here was a primary cause of the "duplicate key" error.
+  useEffect(() => {
+    if (projectId && !isSearching) {
+        fetchInitialFolderContent(currentUrlFolderId);
+    }
+  }, [currentUrlFolderId, projectId, isSearching, assetFilter, fetchInitialFolderContent]);
+
+
   const foldersMap = useMemo(() => new Map(allProjectFolders.map(f => [f.id, f])), [allProjectFolders]);
   const selectedFolder = useMemo(() => currentUrlFolderId ? foldersMap.get(currentUrlFolderId) ?? null : null, [currentUrlFolderId, foldersMap]);
   
@@ -281,7 +292,6 @@ export default function ProjectPage() {
     return getFolderPath(currentUrlFolderId);
   }, [project, currentUrlFolderId, getFolderPath]);
   
-  // Robust de-duplication logic to prevent key errors.
   const { finalFoldersToDisplay, finalAssetsToDisplay } = useMemo(() => {
     const offlineQueue = OfflineService.getOfflineQueue();
     const offlineFolderIds = new Set(offlineQueue.filter(a => a.type === 'add-folder').map(a => ('localId' in a ? a.localId : '')));
@@ -322,15 +332,9 @@ export default function ProjectPage() {
     }
   }, [currentUrlFolderId, foldersMap, isLoading, projectId, router, t, toast, allProjectFolders.length]);
 
-  // --- Callbacks for UI actions ---
   const handleSelectFolder = useCallback((folder: FolderType | null) => {
     setSearchTerm('');
-    if (folder) {
-        setLoadingFolderId(folder.id);
-    } else {
-        // Explicitly set loading to null when navigating to root
-        setLoadingFolderId(null);
-    }
+    setLoadingFolderId(folder ? folder.id : null);
     const targetPath = `/project/${projectId}${folder ? `?folderId=${folder.id}` : ''}`;
     router.push(targetPath, { scroll: false }); 
   }, [projectId, router]);
@@ -345,7 +349,6 @@ export default function ProjectPage() {
       parentId: newFolderParentContext ? newFolderParentContext.id : null,
     };
     
-
     if (isOnline) {
       try {
         const createdFolder = await FirestoreService.addFolder(newFolderData);
@@ -413,12 +416,12 @@ export default function ProjectPage() {
 
   const handleFolderUpdated = useCallback(async () => {
     await loadProjectData(); 
-    if (project) {
+    if (project && isOnline) {
       await FirestoreService.updateProject(project.id, { status: 'recent' as ProjectStatus });
       const updatedProj = await FirestoreService.getProjectById(project.id);
       setProject(updatedProj);
     }
-  }, [loadProjectData, project]);
+  }, [loadProjectData, project, isOnline]);
 
   const handleEditAsset = useCallback((asset: Asset) => {
     setLoadingAssetId(asset.id);
@@ -437,7 +440,6 @@ export default function ProjectPage() {
         const success = await FirestoreService.deleteAsset(assetToDelete.id);
         if (success) {
           toast({ title: t('assetDeletedTitle', 'Asset Deleted'), description: t('assetDeletedDesc', `Asset "${assetToDelete.name}" has been deleted.`, {assetName: assetToDelete.name})});
-          // Instead of full reload, just remove from the displayed list
           setDisplayedAssets(prev => prev.filter(a => a.id !== assetToDelete.id));
         } else {
           toast({ title: "Error", description: "Failed to delete asset.", variant: "destructive" });
@@ -454,17 +456,17 @@ export default function ProjectPage() {
 
   const handleAssetCreatedInModal = useCallback(async (assetDataWithDataUris: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!project) return;
+    
     if (!isOnline) {
       OfflineService.queueOfflineAction('add-asset', assetDataWithDataUris, project.id);
       toast({
         title: "Working Offline",
         description: `Asset "${assetDataWithDataUris.name}" saved locally. It will sync when you're back online.`
       });
-      await loadProjectData(); // To show optimistic offline asset
+      await loadProjectData();
       return;
     }
     
-    // --- Online optimistic UI flow ---
     const tempId = `temp_${uuidv4()}`;
     const optimisticAsset: Asset = {
       ...assetDataWithDataUris,
@@ -472,12 +474,11 @@ export default function ProjectPage() {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       isUploading: true,
-      photos: assetDataWithDataUris.photos || [], // These are data URIs
-      videos: assetDataWithDataUris.videos || [], // These are data URIs
+      photos: assetDataWithDataUris.photos || [],
+      videos: assetDataWithDataUris.videos || [],
       folderId: assetDataWithDataUris.folderId || null,
     };
 
-    // Add to UI immediately
     setDisplayedAssets(prev => [optimisticAsset, ...prev]);
 
     toast({
@@ -485,37 +486,15 @@ export default function ProjectPage() {
       description: `Asset "${assetDataWithDataUris.name}" is being uploaded.`,
     });
 
-    // Start background upload and save
     (async () => {
       try {
-        // Upload photos to Cloudinary
-        const photoUploadPromises = (assetDataWithDataUris.photos || []).map(async (dataUri) => {
-            const result = await uploadMedia(dataUri);
-            if (!result.success) throw new Error(result.error || 'Photo upload failed');
-            return result.url;
-        });
-        
-        // Videos are already data URIs, no separate upload needed.
-        const videoDataUris = assetDataWithDataUris.videos || [];
-
-        const uploadedPhotoUrls = await Promise.all(photoUploadPromises);
-
-        // Create the final asset payload with Cloudinary URLs for photos and data URIs for videos
-        const finalAssetData = {
-          ...assetDataWithDataUris,
-          photos: uploadedPhotoUrls,
-          videos: videoDataUris,
-        };
-
-        const newAssetFromDb = await FirestoreService.addAsset(finalAssetData);
-        
+        const newAssetFromDb = await FirestoreService.addAsset(assetDataWithDataUris);
         if (newAssetFromDb) {
           toast({
             title: t('assetSavedTitle', "Asset Saved"),
             description: t('assetSavedDesc', `Asset "${newAssetFromDb.name}" has been saved.`, { assetName: newAssetFromDb.name }),
             variant: "success-yellow"
           });
-          // Full reload to ensure consistency
           await loadProjectData(); 
         } else {
            throw new Error("Failed to save asset to Firestore.");
@@ -523,7 +502,6 @@ export default function ProjectPage() {
       } catch (error) {
         console.error("Error saving asset in background:", error);
         toast({ title: "Upload Error", description: `An error occurred while saving "${assetDataWithDataUris.name}".`, variant: "destructive" });
-        // Remove the failed optimistic asset from UI
         setDisplayedAssets(prev => prev.filter(asset => asset.id !== tempId));
       }
     })();
@@ -555,12 +533,11 @@ export default function ProjectPage() {
     const reader = new FileReader();
     reader.onload = async (e) => {
         try {
-            // 1. Create a new folder for the import
-            const folderName = fileToImport.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+            const folderName = fileToImport.name.replace(/\.[^/.]+$/, ""); 
             const newFolderData: Omit<FolderType, 'id'> = {
                 name: folderName,
                 projectId: project.id,
-                parentId: selectedFolder?.id || null, // Create inside current folder or at root
+                parentId: selectedFolder?.id || null, 
             };
             const createdFolder = await FirestoreService.addFolder(newFolderData);
 
@@ -570,7 +547,6 @@ export default function ProjectPage() {
             }
             const newFolderId = createdFolder.id;
 
-            // 2. Read the file and create assets within the new folder
             const data = e.target?.result;
             const workbook = XLSX.read(data, { type: 'binary' });
             const sheetName = workbook.SheetNames[0];
@@ -628,7 +604,7 @@ export default function ProjectPage() {
                     assetsToCreate.push({
                         name: quantity > 1 ? `${baseName} ${i}` : baseName,
                         projectId: project.id,
-                        folderId: newFolderId, // Use the new folder's ID
+                        folderId: newFolderId, 
                         serialNumber: serial,
                         textDescription: description,
                         photos: [],
@@ -912,7 +888,6 @@ export default function ProjectPage() {
                 className="shadow-lg"
                 disabled={!isOnline && !isProjectAvailableOffline}
             >
-                {/* <FolderPlus className="mr-2 h-4 w-4" /> */}
                 {t('addNewFolder', 'New Folder')}
             </Button>
             <Button
@@ -922,12 +897,10 @@ export default function ProjectPage() {
                 title={t('newAsset', 'New Asset')}
                 disabled={!isOnline && !isProjectAvailableOffline}
             >
-                {/* <FilePlus className="mr-2 h-4 w-4" /> */}
                 {t('newAsset', 'New Asset')}
             </Button>
              {isAdmin && (
               <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)}  className="shadow-lg" disabled={!isOnline}>
-                {/* <Upload className="mr-2 h-4 w-4" /> */}
                 {t('importAssetsButton', 'Import Assets')}
               </Button> 
             )}
@@ -1039,5 +1012,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
-    
