@@ -26,6 +26,9 @@ import { NewAssetModal } from '@/components/modals/new-asset-modal';
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getStorage } from '@/lib/firebase/config';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { compressImage } from '@/lib/image-handler-service';
 
 
 export default function ProjectPage() {
@@ -448,6 +451,26 @@ export default function ProjectPage() {
     }
   }, [isOnline, t, toast]);
 
+  // New client-side function to upload videos to Firebase Storage
+  const uploadVideoToFirebase = async (videoDataUrl: string): Promise<string> => {
+    const storage = getStorage();
+    const videoBlob = await (await fetch(videoDataUrl)).blob();
+    const videoFile = new File([videoBlob], "modal-video.webm", { type: "video/webm" });
+    const videoFileName = `videos/${uuidv4()}-${videoFile.name}`;
+    const videoStorageRef = storageRef(storage, videoFileName);
+  
+    try {
+      const snapshot = await uploadBytes(videoStorageRef, videoFile);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      return downloadURL;
+    } catch (error) {
+      console.error("Firebase Video Upload Error:", error);
+      toast({ title: "Video Upload Error", description: `Failed to upload video.`, variant: "destructive" });
+      throw error; // Re-throw to be caught by the calling function
+    }
+  };
+
+
   const handleAssetCreatedInModal = useCallback(async (assetDataWithDataUris: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!project) return;
     if (!isOnline) {
@@ -484,18 +507,16 @@ export default function ProjectPage() {
     // Start background upload and save
     (async () => {
       try {
-        // Upload all media files to Cloudinary
+        // Upload photos to Cloudinary
         const photoUploadPromises = (assetDataWithDataUris.photos || []).map(async (dataUri) => {
             const result = await uploadMedia(dataUri);
             if (!result.success) throw new Error(result.error || 'Photo upload failed');
             return result.url;
         });
-        const videoUploadPromises = (assetDataWithDataUris.videos || []).map(async (dataUri) => {
-            const result = await uploadMedia(dataUri);
-            if (!result.success) throw new Error(result.error || 'Video upload failed');
-            return result.url;
-        });
         
+        // Upload videos to Firebase Storage
+        const videoUploadPromises = (assetDataWithDataUris.videos || []).map(videoDataUrl => uploadVideoToFirebase(videoDataUrl));
+
         const uploadedPhotoUrls = await Promise.all(photoUploadPromises);
         const uploadedVideoUrls = await Promise.all(videoUploadPromises);
 
@@ -998,3 +1019,5 @@ export default function ProjectPage() {
     </div>
   );
 }
+
+    
