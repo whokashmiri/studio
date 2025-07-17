@@ -540,19 +540,9 @@ export default function NewAssetPage() {
                 reader.readAsDataURL(file);
             });
         } else if (file.type.startsWith('image/')) {
-            const compressedDataUrl = await compressImage(file);
-            if (isOnline) {
-              const uploadResult = await uploadMedia(compressedDataUrl);
-              if (uploadResult && uploadResult.success && uploadResult.url) {
-                return uploadResult.url;
-              } else {
-                toast({ title: "Image Upload Error", description: uploadResult?.error || `Failed to upload ${file.name}.`, variant: "destructive" });
-                return null;
-              }
-            } else {
-              // Offline: Use the compressed data URL directly
-              return compressedDataUrl;
-            }
+            // For both online and offline, we'll just deal with compressed data uris client side
+            // and upload to cloudinary on save if online.
+            return compressImage(file);
         }
         return null;
     });
@@ -577,7 +567,7 @@ export default function NewAssetPage() {
         setIsProcessingMedia(false);
         if (event.target) event.target.value = '';
     }
-  }, [isOnline, toast, isMediaModalOpen]);
+  }, [toast, isMediaModalOpen]);
 
   const handleCapturePhotoFromStream = useCallback(() => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream && mediaStream.active) {
@@ -687,22 +677,10 @@ export default function NewAssetPage() {
     setIsProcessingMedia(true);
     
     try {
-      let finalPhotoUrls = [];
-      if (isOnline) {
-        const photoUploadPromises = capturedPhotosInSession.map(async (photoDataUrl) => {
-          const compressedDataUrl = await compressImage(await (await fetch(photoDataUrl)).blob() as File);
-          const result = await uploadMedia(compressedDataUrl);
-          if (result.success && result.url) return result.url;
-          else throw new Error(result.error || "A photo from session failed to upload.");
-        });
-        finalPhotoUrls = await Promise.all(photoUploadPromises);
-      } else {
-        // Offline: Use data URIs directly after compression
         const compressionPromises = capturedPhotosInSession.map(async (photoDataUrl) => {
            return compressImage(await (await fetch(photoDataUrl)).blob() as File);
         });
-        finalPhotoUrls = await Promise.all(compressionPromises);
-      }
+        const finalPhotoUrls = await Promise.all(compressionPromises);
       
       setPhotoUrls(prev => [...prev, ...finalPhotoUrls]);
       setVideoUrls(prev => [...prev, ...capturedVideosInSession]);
@@ -718,7 +696,7 @@ export default function NewAssetPage() {
     } finally {
       setIsProcessingMedia(false);
     }
-  }, [capturedPhotosInSession, capturedVideosInSession, toast, isMediaModalOpen, photoUrls.length, videoUrls.length, isOnline]);
+  }, [capturedPhotosInSession, capturedVideosInSession, toast, isMediaModalOpen, photoUrls.length, videoUrls.length]);
 
 
   const handleCancelCustomCamera = () => {
@@ -898,12 +876,29 @@ export default function NewAssetPage() {
     const finalSerial = serialNumber.trim() ? parseFloat(serialNumber.trim()) : NaN;
 
     try {
+        let finalPhotoUrls = [...photoUrls];
+        if (isOnline) {
+            const photoUploadPromises = photoUrls
+                .filter(url => url.startsWith('data:image'))
+                .map(async (dataUrl) => {
+                    const result = await uploadMedia(dataUrl);
+                    if (result.success && result.url) return result.url;
+                    throw new Error(result.error || `A photo failed to upload.`);
+                });
+            const uploadedUrls = await Promise.all(photoUploadPromises);
+            // Replace data URIs with Cloudinary URLs
+            finalPhotoUrls = photoUrls.map(url => {
+                const uploadedVersion = uploadedUrls.find(u => u && u.includes(url.slice(22, 52))); // Heuristic match
+                return uploadedVersion || (url.startsWith('https://') ? url : '');
+            }).filter(Boolean);
+        }
+
         const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
             name: assetName,
             serialNumber: !isNaN(finalSerial) ? finalSerial : undefined,
             projectId: project.id,
             folderId: folderId,
-            photos: photoUrls,
+            photos: finalPhotoUrls,
             videos: videoUrls,
             voiceDescription: assetVoiceDescription.trim() || undefined,
             recordedAudioDataUrl: recordedAudioDataUrl || undefined,
@@ -925,7 +920,6 @@ export default function NewAssetPage() {
                  throw new Error("Failed to save asset to Firestore.");
             }
         } else {
-            // Offline Logic
             if (isEditMode && assetIdToEdit) {
                 OfflineService.queueOfflineAction('update-asset', assetDataPayload, project.id, assetIdToEdit);
             } else {
@@ -1245,5 +1239,3 @@ export default function NewAssetPage() {
     </div>
   );
 }
-
-    
