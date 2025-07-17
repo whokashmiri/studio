@@ -351,74 +351,81 @@ export default function NewAssetPage() {
   const loadProjectAndAsset = useCallback(async () => {
     setIsLoadingPage(true);
     if (!projectId) return;
-    
+
     try {
-        let foundProject: Project | null;
-        let allFolders: Folder[] = [];
-        let foundAsset: Asset | null = null;
-        
-        const isProjectCached = await OfflineService.isProjectOffline(projectId);
+      let foundProject: Project | null;
+      let allFolders: Folder[] = [];
+      let foundAsset: Asset | null = null;
+      
+      const isProjectCached = await OfflineService.isProjectOffline(projectId);
 
-        if (isOnline) {
-            foundProject = await FirestoreService.getProjectById(projectId);
-            if (foundProject) {
-                allFolders = await FirestoreService.getFolders(projectId);
-                if (assetIdToEdit) {
-                    foundAsset = await FirestoreService.getAssetById(assetIdToEdit);
-                }
-            }
-        } else if (isProjectCached) {
-            const cachedData = await OfflineService.getProjectDataFromCache(projectId);
-            foundProject = cachedData.project;
-            allFolders = cachedData.folders;
-            if (assetIdToEdit) {
-                foundAsset = cachedData.assets.find(a => a.id === assetIdToEdit) || null;
-            }
-        } else {
-             toast({ title: "Offline", description: "Project data not available offline.", variant: "destructive" });
-             router.push('/');
-             return;
+      if (isProjectCached) {
+        // Prioritize offline cache if project is downloaded
+        const cachedData = await OfflineService.getProjectDataFromCache(projectId);
+        foundProject = cachedData.project;
+        allFolders = cachedData.folders;
+        if (assetIdToEdit) {
+          foundAsset = cachedData.assets.find(a => a.id === assetIdToEdit) || null;
         }
-
-        if (!foundProject) {
-          toast({ title: t('projectNotFound', "Project Not Found"), variant: "destructive" });
-          router.push('/');
-          return;
-        }
-
-        setProject(foundProject);
-
-        if (folderId) {
-          const foundFolder = allFolders.find(f => f.id === folderId);
-          setCurrentFolder(foundFolder || null);
-        } else {
-          setCurrentFolder(null);
-        }
-
-        if (assetIdToEdit && foundAsset) {
-          setIsEditMode(true);
-          if (foundAsset.projectId === projectId) {
-            setAssetName(foundAsset.name);
-            setSerialNumber(foundAsset.serialNumber ? String(foundAsset.serialNumber) : '');
-            setAssetVoiceDescription(foundAsset.voiceDescription || '');
-            setRecordedAudioDataUrl(foundAsset.recordedAudioDataUrl || null);
-            setAssetTextDescription(foundAsset.textDescription || '');
-            setPhotoUrls(foundAsset.photos || []);
-            setVideoUrls(foundAsset.videos || []);
-            setIsDone(foundAsset.isDone || false);
-            setCurrentStep('photos_and_name'); 
-          } else {
-            toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
-            router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
+      } else if (isOnline) {
+        // Fetch from online source only if not cached and online
+        foundProject = await FirestoreService.getProjectById(projectId);
+        if (foundProject) {
+          allFolders = await FirestoreService.getFolders(projectId);
+          if (assetIdToEdit) {
+            foundAsset = await FirestoreService.getAssetById(assetIdToEdit);
           }
         }
-      } catch (error) {
-        console.error("Error loading project/asset:", error);
-        toast({ title: "Error", description: "Failed to load data.", variant: "destructive"});
+      } else {
+        // Offline and project not cached, show error and redirect
+        toast({ title: "Offline", description: "Project data not available offline.", variant: "destructive" });
         router.push('/');
-      } finally {
-        setIsLoadingPage(false);
+        return;
       }
+
+      if (!foundProject) {
+        toast({ title: t('projectNotFound', "Project Not Found"), variant: "destructive" });
+        router.push('/');
+        return;
+      }
+
+      setProject(foundProject);
+
+      if (folderId) {
+        const foundFolder = allFolders.find(f => f.id === folderId);
+        setCurrentFolder(foundFolder || null);
+      } else {
+        setCurrentFolder(null);
+      }
+
+      if (assetIdToEdit && foundAsset) {
+        setIsEditMode(true);
+        if (foundAsset.projectId === projectId) {
+          setAssetName(foundAsset.name);
+          setSerialNumber(foundAsset.serialNumber ? String(foundAsset.serialNumber) : '');
+          setAssetVoiceDescription(foundAsset.voiceDescription || '');
+          setRecordedAudioDataUrl(foundAsset.recordedAudioDataUrl || null);
+          setAssetTextDescription(foundAsset.textDescription || '');
+          setPhotoUrls(foundAsset.photos || []);
+          setVideoUrls(foundAsset.videos || []);
+          setIsDone(foundAsset.isDone || false);
+          setCurrentStep('photos_and_name');
+        } else {
+          toast({ title: t('assetNotFound', "Asset Not Found"), variant: "destructive" });
+          router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
+        }
+      } else if (assetIdToEdit) {
+        // Handle case where asset is being edited but not found (e.g., deleted in another tab)
+        toast({ title: t('assetNotFound', "Asset Not Found"), description: "The asset you are trying to edit could not be found.", variant: "destructive" });
+        router.push(`/project/${projectId}${folderId ? `?folderId=${folderId}` : ''}`);
+      }
+    } catch (error) {
+      console.error("Error loading project/asset:", error);
+      toast({ title: "Error", description: "Failed to load data.", variant: "destructive"});
+      router.push('/');
+    } finally {
+      setIsLoadingPage(false);
+    }
   }, [projectId, assetIdToEdit, router, toast, t, folderId, isOnline]);
 
   useEffect(() => {
