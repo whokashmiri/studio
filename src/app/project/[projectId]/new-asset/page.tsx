@@ -1245,3 +1245,5 @@ export default function NewAssetPage() {
     </div>
   );
 }
+
+    
