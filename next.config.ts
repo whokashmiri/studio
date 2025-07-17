@@ -38,7 +38,7 @@ const baseNextConfig: NextConfig = {
   },
 };
 
-// Only enable PWA in production builds to avoid development server issues.
+// Only enable PWA in production builds or non-Turbopack environments to avoid development server issues.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const withPWA = require('next-pwa')({
   dest: 'public',
@@ -47,7 +47,8 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
 });
 
-const finalConfig: NextConfig = withPWA(baseNextConfig);
+// Apply the PWA wrapper only when not using Turbopack, as it's a Webpack-specific plugin.
+const finalConfig: NextConfig = process.env.TURBOPACK ? baseNextConfig : withPWA(baseNextConfig);
 
 
 export default finalConfig;
