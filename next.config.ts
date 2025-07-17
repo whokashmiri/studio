@@ -47,12 +47,7 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
 });
 
-const finalConfig: NextConfig = process.env.NODE_ENV === 'production' 
-  ? withPWA(baseNextConfig) 
-  : baseNextConfig;
+const finalConfig: NextConfig = withPWA(baseNextConfig);
 
 
 export default finalConfig;
-
-
-

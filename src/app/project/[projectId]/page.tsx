@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2, Copy, Scissors, ClipboardPaste, CheckCircle, ListFilter } from 'lucide-react';
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2, Copy, Scissors, ClipboardPaste, CheckCircle, ListFilter, Download, Wifi, WifiOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -74,6 +74,8 @@ export default function ProjectPage() {
   const [searchedAssets, setSearchedAssets] = useState<Asset[]>([]); // For search results
   const [isSearching, setIsSearching] = useState(false);
   const [assetFilter, setAssetFilter] = useState<'active' | 'completed' | 'all'>('active');
+  const [isProjectAvailableOffline, setIsProjectAvailableOffline] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -208,6 +210,7 @@ export default function ProjectPage() {
   useEffect(() => {
     if (projectId) {
       loadProjectData();
+      OfflineService.isProjectOffline(projectId).then(setIsProjectAvailableOffline);
     }
   }, [projectId, loadProjectData]);
 
@@ -717,6 +720,22 @@ export default function ProjectPage() {
         }
     };
 
+    const handleDownloadForOffline = async () => {
+      if (!project) return;
+      setIsDownloading(true);
+      toast({ title: 'Downloading Project', description: 'Preparing project for offline use...' });
+      try {
+        await OfflineService.saveProjectForOffline(project.id);
+        setIsProjectAvailableOffline(true);
+        toast({ title: 'Download Complete', description: `Project "${project.name}" is now available offline.`, variant: 'success-yellow' });
+      } catch (error) {
+        console.error("Failed to download project for offline use:", error);
+        toast({ title: 'Download Failed', description: 'Could not save the project for offline use.', variant: 'destructive' });
+      } finally {
+        setIsDownloading(false);
+      }
+    };
+
 
   if (isLoading || !project) {
     return (
@@ -782,7 +801,7 @@ export default function ProjectPage() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
-                    disabled={isLoading || !isOnline}
+                    disabled={isLoading || (!isOnline && !isProjectAvailableOffline)}
                 />
             </div>
         </div>
@@ -791,7 +810,7 @@ export default function ProjectPage() {
                   <ProjectSearchResults
                       project={project}
                       searchTerm={deferredSearchTerm}
-                      onEditAsset={handleEditAsset}
+                      onEditAsset={onEditAsset}
                       onPreviewAsset={onPreviewAsset}
                       loadingAssetId={loadingAssetId}
                       foldersMap={foldersMap}
@@ -814,8 +833,8 @@ export default function ProjectPage() {
                 onAddSubfolder={openNewFolderDialog}
                 onEditFolder={handleOpenEditFolderModal}
                 onDeleteFolder={handleDeleteFolder}
-                onEditAsset={handleEditAsset}
-                onDeleteAsset={handleDeleteAsset}
+                onEditAsset={onEditAsset}
+                onDeleteAsset={onDeleteAsset}
                 onPreviewAsset={onPreviewAsset}
                 isAdmin={isAdmin}
                 isOnline={isOnline}
@@ -852,8 +871,30 @@ export default function ProjectPage() {
           </Button>
           <h1 className="text-2xl sm:text-3xl font-bold font-headline mt-1 flex items-center gap-2">
             {project.name}
-            {!isOnline && <CloudOff className="h-6 w-6 text-muted-foreground" title="You are currently offline." />}
+             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title={isOnline ? 'You are online' : 'You are offline'}>
+              {isOnline ? <Wifi /> : <WifiOff className="text-destructive" />}
+            </Button>
           </h1>
+        </div>
+        <div>
+          {isProjectAvailableOffline && isOnline && (
+            <Button variant="outline" onClick={handleDownloadForOffline} disabled={isDownloading}>
+               {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                Re-sync Offline Data
+            </Button>
+          )}
+           {isProjectAvailableOffline && !isOnline && (
+            <div className="flex items-center gap-2 text-sm text-green-600 border border-green-200 bg-green-50 rounded-md px-3 py-2">
+              <CheckCircle className="h-4 w-4" />
+              <span>Available Offline</span>
+            </div>
+          )}
+          {!isProjectAvailableOffline && isOnline && (
+            <Button variant="secondary" onClick={handleDownloadForOffline} disabled={isDownloading}>
+                {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                Download for Offline
+            </Button>
+          )}
         </div>
       </div>
       
@@ -869,6 +910,7 @@ export default function ProjectPage() {
                 onClick={() => openNewFolderDialog(selectedFolder)} 
                 title={selectedFolder ? t('addNewFolder', 'New Folder') : t('addRootFolderTitle', 'Add Folder to Project Root')}
                 className="shadow-lg"
+                disabled={!isOnline && !isProjectAvailableOffline}
             >
                 {/* <FolderPlus className="mr-2 h-4 w-4" /> */}
                 {t('addNewFolder', 'New Folder')}
@@ -878,12 +920,13 @@ export default function ProjectPage() {
                 className="shadow-lg"
                 size="lg"
                 title={t('newAsset', 'New Asset')}
+                disabled={!isOnline && !isProjectAvailableOffline}
             >
                 {/* <FilePlus className="mr-2 h-4 w-4" /> */}
                 {t('newAsset', 'New Asset')}
             </Button>
              {isAdmin && (
-              <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)}  className="shadow-lg" disabled={true}>
+              <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)}  className="shadow-lg" disabled={!isOnline}>
                 {/* <Upload className="mr-2 h-4 w-4" /> */}
                 {t('importAssetsButton', 'Import Assets')}
               </Button> 
