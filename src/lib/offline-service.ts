@@ -1,5 +1,6 @@
 
 
+
 import { 
   addFolder as addFolderToDb, 
   addAsset as addAssetToDb, 
@@ -10,6 +11,7 @@ import {
   getAllAssetsForProject,
   getFolders as getFoldersFromFirestore
 } from './firestore-service';
+import { uploadMedia } from '@/actions/cloudinary-actions';
 import type { Folder, Asset, Project, ProjectStatus } from '@/data/mock-data';
 import { v4 as uuidv4 } from 'uuid';
 import Dexie, { type EntityTable } from 'dexie';
@@ -89,52 +91,78 @@ export function queueOfflineAction(
 }
 
 export async function syncOfflineActions(): Promise<{syncedCount: number, errorCount: number}> {
-  let queue = getOfflineQueue();
-  if (queue.length === 0) {
-    return { syncedCount: 0, errorCount: 0 };
-  }
-
-  let syncedCount = 0;
-  let errorCount = 0;
-  
-  const remainingActions: OfflineAction[] = [];
-
-  for (const action of queue) {
-    let success = false;
-    try {
-      switch(action.type) {
-        case 'add-folder':
-          success = !!(await addFolderToDb(action.payload, action.localId));
-          break;
-        case 'add-asset':
-          success = !!(await addAssetToDb(action.payload, action.localId));
-          break;
-        case 'update-asset':
-          success = await updateAssetInDb(action.assetId, action.payload);
-          break;
-        case 'update-folder':
-          success = await updateFolderInDb(action.folderId, action.payload);
-          break;
-      }
-    } catch (error) {
-      console.error(`Failed to sync action for localId ${'localId' in action ? action.localId : 'assetId' in action ? action.assetId : ''}:`, error);
+    let queue = getOfflineQueue();
+    if (queue.length === 0) {
+      return { syncedCount: 0, errorCount: 0 };
     }
+  
+    let syncedCount = 0;
+    let errorCount = 0;
     
-    if (success) {
-      syncedCount++;
-    } else {
-      errorCount++;
-      remainingActions.push(action);
-    }
-  }
-
-  saveOfflineQueue(remainingActions);
+    const remainingActions: OfflineAction[] = [];
   
-  if(errorCount > 0){
-    console.warn(`${errorCount} offline actions failed to sync and were re-queued.`);
-  }
-
-  return { syncedCount, errorCount };
+    for (const action of queue) {
+      let success = false;
+      try {
+        switch(action.type) {
+          case 'add-folder':
+            success = !!(await addFolderToDb(action.payload, action.localId));
+            break;
+          case 'add-asset': {
+            // Handle uploading any data URI photos before saving to DB
+            const assetPayload = { ...action.payload };
+            if (assetPayload.photos && assetPayload.photos.length > 0) {
+                const uploadPromises = assetPayload.photos.map(async (p: string) => {
+                    if (p.startsWith('data:image')) {
+                        const result = await uploadMedia(p);
+                        return result.success ? result.url : p;
+                    }
+                    return p;
+                });
+                assetPayload.photos = await Promise.all(uploadPromises);
+            }
+            success = !!(await addAssetToDb(assetPayload, action.localId));
+            break;
+          }
+          case 'update-asset': {
+            // Also handle photo uploads on updates
+            const assetPayload = { ...action.payload };
+            if (assetPayload.photos && assetPayload.photos.length > 0) {
+                const uploadPromises = assetPayload.photos.map(async (p: string) => {
+                    if (p.startsWith('data:image')) {
+                        const result = await uploadMedia(p);
+                        return result.success ? result.url : p;
+                    }
+                    return p;
+                });
+                assetPayload.photos = await Promise.all(uploadPromises);
+            }
+            success = await updateAssetInDb(action.assetId, assetPayload);
+            break;
+          }
+          case 'update-folder':
+            success = await updateFolderInDb(action.folderId, action.payload);
+            break;
+        }
+      } catch (error) {
+        console.error(`Failed to sync action for localId ${'localId' in action ? action.localId : 'assetId' in action ? action.assetId : ''}:`, error);
+      }
+      
+      if (success) {
+        syncedCount++;
+      } else {
+        errorCount++;
+        remainingActions.push(action);
+      }
+    }
+  
+    saveOfflineQueue(remainingActions);
+    
+    if(errorCount > 0){
+      console.warn(`${errorCount} offline actions failed to sync and were re-queued.`);
+    }
+  
+    return { syncedCount, errorCount };
 }
 
 export async function isProjectOffline(projectId: string): Promise<boolean> {
