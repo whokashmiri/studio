@@ -357,12 +357,9 @@ export default function NewAssetPage() {
       let allFolders: Folder[] = [];
       let foundAsset: Asset | null = null;
       
-      // Prioritize checking if the project is available for offline use first.
       const isProjectCached = await OfflineService.isProjectOffline(projectId);
   
       if (isProjectCached) {
-        // If it's cached, always load from the local cache, regardless of online status.
-        // This ensures the offline experience is consistent.
         const cachedData = await OfflineService.getProjectDataFromCache(projectId);
         foundProject = cachedData.project;
         allFolders = cachedData.folders;
@@ -370,7 +367,6 @@ export default function NewAssetPage() {
           foundAsset = cachedData.assets.find(a => a.id === assetIdToEdit) || null;
         }
       } else if (isOnline) {
-        // Only if it's not cached AND the user is online, fetch from the server.
         foundProject = await FirestoreService.getProjectById(projectId);
         if (foundProject) {
           allFolders = await FirestoreService.getFolders(projectId);
@@ -379,7 +375,6 @@ export default function NewAssetPage() {
           }
         }
       } else {
-        // This case handles being offline WITHOUT the project being cached.
         toast({ title: "Offline", description: "Project data not available offline. Please connect to the internet to access or download it.", variant: "destructive" });
         router.push('/');
         return;
@@ -880,19 +875,15 @@ export default function NewAssetPage() {
     const finalSerial = serialNumber.trim() ? parseFloat(serialNumber.trim()) : NaN;
   
     try {
-      // Logic for handling image uploads differs based on online status.
       let finalPhotoUrls: string[] = [];
   
       if (isOnline) {
-        // Online: Upload only new images (data URIs) and keep existing URLs.
         const newPhotosToUpload = photoUrls.filter(url => url.startsWith('data:image'));
         const existingPhotoUrls = photoUrls.filter(url => !url.startsWith('data:image'));
   
         const photoUploadPromises = newPhotosToUpload.map(async (dataUrl) => {
           const result = await uploadMedia(dataUrl);
           if (result.success && result.url) return result.url;
-          // If an upload fails, keep the data URI to be synced later.
-          // This prevents data loss if Cloudinary has a temporary issue.
           console.error(`A photo failed to upload: ${result.error}. Keeping local version.`);
           return dataUrl; 
         });
@@ -900,18 +891,16 @@ export default function NewAssetPage() {
         const uploadedUrls = await Promise.all(photoUploadPromises);
         finalPhotoUrls = [...existingPhotoUrls, ...uploadedUrls];
       } else {
-        // Offline: All URLs (existing or new data URIs) are kept as-is.
         finalPhotoUrls = photoUrls;
       }
   
-      // The rest of the payload is the same for online and offline.
       const assetDataPayload: Partial<Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>> = {
         name: assetName,
         serialNumber: !isNaN(finalSerial) ? finalSerial : undefined,
         projectId: project.id,
         folderId: folderId,
         photos: finalPhotoUrls,
-        videos: videoUrls, // Videos are always data URIs, no upload logic here.
+        videos: videoUrls, 
         voiceDescription: assetVoiceDescription.trim() || undefined,
         recordedAudioDataUrl: recordedAudioDataUrl || undefined,
         textDescription: assetTextDescription.trim() || undefined,
@@ -925,14 +914,14 @@ export default function NewAssetPage() {
           success = await FirestoreService.updateAsset(assetIdToEdit, assetDataPayload);
         } else {
           OfflineService.queueOfflineAction('update-asset', assetDataPayload, project.id, assetIdToEdit);
-          success = true; // Assume success for offline queueing
+          success = true; 
         }
-      } else { // Creating a new asset
+      } else { 
         if (isOnline) {
           success = !!await FirestoreService.addAsset(assetDataPayload as Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>);
         } else {
           OfflineService.queueOfflineAction('add-asset', assetDataPayload, project.id);
-          success = true; // Assume success for offline queueing
+          success = true; 
         }
       }
   
