@@ -282,6 +282,7 @@ const translations: Record<Language, Record<string, string>> = {
     folderMovedTitle: "Folder Moved",
     folderMovedDesc: "Folder \"{folderName}\" was moved successfully.",
     exportProject: "Export Project",
+    downloadProject: "Download",
 
 
     loginTitle: "Login",
@@ -763,6 +764,7 @@ const translations: Record<Language, Record<string, string>> = {
     userNotAuthenticatedError: "المستخدم غير مصادق عليه. لا يمكن إنشاء مشروع.",
     error: "خطأ",
     exportProject: "تصدير المشروع",
+    downloadProject: "تحميل",
 
     loginTitle: "تسجيل الدخول",
     loginDesc: "قم بالوصول إلى حساب فالتيك للتقييم الخاص بك.",

@@ -51,6 +51,7 @@ export default function AdminDashboardPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [exportingProjectId, setExportingProjectId] = useState<string | null>(null);
+  const [downloadingProjectId, setDownloadingProjectId] = useState<string | null>(null);
 
 
   const loadAdminData = useCallback(async () => {
@@ -317,7 +318,89 @@ export default function AdminDashboardPage() {
     } finally {
         setExportingProjectId(null);
     }
-  }, [toast, t]);
+  }, [toast]);
+  
+  const handleDownloadProject = useCallback(async (project: Project) => {
+    setDownloadingProjectId(project.id);
+    toast({
+      title: "Downloading Project Media",
+      description: `Preparing to download media for "${project.name}"...`,
+    });
+
+    try {
+      const [folders, assets] = await Promise.all([
+        FirestoreService.getFolders(project.id),
+        FirestoreService.getAllAssetsForProject(project.id),
+      ]);
+
+      const zip = new JSZip();
+      const folderMap = new Map(folders.map(f => [f.id, f.name]));
+      const safeProjectName = project.name.replace(/[/\\?%*:|"<>]/g, '-') || 'project';
+      const projectFolderZip = zip.folder(safeProjectName);
+
+      if (!projectFolderZip) {
+        throw new Error("Could not create project folder in zip.");
+      }
+
+      for (const asset of assets) {
+        if (!asset.photos || asset.photos.length === 0) continue;
+
+        const folderPath = asset.folderId ? folderMap.get(asset.folderId) : null;
+        const safeAssetName = asset.name.replace(/[/\\?%*:|"<>]/g, '-') || `asset-${asset.id}`;
+        
+        let assetZipFolder = projectFolderZip;
+        if (folderPath) {
+          const safeFolderPath = folderPath.replace(/[/\\?%*:|"<>]/g, '-');
+          assetZipFolder = projectFolderZip.folder(safeFolderPath) || projectFolderZip;
+        }
+        const finalAssetFolder = assetZipFolder.folder(safeAssetName) || assetZipFolder;
+
+        const photoPromises = asset.photos.map(async (photoUrl, index) => {
+          try {
+            // Remove Cloudinary transformations for higher quality
+            const hqUrl = photoUrl.replace(/\/upload\/.*?\//, '/upload/');
+            const response = await fetch(hqUrl);
+            if (!response.ok) {
+              console.warn(`Failed to fetch photo: ${hqUrl}, status: ${response.status}`);
+              return;
+            }
+            const blob = await response.blob();
+            finalAssetFolder.file(`photo_${index + 1}.jpg`, blob);
+          } catch (fetchError) {
+             console.warn(`Could not download photo ${photoUrl}:`, fetchError);
+          }
+        });
+        await Promise.all(photoPromises);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `${safeProjectName}_Media.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+      toast({
+        title: "Download Complete",
+        description: `All media for project "${project.name}" has been downloaded.`,
+        variant: "success-yellow"
+      });
+
+    } catch (error) {
+      console.error("Error downloading project media:", error);
+      toast({
+        title: "Download Failed",
+        description: "An error occurred while downloading project media.",
+        variant: "destructive"
+      });
+    } finally {
+      setDownloadingProjectId(null);
+    }
+  }, [toast]);
+
 
   if (authLoading || pageLoading) {
     return (
@@ -382,7 +465,9 @@ export default function AdminDashboardPage() {
                         onAssignUsers={handleOpenAssignUsersModal}
                         onDeleteProject={promptDeleteProject}
                         onExportProject={handleExportProject}
+                        onDownloadProject={handleDownloadProject}
                         isLoading={exportingProjectId === project.id}
+                        isDownloading={downloadingProjectId === project.id}
                       />
                   );
                 })}
