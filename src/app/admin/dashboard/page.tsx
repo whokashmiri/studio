@@ -323,14 +323,16 @@ export default function AdminDashboardPage() {
   const handleDownloadProject = useCallback(async (project: Project) => {
     setDownloadingProjectId(project.id);
     toast({
-      title: "Downloading Project Media",
+      title: "Downloading Project Mdia",
       description: `Preparing to download media for "${project.name}"...`,
+
     });
 
     try {
       const [folders, assets] = await Promise.all([
         FirestoreService.getFolders(project.id),
         FirestoreService.getAllAssetsForProject(project.id),
+       
       ]);
 
       const zip = new JSZip();
