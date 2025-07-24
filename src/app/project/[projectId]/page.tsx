@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { Project, Folder as FolderType, ProjectStatus, Asset } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
-import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2, Copy, Scissors, ClipboardPaste, CheckCircle, ListFilter, Download, Wifi, WifiOff } from 'lucide-react'; 
+import { Home, Loader2, CloudOff, FolderPlus, Upload, FilePlus, Search, FolderIcon, FileArchive, Edit2, Copy, Scissors, ClipboardPaste, CheckCircle, ListFilter, Download, Wifi, WifiOff, UploadCloud } from 'lucide-react'; 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -21,7 +21,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ProjectFolderView } from '@/components/project-folder-view';
 import { ProjectSearchResults } from '@/components/project-search-results';
 import { EditFolderModal } from '@/components/modals/edit-folder-modal';
-import { NewAssetModal } from '@/components/modals/new-asset-modal';
+import { NewAssetModal, type PreloadedAssetData } from '@/components/modals/new-asset-modal';
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -66,6 +66,8 @@ export default function ProjectPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [fileToImport, setFileToImport] = useState<File | null>(null);
+  const [preloadedAssetData, setPreloadedAssetData] = useState<PreloadedAssetData | null>(null);
+
 
   // State for new project-wide search
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,6 +77,10 @@ export default function ProjectPage() {
   const [assetFilter, setAssetFilter] = useState<'active' | 'completed' | 'all'>('active');
   const [isProjectAvailableOffline, setIsProjectAvailableOffline] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // State for Drag-and-Drop
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [isProcessingDrop, setIsProcessingDrop] = useState(false);
   
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -724,6 +730,87 @@ export default function ProjectPage() {
       }
     };
 
+    // --- Drag and Drop Handlers ---
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDraggingOver(true);
+    }, []);
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(false);
+    }, []);
+
+    const handleDrop = useCallback(async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDraggingOver(false);
+      if (isProcessingDrop) return;
+    
+      const items = e.dataTransfer.items;
+      if (!items || items.length === 0) return;
+      
+      setIsProcessingDrop(true);
+      toast({ title: "Processing Drop", description: "Reading dropped folder contents..." });
+
+      try {
+        const item = items[0].webkitGetAsEntry();
+        if (item && item.isDirectory) {
+          const directoryReader = (item as any).createReader();
+          directoryReader.readEntries(async (entries: any[]) => {
+            const imageFiles: File[] = [];
+            for (const entry of entries) {
+              if (entry.isFile && entry.name.match(/\.(jpe?g|png|gif|webp)$/i)) {
+                entry.file((file: File) => imageFiles.push(file));
+              }
+            }
+            // Wait a moment for files to be collected
+            setTimeout(async () => {
+              if (imageFiles.length > 0) {
+                const photoPromises = imageFiles.map(file => {
+                  return new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target?.result as string);
+                    reader.readAsDataURL(file);
+                  });
+                });
+                const photoDataUrls = await Promise.all(photoPromises);
+                
+                setPreloadedAssetData({
+                  name: item.name,
+                  photos: photoDataUrls
+                });
+                setIsNewAssetModalOpen(true);
+              } else {
+                toast({ title: "No Images Found", description: "The dropped folder did not contain any supported image files.", variant: "default" });
+              }
+              setIsProcessingDrop(false);
+            }, 500);
+          });
+        } else {
+          toast({ title: "Invalid Drop", description: "Please drop a single folder.", variant: "destructive" });
+          setIsProcessingDrop(false);
+        }
+      } catch (error) {
+        console.error("Error processing drop:", error);
+        toast({ title: "Drop Error", description: "Could not process the dropped folder.", variant: "destructive" });
+        setIsProcessingDrop(false);
+      }
+    }, [isProcessingDrop, toast]);
+
+    useEffect(() => {
+        const preventDefault = (e: DragEvent) => e.preventDefault();
+        window.addEventListener('dragover', preventDefault);
+        window.addEventListener('drop', preventDefault);
+    
+        return () => {
+          window.removeEventListener('dragover', preventDefault);
+          window.removeEventListener('drop', preventDefault);
+        };
+      }, []);
+
 
   if (isLoading || !project) {
     return (
@@ -837,7 +924,24 @@ export default function ProjectPage() {
   );
   
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24">
+    <div 
+        className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-2 sm:space-y-4 pb-24"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+    >
+        {isDraggingOver && (
+            <div className="fixed inset-0 bg-primary/20 backdrop-blur-sm flex flex-col items-center justify-center z-50 pointer-events-none">
+                <UploadCloud className="h-24 w-24 text-primary animate-pulse" />
+                <p className="mt-4 text-xl font-bold text-primary">Drop a folder to create a new asset</p>
+            </div>
+        )}
+         {isProcessingDrop && (
+            <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+                <Loader2 className="h-16 w-16 text-primary animate-spin" />
+                <p className="mt-4 text-lg font-medium text-primary">Processing dropped folder...</p>
+            </div>
+        )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
         <div>
           <Button
@@ -903,7 +1007,10 @@ export default function ProjectPage() {
                 {t('addNewFolder', 'New Folder')}
             </Button>
             <Button
-                onClick={() => setIsNewAssetModalOpen(true)} 
+                onClick={() => {
+                    setPreloadedAssetData(null);
+                    setIsNewAssetModalOpen(true);
+                }}
                 className="shadow-lg"
                 size="lg"
                 title={t('newAsset', 'New Asset')}
@@ -1008,10 +1115,14 @@ export default function ProjectPage() {
       {project && (
       <NewAssetModal
           isOpen={isNewAssetModalOpen}
-          onClose={() => setIsNewAssetModalOpen(false)}
+          onClose={() => {
+              setIsNewAssetModalOpen(false);
+              setPreloadedAssetData(null);
+          }}
           project={project}
           parentFolder={selectedFolder}
           onAssetCreated={handleAssetCreatedInModal}
+          preloadedData={preloadedAssetData}
       />
       )}
       {assetToPreview && (

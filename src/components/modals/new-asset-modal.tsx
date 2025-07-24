@@ -23,12 +23,18 @@ type AssetCreationStep = 'photos_capture' | 'name_input' | 'descriptions';
 type CaptureMode = 'photo' | 'video';
 const CAMERA_PERMISSION_GRANTED_KEY = 'assetInspectorProCameraPermissionGrantedV1Modal';
 
+export interface PreloadedAssetData {
+    name: string;
+    photos: string[]; // as data URIs
+}
+  
 interface NewAssetModalProps {
     isOpen: boolean;
     onClose: () => void;
     project: Project;
     parentFolder: FolderType | null;
     onAssetCreated: (assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => void;
+    preloadedData?: PreloadedAssetData | null;
 }
 
 // Extracted Dialog Component for Media Management
@@ -285,7 +291,7 @@ const CustomCameraDialog: FC<any> = ({
 };
 
 
-export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetCreated }: NewAssetModalProps) {
+export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetCreated, preloadedData }: NewAssetModalProps) {
   const [currentStep, setCurrentStep] = useState<AssetCreationStep>('photos_capture');
   
   const [assetName, setAssetName] = useState('');
@@ -378,8 +384,13 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
   useEffect(() => {
     if (isOpen) {
       resetModalState();
+      if (preloadedData) {
+        setAssetName(preloadedData.name);
+        setPhotoPreviews(preloadedData.photos);
+        setCurrentStep('name_input');
+      }
     }
-  }, [isOpen, project, parentFolder, resetModalState]);
+  }, [isOpen, preloadedData, resetModalState]);
 
   useEffect(() => {
     let streamInstance: MediaStream | null = null;
