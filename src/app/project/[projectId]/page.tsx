@@ -744,61 +744,100 @@ export default function ProjectPage() {
     }, []);
 
     const handleDrop = useCallback(async (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDraggingOver(false);
-      if (isProcessingDrop) return;
-    
-      const items = e.dataTransfer.items;
-      if (!items || items.length === 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(false);
+        if (isProcessingDrop || !project || !currentUser) return;
       
-      setIsProcessingDrop(true);
-      toast({ title: "Processing Drop", description: "Reading dropped folder contents..." });
-
-      try {
-        const item = items[0].webkitGetAsEntry();
-        if (item && item.isDirectory) {
-          const directoryReader = (item as any).createReader();
-          directoryReader.readEntries(async (entries: any[]) => {
-            const imageFiles: File[] = [];
-            for (const entry of entries) {
-              if (entry.isFile && entry.name.match(/\.(jpe?g|png|gif|webp)$/i)) {
-                entry.file((file: File) => imageFiles.push(file));
-              }
+        setIsProcessingDrop(true);
+        toast({ title: "Processing Drop", description: "Creating assets and folders from drop..." });
+      
+        try {
+          const items = e.dataTransfer.items;
+          if (!items || items.length === 0) {
+            setIsProcessingDrop(false);
+            return;
+          }
+      
+          // Helper function to process a single DirectoryEntry
+          const processDirectoryEntry = async (entry: any): Promise<{ images: File[], hasSubfolders: boolean }> => {
+            return new Promise(resolve => {
+              let imageFiles: File[] = [];
+              let subfolderFound = false;
+              const reader = entry.createReader();
+              const readEntries = () => {
+                reader.readEntries((entries: any[]) => {
+                  if (entries.length > 0) {
+                    for (const subEntry of entries) {
+                      if (subEntry.isFile && subEntry.name.match(/\.(jpe?g|png|gif|webp)$/i)) {
+                        subEntry.file((file: File) => imageFiles.push(file));
+                      } else if (subEntry.isDirectory) {
+                        subfolderFound = true;
+                      }
+                    }
+                    readEntries(); // Read next batch of entries
+                  } else {
+                    // All entries read
+                    resolve({ images: imageFiles, hasSubfolders: subfolderFound });
+                  }
+                });
+              };
+              readEntries();
+            });
+          };
+      
+          const creationPromises = [];
+      
+          for (let i = 0; i < items.length; i++) {
+            const entry = items[i].webkitGetAsEntry();
+            if (entry && entry.isDirectory) {
+                creationPromises.push(
+                    processDirectoryEntry(entry).then(async ({ images, hasSubfolders }) => {
+                        const droppedFolderName = entry.name;
+                        
+                        if (images.length > 0) { // If there are images, create an asset
+                            const photoDataUris = await Promise.all(images.map(file => {
+                                return new Promise<string>((resolve) => {
+                                    const reader = new FileReader();
+                                    reader.onload = e => resolve(e.target?.result as string);
+                                    reader.readAsDataURL(file);
+                                });
+                            }));
+                            
+                            const assetPayload = {
+                                name: droppedFolderName,
+                                projectId: project.id,
+                                folderId: currentUrlFolderId,
+                                userId: currentUser.id,
+                                photos: photoDataUris,
+                                videos: [],
+                            };
+                            return FirestoreService.addAsset(assetPayload);
+                        } else { // If no images (even if there are subfolders), create an empty folder
+                            const folderPayload = {
+                                name: droppedFolderName,
+                                projectId: project.id,
+                                parentId: currentUrlFolderId,
+                            };
+                            return FirestoreService.addFolder(folderPayload);
+                        }
+                    })
+                );
             }
-            // Wait a moment for files to be collected
-            setTimeout(async () => {
-              if (imageFiles.length > 0) {
-                const photoPromises = imageFiles.map(file => {
-                  return new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = e => resolve(e.target?.result as string);
-                    reader.readAsDataURL(file);
-                  });
-                });
-                const photoDataUrls = await Promise.all(photoPromises);
-                
-                setPreloadedAssetData({
-                  name: item.name,
-                  photos: photoDataUrls
-                });
-                setIsNewAssetModalOpen(true);
-              } else {
-                toast({ title: "No Images Found", description: "The dropped folder did not contain any supported image files.", variant: "default" });
-              }
-              setIsProcessingDrop(false);
-            }, 500);
-          });
-        } else {
-          toast({ title: "Invalid Drop", description: "Please drop a single folder.", variant: "destructive" });
+          }
+      
+          await Promise.all(creationPromises);
+          
+          toast({ title: "Drop Complete", description: "Assets and folders created successfully.", variant: 'success-yellow' });
+          await loadProjectData(); // Refresh the view
+      
+        } catch (error) {
+          console.error("Error processing drop:", error);
+          toast({ title: "Drop Error", description: "Could not process the dropped folder(s).", variant: "destructive" });
+        } finally {
           setIsProcessingDrop(false);
         }
-      } catch (error) {
-        console.error("Error processing drop:", error);
-        toast({ title: "Drop Error", description: "Could not process the dropped folder.", variant: "destructive" });
-        setIsProcessingDrop(false);
-      }
-    }, [isProcessingDrop, toast]);
+      }, [isProcessingDrop, toast, project, currentUser, currentUrlFolderId, loadProjectData]);
 
     useEffect(() => {
         const preventDefault = (e: DragEvent) => e.preventDefault();
