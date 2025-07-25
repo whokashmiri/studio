@@ -744,93 +744,118 @@ export default function ProjectPage() {
     }, []);
 
     const handleDrop = useCallback(async (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDraggingOver(false);
-        if (isProcessingDrop || !project || !currentUser) return;
-      
-        setIsProcessingDrop(true);
-        toast({ title: "Processing Drop", description: "Creating assets and folders from drop..." });
-      
-        try {
-            const items = Array.from(e.dataTransfer.items);
-            if (items.length === 0) {
-                setIsProcessingDrop(false);
-                return;
-            }
-
-            const processEntry = async (entry: any): Promise<void> => {
-                if (entry.isDirectory) {
-                    const imageFiles: File[] = [];
-                    const reader = entry.createReader();
-
-                    const readAllEntries = (): Promise<void> => {
-                        return new Promise((resolve, reject) => {
-                            reader.readEntries(async (entries: any[]) => {
-                                if (entries.length === 0) {
-                                    resolve();
-                                    return;
-                                }
-                                for (const subEntry of entries) {
-                                    if (subEntry.isFile && subEntry.name.match(/\.(jpe?g|png|gif|webp)$/i)) {
-                                        const file: File = await new Promise((res, rej) => subEntry.file(res, rej));
-                                        imageFiles.push(file);
-                                    }
-                                }
-                                await readAllEntries(); // Recursively read until empty
-                                resolve();
-                            }, reject);
-                        });
-                    };
-
-                    await readAllEntries();
-
-                    if (imageFiles.length > 0) {
-                        const photoDataUris = await Promise.all(imageFiles.map(file => {
-                            return new Promise<string>((resolve) => {
-                                const fileReader = new FileReader();
-                                fileReader.onload = e => resolve(e.target?.result as string);
-                                fileReader.readAsDataURL(file);
-                            });
-                        }));
-
-                        const assetPayload = {
-                            name: entry.name,
-                            projectId: project.id,
-                            folderId: currentUrlFolderId,
-                            userId: currentUser.id,
-                            photos: photoDataUris,
-                            videos: [],
-                        };
-                        await FirestoreService.addAsset(assetPayload);
-                    } else {
-                        const folderPayload = {
-                            name: entry.name,
-                            projectId: project.id,
-                            parentId: currentUrlFolderId,
-                        };
-                        await FirestoreService.addFolder(folderPayload);
-                    }
-                }
-            };
-
-            const creationPromises = items
-                .map(item => item.webkitGetAsEntry())
-                .filter(Boolean)
-                .map(processEntry);
-            
-            await Promise.all(creationPromises);
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDraggingOver(false);
+      if (isProcessingDrop || !project || !currentUser || !isOnline) {
+          if (!isOnline) {
+              toast({ title: "Action Not Available", description: "Drag and drop is not available in offline mode.", variant: "default" });
+          }
+          return;
+      }
+  
+      setIsProcessingDrop(true);
+      toast({ title: "Processing Drop", description: "Creating assets and folders..." });
+  
+      const processDirectoryEntry = async (entry: FileSystemDirectoryEntry, parentId: string | null): Promise<void> => {
+          const folderPayload: Omit<FolderType, 'id'> = {
+              name: entry.name,
+              projectId: project.id,
+              parentId: parentId,
+          };
+          const createdFolder = await FirestoreService.addFolder(folderPayload);
+          if (!createdFolder) {
+              console.error(`Failed to create folder for: ${entry.name}`);
+              return;
+          }
+  
+          const reader = entry.createReader();
+          const entries = await new Promise<FileSystemEntry[]>((resolve) => {
+              reader.readEntries(resolve);
+          });
+  
+          const imageFiles: File[] = [];
+          const subDirectoryPromises: Promise<void>[] = [];
+  
+          for (const subEntry of entries) {
+              if (subEntry.isDirectory) {
+                  subDirectoryPromises.push(processDirectoryEntry(subEntry as FileSystemDirectoryEntry, createdFolder.id));
+              } else if (subEntry.isFile && subEntry.name.match(/\.(jpe?g|png|gif|webp)$/i)) {
+                  const file: File = await new Promise((res) => (subEntry as FileSystemFileEntry).file(res));
+                  imageFiles.push(file);
+              }
+          }
           
-            toast({ title: "Drop Complete", description: "Assets and folders created successfully.", variant: 'success-yellow' });
-            await loadProjectData();
+          await Promise.all(subDirectoryPromises);
+  
+          if (imageFiles.length > 0) {
+              const photoDataUris = await Promise.all(imageFiles.map(file => {
+                  return new Promise<string>((resolve) => {
+                      const fileReader = new FileReader();
+                      fileReader.onload = e => resolve(e.target?.result as string);
+                      fileReader.readAsDataURL(file);
+                  });
+              }));
+              
+              const assetPayload = {
+                  name: entry.name, 
+                  projectId: project.id,
+                  folderId: parentId, // Asset should be in the parent, representing this folder
+                  userId: currentUser.id,
+                  photos: photoDataUris,
+                  videos: [],
+              };
+              await FirestoreService.addAsset(assetPayload);
+          }
+      };
       
-        } catch (error) {
+      const getFilePromise = (entry: FileSystemFileEntry): Promise<File> => {
+        return new Promise((resolve) => entry.file(resolve));
+      };
+
+      const processFileEntry = async (entry: FileSystemFileEntry, parentId: string | null): Promise<void> => {
+        if (entry.name.match(/\.(jpe?g|png|gif|webp)$/i)) {
+          const file = await getFilePromise(entry);
+          const dataUri = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target?.result as string);
+            reader.readAsDataURL(file);
+          });
+          const assetPayload = {
+            name: file.name.replace(/\.[^/.]+$/, ""),
+            projectId: project.id,
+            folderId: parentId,
+            userId: currentUser.id,
+            photos: [dataUri],
+            videos: [],
+          };
+          await FirestoreService.addAsset(assetPayload);
+        }
+      }
+
+      try {
+          const items = Array.from(e.dataTransfer.items);
+          const rootEntries = items.map(item => item.webkitGetAsEntry()).filter((entry): entry is FileSystemEntry => entry !== null);
+          
+          const processingPromises = rootEntries.map(entry => {
+              if (entry.isDirectory) {
+                  return processDirectoryEntry(entry as FileSystemDirectoryEntry, currentUrlFolderId);
+              } else {
+                  return processFileEntry(entry as FileSystemFileEntry, currentUrlFolderId);
+              }
+          });
+          
+          await Promise.all(processingPromises);
+          
+          toast({ title: "Drop Complete", description: "Assets and folders created successfully.", variant: 'success-yellow' });
+      } catch (error) {
           console.error("Error processing drop:", error);
           toast({ title: "Drop Error", description: "Could not process the dropped folder(s).", variant: "destructive" });
-        } finally {
+      } finally {
           setIsProcessingDrop(false);
-        }
-      }, [isProcessingDrop, toast, project, currentUser, currentUrlFolderId, loadProjectData]);
+          await loadProjectData();
+      }
+    }, [isProcessingDrop, toast, project, currentUser, currentUrlFolderId, loadProjectData, isOnline, t]);
 
     useEffect(() => {
         const preventDefault = (e: DragEvent) => e.preventDefault();
