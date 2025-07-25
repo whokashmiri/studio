@@ -901,9 +901,9 @@ export default function NewAssetPage() {
         folderId: folderId,
         photos: finalPhotoUrls,
         videos: videoUrls, 
-        voiceDescription: assetVoiceDescription.trim() || undefined,
-        recordedAudioDataUrl: recordedAudioDataUrl || undefined,
-        textDescription: assetTextDescription.trim() || undefined,
+        voiceDescription: assetVoiceDescription.trim() || null,
+        recordedAudioDataUrl: recordedAudioDataUrl || null,
+        textDescription: assetTextDescription.trim() || null,
         isDone: isDone,
         userId: currentUser.id,
       };
