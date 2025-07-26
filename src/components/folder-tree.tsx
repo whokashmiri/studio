@@ -31,11 +31,14 @@ interface FolderTreeDisplayProps {
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void; 
   onPreviewAsset: (asset: Asset) => void;
+  onDownloadAsset: (asset: Asset) => void;
+  onDownloadFolder: (folder: Folder) => void;
   currentSelectedFolderId: string | null;
   displayMode?: 'grid' | 'list';
   deletingItemId?: string | null;
   loadingAssetId?: string | null;
   loadingFolderId?: string | null;
+  downloadingItemId?: string | null;
   isAdmin: boolean;
   isOnline: boolean;
 }
@@ -51,10 +54,13 @@ export function FolderTreeDisplay({
   onEditAsset,
   onDeleteAsset,
   onPreviewAsset,
+  onDownloadAsset,
+  onDownloadFolder,
   displayMode = 'grid',
   deletingItemId,
   loadingAssetId,
   loadingFolderId,
+  downloadingItemId,
   isAdmin,
   isOnline,
 }: FolderTreeDisplayProps) {
@@ -96,9 +102,11 @@ export function FolderTreeDisplay({
                         onAddSubfolder={onAddSubfolder}
                         onEditFolder={onEditFolder}
                         onActualDeleteFolder={handleDeleteFolderClick}
+                        onDownloadFolder={onDownloadFolder}
                         t={t}
                         isOnline={isOnline}
                         isLoading={loadingFolderId === item.data.id}
+                        isDownloading={downloadingItemId === item.data.id}
                     />
                 );
             }
@@ -110,9 +118,11 @@ export function FolderTreeDisplay({
                         onEditAsset={onEditAsset}
                         onDeleteAsset={onDeleteAsset}
                         onPreviewAsset={onPreviewAsset}
+                        onDownloadAsset={onDownloadAsset}
                         displayMode="grid"
                         isDeleting={deletingItemId === item.data.id}
                         isLoading={loadingAssetId === item.data.id}
+                        isDownloading={downloadingItemId === item.data.id}
                         isOnline={isOnline}
                     />
                 );
@@ -127,3 +137,5 @@ export function FolderTreeDisplay({
   // --- LIST MODE IS NOT CURRENTLY USED BUT LEFT FOR POTENTIAL FUTURE USE ---
   return null; 
 }
+
+    

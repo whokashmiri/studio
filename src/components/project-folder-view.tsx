@@ -21,6 +21,7 @@ interface ProjectFolderViewProps {
   deletingItemId: string | null;
   loadingAssetId: string | null;
   loadingFolderId: string | null;
+  downloadingItemId: string | null;
   scrollAreaRef: React.RefObject<HTMLDivElement>;
   onSelectFolder: (folder: FolderType) => void;
   onAddSubfolder: (parentFolder: FolderType | null) => void;
@@ -29,6 +30,8 @@ interface ProjectFolderViewProps {
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void;
   onPreviewAsset: (asset: Asset) => void;
+  onDownloadAsset: (asset: Asset) => void;
+  onDownloadFolder: (folder: FolderType) => void;
   isAdmin: boolean;
   isOnline: boolean;
   loadMoreAssetsRef: React.RefObject<HTMLDivElement>;
@@ -46,6 +49,7 @@ export function ProjectFolderView({
   deletingItemId,
   loadingAssetId,
   loadingFolderId,
+  downloadingItemId,
   scrollAreaRef,
   onSelectFolder,
   onAddSubfolder,
@@ -54,6 +58,8 @@ export function ProjectFolderView({
   onEditAsset,
   onDeleteAsset,
   onPreviewAsset,
+  onDownloadAsset,
+  onDownloadFolder,
   isAdmin,
   isOnline,
   loadMoreAssetsRef,
@@ -84,11 +90,14 @@ export function ProjectFolderView({
             onEditAsset={onEditAsset}
             onDeleteAsset={onDeleteAsset}
             onPreviewAsset={onPreviewAsset}
+            onDownloadAsset={onDownloadAsset}
+            onDownloadFolder={onDownloadFolder}
             currentSelectedFolderId={selectedFolder?.id || null}
             displayMode="grid"
             deletingItemId={deletingItemId}
             loadingAssetId={loadingAssetId}
             loadingFolderId={loadingFolderId}
+            downloadingItemId={downloadingItemId}
             isAdmin={isAdmin}
             isOnline={isOnline}
           />
@@ -115,3 +124,5 @@ export function ProjectFolderView({
     </div>
   );
 }
+
+    

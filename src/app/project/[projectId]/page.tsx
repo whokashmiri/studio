@@ -25,6 +25,7 @@ import { NewAssetModal, type PreloadedAssetData } from '@/components/modals/new-
 import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import JSZip from 'jszip';
 
 
 export default function ProjectPage() {
@@ -46,6 +47,7 @@ export default function ProjectPage() {
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [loadingAssetId, setLoadingAssetId] = useState<string | null>(null);
   const [loadingFolderId, setLoadingFolderId] = useState<string | null>(null);
+  const [downloadingItemId, setDownloadingItemId] = useState<string | null>(null);
   const [isPasting, setIsPasting] = useState(false);
 
   // Pagination state for assets
@@ -868,6 +870,103 @@ export default function ProjectPage() {
         };
       }, []);
 
+  const handleDownloadAsset = useCallback(async (asset: Asset) => {
+    if (!asset.photos || asset.photos.length === 0) {
+      toast({ title: "No Media", description: "This asset has no photos to download.", variant: "default" });
+      return;
+    }
+    setDownloadingItemId(asset.id);
+    toast({ title: "Downloading Asset", description: `Preparing to download media for "${asset.name}"...` });
+    try {
+      const zip = new JSZip();
+      const safeAssetName = asset.name.replace(/[/\\?%*:|"<>]/g, '-') || `asset-${asset.id}`;
+      const assetFolder = zip.folder(safeAssetName);
+      if (!assetFolder) throw new Error("Could not create asset folder in zip.");
+
+      const photoPromises = asset.photos.map(async (photoUrl, index) => {
+        try {
+          const hqUrl = photoUrl.replace(/\/upload\/.*?\//, '/upload/');
+          const response = await fetch(hqUrl);
+          if (!response.ok) {
+            console.warn(`Failed to fetch photo: ${hqUrl}, status: ${response.status}`);
+            return;
+          }
+          const blob = await response.blob();
+          assetFolder.file(`photo_${index + 1}.jpg`, blob);
+        } catch (fetchError) {
+           console.warn(`Could not download photo ${photoUrl}:`, fetchError);
+        }
+      });
+      await Promise.all(photoPromises);
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `${safeAssetName}_Media.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+      toast({ title: "Download Complete", description: `Media for asset "${asset.name}" downloaded.`, variant: "success-yellow" });
+    } catch(error) {
+      console.error("Error downloading asset media:", error);
+      toast({ title: "Download Failed", description: "An error occurred while downloading asset media.", variant: "destructive" });
+    } finally {
+      setDownloadingItemId(null);
+    }
+  }, [toast]);
+
+  const handleDownloadFolder = useCallback(async (folder: FolderType) => {
+    setDownloadingItemId(folder.id);
+    toast({ title: "Downloading Folder", description: `Preparing to download media for "${folder.name}"...` });
+    
+    try {
+      const zip = new JSZip();
+      const safeFolderName = folder.name.replace(/[/\\?%*:|"<>]/g, '-') || `folder-${folder.id}`;
+      const baseFolder = zip.folder(safeFolderName);
+      if (!baseFolder) throw new Error("Could not create base folder in zip.");
+
+      const assetsToProcess = allProjectAssets.filter(a => a.folderId === folder.id);
+
+      for (const asset of assetsToProcess) {
+        if (!asset.photos || asset.photos.length === 0) continue;
+
+        const safeAssetName = asset.name.replace(/[/\\?%*:|"<>]/g, '-') || `asset-${asset.id}`;
+        const assetFolder = baseFolder.folder(safeAssetName);
+        if (!assetFolder) continue;
+
+        const photoPromises = asset.photos.map(async (photoUrl, index) => {
+          try {
+            const hqUrl = photoUrl.replace(/\/upload\/.*?\//, '/upload/');
+            const response = await fetch(hqUrl);
+            if (!response.ok) return;
+            const blob = await response.blob();
+            assetFolder.file(`photo_${index + 1}.jpg`, blob);
+          } catch (fetchError) {
+            console.warn(`Could not download photo ${photoUrl}:`, fetchError);
+          }
+        });
+        await Promise.all(photoPromises);
+      }
+      
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `${safeFolderName}_Media.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+      toast({ title: "Download Complete", description: `Media for folder "${folder.name}" downloaded.`, variant: "success-yellow" });
+    } catch (error) {
+      console.error("Error downloading folder media:", error);
+      toast({ title: "Download Failed", description: "An error occurred while downloading folder media.", variant: "destructive" });
+    } finally {
+      setDownloadingItemId(null);
+    }
+  }, [allProjectAssets, toast]);
 
   if (isLoading || !project) {
     return (
@@ -960,6 +1059,7 @@ export default function ProjectPage() {
                 deletingItemId={deletingItemId}
                 loadingAssetId={loadingAssetId}
                 loadingFolderId={loadingFolderId}
+                downloadingItemId={downloadingItemId}
                 scrollAreaRef={scrollAreaRef}
                 onSelectFolder={handleSelectFolder}
                 onAddSubfolder={openNewFolderDialog}
@@ -968,6 +1068,8 @@ export default function ProjectPage() {
                 onEditAsset={handleEditAsset}
                 onDeleteAsset={handleDeleteAsset}
                 onPreviewAsset={onPreviewAsset}
+                onDownloadAsset={handleDownloadAsset}
+                onDownloadFolder={handleDownloadFolder}
                 isAdmin={isAdmin}
                 isOnline={isOnline}
                 loadMoreAssetsRef={loadMoreAssetsRef}
@@ -1192,3 +1294,5 @@ export default function ProjectPage() {
     </div>
   );
 }
+
+    

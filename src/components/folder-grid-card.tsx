@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, CloudOff, Edit2, Copy, Scissors, Loader2 } from 'lucide-react';
+import { Folder as FolderIcon, MoreVertical, FolderPlus, Edit3, Trash2, Eye, CloudOff, Edit2, Copy, Scissors, Loader2, HardDriveDownload } from 'lucide-react';
 import type { Folder } from '@/data/mock-data';
 import { cn } from '@/lib/utils';
 import { useClipboard } from '@/contexts/clipboard-context';
@@ -22,10 +22,12 @@ interface FolderGridCardProps {
   onAddSubfolder: (parentFolder: Folder) => void;
   onEditFolder: (folder: Folder) => void;
   onActualDeleteFolder: (e: React.MouseEvent, folder: Folder) => void;
+  onDownloadFolder: (folder: Folder) => void;
   t: (key: string, defaultText: string, params?: Record<string, string | number>) => string;
   assetCount?: number;
   isOnline?: boolean;
   isLoading?: boolean;
+  isDownloading?: boolean;
 }
 
 export const FolderGridCard = React.memo(function FolderGridCard({
@@ -34,10 +36,12 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   onAddSubfolder,
   onEditFolder,
   onActualDeleteFolder,
+  onDownloadFolder,
   t,
   assetCount,
   isOnline = true,
   isLoading = false,
+  isDownloading = false,
 }: FolderGridCardProps) {
   
   const { currentUser } = useAuth();
@@ -47,7 +51,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   const isOffline = !!folder.isOffline;
   const isOfflineUpdate = !!folder.isOfflineUpdate;
   const isCut = isItemCut(folder.id);
-  const cardIsDisabled = isOffline || isLoading;
+  const cardIsDisabled = isOffline || isLoading || isDownloading;
 
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -65,6 +69,11 @@ export const FolderGridCard = React.memo(function FolderGridCard({
     setClipboard({ itemId: folder.id, itemType: 'folder', operation: 'cut', sourceProjectId: folder.projectId });
   };
 
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDownloadFolder(folder);
+  }
+
   return (
     <Card
       className={cn(
@@ -75,7 +84,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
       onClick={handleCardClick}
       title={folder.name}
     >
-       {isLoading && (
+       {(isLoading || isDownloading) && (
         <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex items-center justify-center rounded-lg z-20">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </div>
@@ -125,6 +134,10 @@ export const FolderGridCard = React.memo(function FolderGridCard({
                       <Scissors className="mr-2 h-4 w-4" />
                       {t('cut', 'Cut')}
                   </DropdownMenuItem>
+                   <DropdownMenuItem onClick={handleDownload}>
+                        <HardDriveDownload className="mr-2 h-4 w-4" />
+                        {t('downloadProject', 'Download')}
+                    </DropdownMenuItem>
                 </>
               )}
               <DropdownMenuSeparator />
@@ -156,3 +169,5 @@ export const FolderGridCard = React.memo(function FolderGridCard({
     </Card>
   )
 });
+
+    

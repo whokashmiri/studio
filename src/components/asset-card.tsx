@@ -4,7 +4,7 @@ import type { Asset } from '@/data/mock-data';
 import React from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2, CloudOff, Video, Edit2, Copy, Scissors } from 'lucide-react';
+import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2, CloudOff, Video, Edit2, Copy, Scissors, HardDriveDownload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,13 +23,26 @@ interface AssetCardProps {
   onEditAsset: (asset: Asset) => void;
   onDeleteAsset: (asset: Asset) => void;
   onPreviewAsset: (asset: Asset) => void;
+  onDownloadAsset: (asset: Asset) => void;
   displayMode?: 'grid' | 'list';
   isDeleting?: boolean;
   isLoading?: boolean;
+  isDownloading?: boolean;
   isOnline?: boolean;
 }
 
-export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onDeleteAsset, onPreviewAsset, displayMode = 'grid', isDeleting = false, isLoading = false, isOnline = true }: AssetCardProps) {
+export const AssetCard = React.memo(function AssetCard({ 
+  asset, 
+  onEditAsset, 
+  onDeleteAsset, 
+  onPreviewAsset, 
+  onDownloadAsset, 
+  displayMode = 'grid', 
+  isDeleting = false, 
+  isLoading = false,
+  isDownloading = false, 
+  isOnline = true 
+}: AssetCardProps) {
   const { t } = useLanguage();
   const { currentUser } = useAuth();
   const { setClipboard, isItemCut } = useClipboard();
@@ -37,11 +50,12 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
   
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
   const hasVideo = asset.videos && asset.videos.length > 0;
+  const hasMedia = primaryPhoto || hasVideo;
   const isUploading = !!asset.isUploading;
   const isOffline = !!asset.isOffline;
   const isOfflineUpdate = !!asset.isOfflineUpdate;
   const isCut = isItemCut(asset.id);
-  const cardIsDisabled = isUploading || isDeleting || isLoading;
+  const cardIsDisabled = isUploading || isDeleting || isLoading || isDownloading;
 
   const mainAction = () => {
     if (cardIsDisabled) return;
@@ -57,6 +71,11 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
     e.stopPropagation();
     setClipboard({ itemId: asset.id, itemType: 'asset', operation: 'cut', sourceProjectId: asset.projectId });
   };
+  
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if(hasMedia) onDownloadAsset(asset);
+  }
 
   if (displayMode === 'grid') {
     return (
@@ -69,7 +88,7 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
         onClick={mainAction}
         title={asset.name}
       >
-        {(isUploading || isLoading) && (
+        {(isUploading || isLoading || isDownloading) && (
           <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex items-center justify-center rounded-lg z-20">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
@@ -119,6 +138,10 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
                         <DropdownMenuItem onClick={handleCut}>
                             <Scissors className="mr-2 h-4 w-4" />
                             {t('cut', 'Cut')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleDownload} disabled={!hasMedia}>
+                            <HardDriveDownload className="mr-2 h-4 w-4" />
+                            {t('downloadProject', 'Download')}
                         </DropdownMenuItem>
                      </>
                    )}
@@ -261,3 +284,5 @@ export const AssetCard = React.memo(function AssetCard({ asset, onEditAsset, onD
       </Card>
   );
 });
+
+    
