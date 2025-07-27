@@ -1181,7 +1181,7 @@ export default function ProjectPage() {
                 {t('newAsset', 'New Asset')}
             </Button>
              {isAdmin && (
-              <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)}  className="shadow-lg" disabled={!isOnline}>
+              <Button variant="outline" size="lg" onClick={() => setIsImportModalOpen(true)}  className="shadow-lg" disabled={true}>
                 {t('importAssetsButton', 'Import Assets')}
               </Button> 
             )}
