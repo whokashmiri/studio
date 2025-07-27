@@ -208,8 +208,8 @@ export const ProjectCard = React.memo(function ProjectCard({
                 onClick={handleDownloadClick}
                 disabled={isLoading || isDownloading}
               >
-                <HardDriveDownload className="mr-2 h-4 w-4" />
-                {t('downloadProject', 'Download')}
+                {/* <HardDriveDownload className="mr-2 h-4 w-4" />
+                {t('downloadProject', 'Downloadd')} */}
               </Button>
            )}
         </CardFooter>

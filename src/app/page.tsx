@@ -92,7 +92,7 @@ export default function HomePage() {
     
     fetchUserCompanies();
 
-  }, [authIsLoading, currentUser, fetchUserCompanies, router]);
+  }, [authIsLoading, currentUser, router, isOnline]); // Removed fetchUserCompanies from dependency array
 
   const handleSelectCompany = (company: Company) => {
     setSelectedCompany(company);
