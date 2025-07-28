@@ -1177,6 +1177,7 @@ export default function ProjectPage() {
                     setIsNewAssetModalOpen(true);
                 }}
                 className="shadow-lg"
+                
                 size="lg"
                 title={t('newAsset', 'New Asset')}
                 disabled={!isOnline && !isProjectAvailableOffline}
