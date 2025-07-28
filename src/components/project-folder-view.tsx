@@ -32,6 +32,7 @@ interface ProjectFolderViewProps {
   onPreviewAsset: (asset: Asset) => void;
   onDownloadAsset: (asset: Asset) => void;
   onDownloadFolder: (folder: FolderType) => void;
+  onDropOnAsset: (files: File[], asset: Asset) => void;
   isAdmin: boolean;
   isOnline: boolean;
   loadMoreAssetsRef: React.RefObject<HTMLDivElement>;
@@ -60,6 +61,7 @@ export function ProjectFolderView({
   onPreviewAsset,
   onDownloadAsset,
   onDownloadFolder,
+  onDropOnAsset,
   isAdmin,
   isOnline,
   loadMoreAssetsRef,
@@ -92,6 +94,7 @@ export function ProjectFolderView({
             onPreviewAsset={onPreviewAsset}
             onDownloadAsset={onDownloadAsset}
             onDownloadFolder={onDownloadFolder}
+            onDropOnAsset={onDropOnAsset}
             currentSelectedFolderId={selectedFolder?.id || null}
             displayMode="grid"
             deletingItemId={deletingItemId}
@@ -124,5 +127,3 @@ export function ProjectFolderView({
     </div>
   );
 }
-
-    

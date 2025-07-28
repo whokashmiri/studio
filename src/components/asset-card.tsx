@@ -1,10 +1,10 @@
 
 "use client";
 import type { Asset } from '@/data/mock-data';
-import React from 'react'; // Import React for React.memo
+import React, { useState } from 'react'; // Import React for React.memo
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2, CloudOff, Video, Edit2, Copy, Scissors, HardDriveDownload } from 'lucide-react';
+import { Edit3, Trash2, ImageOff, MoreVertical, Expand, FileArchive, Loader2, CloudOff, Video, Edit2, Copy, Scissors, HardDriveDownload, UploadCloud } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +24,7 @@ interface AssetCardProps {
   onDeleteAsset: (asset: Asset) => void;
   onPreviewAsset: (asset: Asset) => void;
   onDownloadAsset: (asset: Asset) => void;
+  onDropOnAsset: (files: File[], asset: Asset) => void;
   displayMode?: 'grid' | 'list';
   isDeleting?: boolean;
   isLoading?: boolean;
@@ -36,7 +37,8 @@ export const AssetCard = React.memo(function AssetCard({
   onEditAsset, 
   onDeleteAsset, 
   onPreviewAsset, 
-  onDownloadAsset, 
+  onDownloadAsset,
+  onDropOnAsset, 
   displayMode = 'grid', 
   isDeleting = false, 
   isLoading = false,
@@ -47,6 +49,7 @@ export const AssetCard = React.memo(function AssetCard({
   const { currentUser } = useAuth();
   const { setClipboard, isItemCut } = useClipboard();
   const isAdmin = currentUser?.role === 'Admin';
+  const [isDragOver, setIsDragOver] = useState(false);
   
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
   const hasVideo = asset.videos && asset.videos.length > 0;
@@ -75,7 +78,28 @@ export const AssetCard = React.memo(function AssetCard({
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
     if(hasMedia) onDownloadAsset(asset);
-  }
+  };
+  
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    if (!isOnline || cardIsDisabled) return;
+    const files = Array.from(e.dataTransfer.files);
+    onDropOnAsset(files, asset);
+  };
 
   if (displayMode === 'grid') {
     return (
@@ -83,15 +107,25 @@ export const AssetCard = React.memo(function AssetCard({
         className={cn(
             "group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 p-1",
             cardIsDisabled ? "cursor-wait" : "cursor-pointer",
-            isCut && "opacity-60"
+            isCut && "opacity-60",
+            isDragOver && isOnline && "ring-2 ring-primary ring-offset-2"
         )}
         onClick={mainAction}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         title={asset.name}
       >
         {(isUploading || isLoading || isDownloading) && (
           <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex items-center justify-center rounded-lg z-20">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
+        )}
+        {isDragOver && isOnline && (
+            <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg z-20 pointer-events-none">
+                <UploadCloud className="h-10 w-10 text-primary" />
+                <p className="mt-2 text-xs font-bold text-primary">Drop to add photos</p>
+            </div>
         )}
         <div className={cn('flex flex-col flex-grow', cardIsDisabled && 'opacity-50 pointer-events-none')}>
             {(isOffline || isOfflineUpdate) && (
@@ -139,10 +173,10 @@ export const AssetCard = React.memo(function AssetCard({
                             <Scissors className="mr-2 h-4 w-4" />
                             {t('cut', 'Cut')}
                         </DropdownMenuItem>
-                        {/* <DropdownMenuItem onClick={handleDownload} disabled={!hasMedia}>
+                        <DropdownMenuItem onClick={handleDownload} disabled={!hasMedia}>
                             <HardDriveDownload className="mr-2 h-4 w-4" />
                             {t('downloadProject', 'Download')}
-                        </DropdownMenuItem> */}
+                        </DropdownMenuItem>
                      </>
                    )}
                   <DropdownMenuSeparator />
@@ -284,5 +318,3 @@ export const AssetCard = React.memo(function AssetCard({
       </Card>
   );
 });
-
-    

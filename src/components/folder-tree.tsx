@@ -33,6 +33,7 @@ interface FolderTreeDisplayProps {
   onPreviewAsset: (asset: Asset) => void;
   onDownloadAsset: (asset: Asset) => void;
   onDownloadFolder: (folder: Folder) => void;
+  onDropOnAsset: (files: File[], asset: Asset) => void;
   currentSelectedFolderId: string | null;
   displayMode?: 'grid' | 'list';
   deletingItemId?: string | null;
@@ -56,6 +57,7 @@ export function FolderTreeDisplay({
   onPreviewAsset,
   onDownloadAsset,
   onDownloadFolder,
+  onDropOnAsset,
   displayMode = 'grid',
   deletingItemId,
   loadingAssetId,
@@ -119,6 +121,7 @@ export function FolderTreeDisplay({
                         onDeleteAsset={onDeleteAsset}
                         onPreviewAsset={onPreviewAsset}
                         onDownloadAsset={onDownloadAsset}
+                        onDropOnAsset={onDropOnAsset}
                         displayMode="grid"
                         isDeleting={deletingItemId === item.data.id}
                         isLoading={loadingAssetId === item.data.id}
@@ -137,5 +140,3 @@ export function FolderTreeDisplay({
   // --- LIST MODE IS NOT CURRENTLY USED BUT LEFT FOR POTENTIAL FUTURE USE ---
   return null; 
 }
-
-    
