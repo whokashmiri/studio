@@ -26,6 +26,8 @@ import { ImagePreviewModal } from '@/components/modals/image-preview-modal';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import JSZip from 'jszip';
+import { uploadMedia } from '@/actions/cloudinary-actions';
+import { compressImage } from '@/lib/image-handler-service';
 
 
 export default function ProjectPage() {
@@ -765,17 +767,9 @@ export default function ProjectPage() {
       const readEntriesPromise = (reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> => {
           return new Promise((resolve, reject) => reader.readEntries(resolve, reject));
       };
-
-      const fileToDataUri = (file: File): Promise<string> => {
-        return new Promise((resolve) => {
-            const fileReader = new FileReader();
-            fileReader.onload = (e) => resolve(e.target?.result as string);
-            fileReader.readAsDataURL(file);
-        });
-      };
-  
+      
       const isImageFile = (entry: FileSystemEntry): entry is FileSystemFileEntry => {
-          return entry.isFile && entry.name.match(/\.(jpe?g|png|gif|webp)$/i) !== null;
+          return entry.isFile && entry.name.match(/\.(jpe?g|png|gif|webp|heic)$/i) !== null;
       };
   
       const processDirectoryEntry = async (entry: FileSystemDirectoryEntry, parentFolderId: string | null): Promise<void> => {
@@ -792,22 +786,42 @@ export default function ProjectPage() {
           
           if (subDirectories.length === 0 && imageFiles.length > 0) {
               // This is an Asset folder.
-              const photoDataUris = await Promise.all(
-                  imageFiles.map(async (fileEntry) => {
-                      const file = await getFilePromise(fileEntry);
-                      return fileToDataUri(file);
-                  })
-              );
+              const tempAssetId = `temp_drop_${uuidv4()}`;
+              const tempAsset: Asset = {
+                id: tempAssetId, name: entry.name, projectId: project.id, folderId: parentFolderId, photos: [], isUploading: true, createdAt: Date.now()
+              }
+              setDisplayedAssets(prev => [tempAsset, ...prev]);
+
+              const uploadPromises = imageFiles.map(async (fileEntry) => {
+                  try {
+                    const file = await getFilePromise(fileEntry);
+                    const compressedDataUrl = await compressImage(file);
+                    const result = await uploadMedia(compressedDataUrl);
+                    return result.success ? result.url : null;
+                  } catch (e) {
+                    console.error('Failed to process or upload an image:', e);
+                    return null;
+                  }
+              });
+
+              const uploadedUrls = (await Promise.all(uploadPromises)).filter((url): url is string => url !== null);
               
               const assetPayload = {
                   name: entry.name,
                   projectId: project.id,
                   folderId: parentFolderId,
                   userId: currentUser.id,
-                  photos: photoDataUris,
+                  photos: uploadedUrls,
                   videos: [],
               };
-              await FirestoreService.addAsset(assetPayload);
+              const newAsset = await FirestoreService.addAsset(assetPayload);
+
+              // Replace optimistic UI with final data
+              setDisplayedAssets(prev => prev.map(a => a.id === tempAssetId ? (newAsset || a) : a).filter(a => a !== tempAsset || !!newAsset));
+              if (!newAsset) {
+                toast({title: "Upload Error", description: `Failed to create asset for ${entry.name}`, variant: 'destructive'});
+              }
+
           } else {
               // This is a container folder (it's empty or has subfolders).
               const folderPayload: Omit<FolderType, 'id'> = {
@@ -825,29 +839,35 @@ export default function ProjectPage() {
               for (const subDir of subDirectories) {
                   await processDirectoryEntry(subDir, createdFolder.id);
               }
-              // Handle loose images in a mixed-content folder by creating assets for them.
-              const imageAssetPromises = imageFiles.map(fileEntry => {
-                  return (async () => {
-                      const file = await getFilePromise(fileEntry);
-                      const dataUri = await fileToDataUri(file);
-                      const assetName = file.name.replace(/\.[^/.]+$/, "");
-                      await FirestoreService.addAsset({
-                          name: assetName,
-                          projectId: project.id,
-                          folderId: createdFolder.id,
-                          userId: currentUser.id,
-                          photos: [dataUri],
-                          videos: []
-                      });
-                  })();
-              });
-              await Promise.all(imageAssetPromises);
+             
+              if(imageFiles.length > 0) {
+                  const imageAssetPromises = imageFiles.map(fileEntry => {
+                      return (async () => {
+                          const file = await getFilePromise(fileEntry);
+                          const compressedDataUrl = await compressImage(file);
+                          const result = await uploadMedia(compressedDataUrl);
+                          if (!result.success) return;
+
+                          const assetName = file.name.replace(/\.[^/.]+$/, "");
+                          await FirestoreService.addAsset({
+                              name: assetName,
+                              projectId: project.id,
+                              folderId: createdFolder.id,
+                              userId: currentUser.id,
+                              photos: [result.url!],
+                              videos: []
+                          });
+                      })();
+                  });
+                  await Promise.all(imageAssetPromises);
+              }
           }
       };
   
       try {
           const items = Array.from(e.dataTransfer.items);
           const rootEntries = items.map(item => item.webkitGetAsEntry()).filter((entry): entry is FileSystemEntry => entry !== null);
+          
           const processingPromises = rootEntries.map(entry => {
               if (entry.isDirectory) {
                   return processDirectoryEntry(entry as FileSystemDirectoryEntry, currentUrlFolderId);
