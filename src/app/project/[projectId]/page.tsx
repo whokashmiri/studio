@@ -225,7 +225,7 @@ export default function ProjectPage() {
     if (projectId) {
       loadProjectData();
     }
-  }, [projectId, loadProjectData, isOnline]);
+  }, [projectId, loadProjectData]);
 
 
   useEffect(() => {
@@ -757,42 +757,29 @@ export default function ProjectPage() {
           return;
       }
       
-      const getFilePromise = (entry: FileSystemFileEntry): Promise<File> => {
-        return new Promise((resolve, reject) => entry.file(resolve, reject));
-      };
-
-      const readEntriesPromise = (reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> => {
-          return new Promise((resolve, reject) => {
-              reader.readEntries(resolve, reject);
-          });
-      };
-      
       const processDirectoryEntry = async (entry: FileSystemDirectoryEntry, parentFolderId: string | null): Promise<void> => {
         const reader = entry.createReader();
-        let allEntries: FileSystemEntry[] = [];
-        let currentBatch: FileSystemEntry[];
-        do {
-            currentBatch = await readEntriesPromise(reader);
-            allEntries.push(...currentBatch);
-        } while (currentBatch.length > 0);
-
-        const imageFiles = allEntries.filter((e): e is FileSystemFileEntry => e.isFile && e.name.match(/\.(jpe?g|png|gif|webp|heic)$/i) !== null);
-        const subDirectories = allEntries.filter((e): e is FileSystemDirectoryEntry => e.isDirectory);
-
+        const entries = await new Promise<FileSystemEntry[]>((resolve) => reader.readEntries(resolve));
+    
+        const imageFiles = entries.filter((e): e is FileSystemFileEntry => e.isFile && e.name.match(/\.(jpe?g|png|gif|webp|heic)$/i) !== null);
+        const subDirectories = entries.filter((e): e is FileSystemDirectoryEntry => e.isDirectory);
+    
         if (imageFiles.length > 0) {
-            // This folder becomes an asset
+            // If there are images, the folder becomes an asset
             setIsProcessingDrop(true);
             setLoadingAssetId(`drop_${entry.fullPath}`);
             try {
-                const uploadPromises = imageFiles.map(async (fileEntry) => {
-                    const file = await getFilePromise(fileEntry);
+                const getFilePromise = (fileEntry: FileSystemFileEntry): Promise<File> => new Promise((resolve) => fileEntry.file(resolve));
+                const files = await Promise.all(imageFiles.map(getFilePromise));
+                
+                const uploadPromises = files.map(async (file) => {
                     const compressedDataUrl = await compressImage(file);
                     return await uploadMedia(compressedDataUrl);
                 });
-
+    
                 const uploadResults = await Promise.all(uploadPromises);
                 const uploadedUrls = uploadResults.map(res => res.url).filter((url): url is string => !!url);
-
+    
                 if (uploadedUrls.length > 0) {
                     const assetPayload = {
                         name: entry.name,
@@ -811,15 +798,15 @@ export default function ProjectPage() {
             } finally {
                  setLoadingAssetId(null);
             }
-        } else {
-            // This folder is a container for other folders (or is empty)
+        } else if (subDirectories.length > 0 || entries.length === 0) {
+            // If there are only subdirectories or it's empty, it becomes a folder
             const folderPayload: Omit<FolderType, 'id'> = {
                 name: entry.name,
                 projectId: project.id,
                 parentId: parentFolderId,
             };
             const createdFolder = await FirestoreService.addFolder(folderPayload);
-
+    
             if (createdFolder) {
                  for (const subDir of subDirectories) {
                     await processDirectoryEntry(subDir, createdFolder.id);
@@ -895,6 +882,53 @@ export default function ProjectPage() {
       setLoadingAssetId(null);
     }
   }, [isOnline, toast, fetchInitialFolderContent, currentUrlFolderId]);
+
+  const handleMediaDroppedInModal = useCallback(async (files: File[]) => {
+    if (!isOnline || !assetToPreview) {
+      toast({ title: "Action Not Available", description: "Cannot add photos while offline or if no asset is selected.", variant: "default" });
+      return false; // Indicate failure
+    }
+    
+    setLoadingAssetId(assetToPreview.id);
+    try {
+      const imageFiles = files.filter(f => f.type.startsWith('image/'));
+      if (imageFiles.length === 0) return true; // No images to upload is not an error
+
+      toast({ title: 'Uploading Images', description: `Adding ${imageFiles.length} photos to "${assetToPreview.name}"...` });
+
+      const uploadPromises = imageFiles.map(async file => {
+        const compressedDataUrl = await compressImage(file);
+        return await uploadMedia(compressedDataUrl);
+      });
+
+      const uploadResults = await Promise.all(uploadPromises);
+      const newUrls = uploadResults.map(res => res.url).filter((url): url is string => !!url);
+      
+      if (newUrls.length > 0) {
+        const updatedPhotos = [...(assetToPreview.photos || []), ...newUrls];
+        const success = await FirestoreService.updateAsset(assetToPreview.id, { photos: updatedPhotos });
+        
+        if (success) {
+          toast({ title: 'Update Successful', description: 'New photos have been added to the asset.', variant: 'success-yellow' });
+          // Manually update the asset in the preview modal to show the new photos instantly
+          setAssetToPreview(prev => prev ? { ...prev, photos: updatedPhotos } : null);
+          // And update the list view as well
+          setDisplayedAssets(prev => prev.map(a => a.id === assetToPreview.id ? { ...a, photos: updatedPhotos } : a));
+          return true; // Indicate success
+        } else {
+          throw new Error('Failed to update asset in Firestore.');
+        }
+      } else {
+        toast({ title: 'Upload Failed', description: 'None of the dropped images could be uploaded.', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error("Error dropping on asset preview modal:", error);
+      toast({ title: "Error", description: "Failed to add photos to the asset.", variant: "destructive" });
+    } finally {
+      setLoadingAssetId(null);
+    }
+    return false; // Indicate failure
+  }, [isOnline, assetToPreview, toast]);
 
     useEffect(() => {
         const preventDefault = (e: DragEvent) => e.preventDefault();
@@ -1328,8 +1362,11 @@ export default function ProjectPage() {
           isOpen={isImagePreviewModalOpen}
           onClose={handleCloseImagePreviewModal}
           asset={assetToPreview}
+          onMediaDropped={handleMediaDroppedInModal}
+          isUploading={loadingAssetId === assetToPreview.id}
         />
       )}
     </div>
   );
 }
+
