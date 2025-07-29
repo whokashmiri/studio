@@ -860,6 +860,7 @@ export default function ProjectPage() {
         return await uploadMedia(compressedDataUrl);
       });
 
+      
       const uploadResults = await Promise.all(uploadPromises);
       const newUrls = uploadResults.map(res => res.url).filter((url): url is string => !!url);
       

@@ -281,6 +281,7 @@ const translations: Record<Language, Record<string, string>> = {
     error: "Error",
     folderMovedTitle: "Folder Moved",
     folderMovedDesc: "Folder \"{folderName}\" was moved successfully.",
+    
     exportProject: "Export Project",
     // downloadProject: "Download",
 
