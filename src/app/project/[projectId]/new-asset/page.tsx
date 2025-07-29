@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info, Loader2, Video, Film, Flashlight, FlashlightOff, Upload, PauseCircle, PlayCircle } from 'lucide-react';
+import { ArrowLeft, Camera, ImageUp, Save, ArrowRight, X, Edit3, CheckCircle, CircleDotDashed, PackagePlus, Trash2, Mic, BrainCircuit, Info, Loader2, Video, Film, Flashlight, FlashlightOff, Upload, PauseCircle, PlayCircle, UploadCloud } from 'lucide-react';
 import type { Project, Asset, ProjectStatus, Folder } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
 import * as OfflineService from '@/lib/offline-service';
@@ -328,6 +328,7 @@ export default function NewAssetPage() {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [isProcessingMedia, setIsProcessingMedia] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -525,50 +526,73 @@ export default function NewAssetPage() {
   }, [language]);
 
 
+  const processFilesAndUpdateState = useCallback(async (files: File[]) => {
+      setIsProcessingMedia(true);
+      const newFiles = Array.from(files);
+
+      const uploadedPhotoUrls: string[] = [];
+      const uploadedVideoDataUris: string[] = [];
+      
+      const processingPromises = newFiles.map(async file => {
+          if (file.type.startsWith('video/')) {
+              const reader = new FileReader();
+              return new Promise<string | null>(resolve => {
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.onerror = () => resolve(null);
+                  reader.readAsDataURL(file);
+              });
+          } else if (file.type.startsWith('image/')) {
+              return compressImage(file);
+          }
+          return null;
+      });
+
+      try {
+          const results = await Promise.all(processingPromises);
+          results.forEach((resultUrl, index) => {
+              if (resultUrl) {
+                  if (newFiles[index].type.startsWith('video/')) {
+                      uploadedVideoDataUris.push(resultUrl);
+                  } else {
+                      uploadedPhotoUrls.push(resultUrl);
+                  }
+              }
+          });
+          setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
+          setVideoUrls(prev => [...prev, ...uploadedVideoDataUris]);
+          if (!isMediaModalOpen) setIsMediaModalOpen(true);
+      } catch (error: any) {
+          toast({ title: "Error", description: error.message || "An error occurred processing gallery files.", variant: "destructive" });
+      } finally {
+          setIsProcessingMedia(false);
+      }
+  }, [toast, isMediaModalOpen]);
+
   const handleMediaUploadFromGallery = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files) return;
+    await processFilesAndUpdateState(Array.from(event.target.files));
+    if (event.target) event.target.value = '';
+  }, [processFilesAndUpdateState]);
 
-    setIsProcessingMedia(true);
-    const newFiles = Array.from(event.target.files);
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    if (isProcessingMedia) return;
+    await processFilesAndUpdateState(Array.from(e.dataTransfer.files));
+  }, [isProcessingMedia, processFilesAndUpdateState]);
 
-    const uploadedPhotoUrls: string[] = [];
-    const uploadedVideoDataUris: string[] = [];
-    
-    const processingPromises = newFiles.map(async file => {
-        if (file.type.startsWith('video/')) {
-            const reader = new FileReader();
-            return new Promise<string | null>(resolve => {
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.onerror = () => resolve(null);
-                reader.readAsDataURL(file);
-            });
-        } else if (file.type.startsWith('image/')) {
-            return compressImage(file);
-        }
-        return null;
-    });
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  }, []);
 
-    try {
-        const results = await Promise.all(processingPromises);
-        results.forEach((resultUrl, index) => {
-            if (resultUrl) {
-                if (newFiles[index].type.startsWith('video/')) {
-                    uploadedVideoDataUris.push(resultUrl);
-                } else {
-                    uploadedPhotoUrls.push(resultUrl);
-                }
-            }
-        });
-        setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
-        setVideoUrls(prev => [...prev, ...uploadedVideoDataUris]);
-        if (!isMediaModalOpen) setIsMediaModalOpen(true);
-    } catch (error: any) {
-        toast({ title: "Error", description: error.message || "An error occurred processing gallery files.", variant: "destructive" });
-    } finally {
-        setIsProcessingMedia(false);
-        if (event.target) event.target.value = '';
-    }
-  }, [toast, isMediaModalOpen]);
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  }, []);
 
   const handleCapturePhotoFromStream = useCallback(() => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream && mediaStream.active) {
@@ -968,7 +992,18 @@ export default function NewAssetPage() {
     switch (currentStep) {
       case 'photos_and_name':
         return (
-          <Card className="max-w-3xl mx-auto">
+          <Card 
+            className="max-w-3xl mx-auto relative"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+             {isDraggingOver && (
+                <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm flex flex-col items-center justify-center z-10 pointer-events-none rounded-lg border-2 border-dashed border-primary">
+                    <UploadCloud className="h-16 w-16 text-primary animate-pulse" />
+                    <p className="mt-4 text-lg font-bold text-primary">Drop images to upload</p>
+                </div>
+            )}
             <CardHeader>
               <CardTitle className="text-xl sm:text-2xl font-headline">{pageTitle} {t('forProject', 'for')} {project.name}</CardTitle>
               {currentFolder && <CardDescription>{t('inFolder', 'In folder:')} {currentFolder.name}</CardDescription>}
