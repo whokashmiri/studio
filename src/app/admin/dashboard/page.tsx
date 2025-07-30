@@ -262,24 +262,63 @@ export default function AdminDashboardPage() {
             if (folderAssets.length === 0) continue;
 
             const sheetData = folderAssets.map(asset => {
-                // Start with miscellaneous data, if any
                 const miscellaneousData = asset.miscellaneous ? { ...asset.miscellaneous } : {};
                 
-                // Create the full row object for the Excel sheet
-                const rowData = {
+                const photos = asset.photos || [];
+                const firstPhoto = photos.length > 0 ? photos[0] : '';
+                const additionalPhotos = photos.slice(1);
+                
+                const rowData: { [key: string]: any } = {
                     'Name': asset.name,
                     'Serial Number': asset.serialNumber || '',
                     'Text Description': truncateCell(asset.textDescription),
                     'Voice Description (Transcript)': truncateCell(asset.voiceDescription),
-                    'Photos': truncateCell((asset.photos || []).join(', ')),
                     'Videos': truncateCell((asset.videos || []).join(', ')),
                     'Created At': new Date(asset.createdAt).toLocaleString(),
-                    ...miscellaneousData, // Spread miscellaneous data as additional columns
+                    ...miscellaneousData,
                 };
+                
+                // Add photo links
+                if (firstPhoto) {
+                    rowData['Photos'] = { t: 's', v: 'View Photo 1', l: { Target: firstPhoto, Tooltip: 'Click to view image' } };
+                } else {
+                    rowData['Photos'] = '';
+                }
+
+                if (additionalPhotos.length > 0) {
+                     rowData['Additional Photos'] = truncateCell(additionalPhotos.join(', '));
+                }
+
                 return rowData;
             });
 
             const worksheet = XLSX.utils.json_to_sheet(sheetData);
+            
+            // Add auto-filter
+            worksheet['!autofilter'] = { ref: XLSX.utils.encode_range(XLSX.utils.decode_range(worksheet['!ref']!)) };
+            
+            // Set column widths
+            const colWidths = [
+                { wch: 30 }, // Name
+                { wch: 20 }, // Serial Number
+                { wch: 40 }, // Text Description
+                { wch: 40 }, // Voice Description
+                { wch: 20 }, // Photos
+                { wch: 40 }, // Additional Photos
+                { wch: 20 }, // Videos
+                { wch: 20 }, // Created At
+            ];
+            // Add widths for miscellaneous columns
+            if (sheetData.length > 0) {
+                const miscKeys = Object.keys(sheetData[0]).filter(key => ![
+                    'Name', 'Serial Number', 'Text Description', 'Voice Description (Transcript)',
+                    'Photos', 'Additional Photos', 'Videos', 'Created At'
+                ].includes(key));
+                miscKeys.forEach(() => colWidths.push({ wch: 20 }));
+            }
+            worksheet['!cols'] = colWidths;
+
+
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Assets');
             
@@ -639,3 +678,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
