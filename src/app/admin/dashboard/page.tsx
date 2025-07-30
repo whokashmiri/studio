@@ -264,10 +264,6 @@ export default function AdminDashboardPage() {
             const sheetData = folderAssets.map(asset => {
                 const miscellaneousData = asset.miscellaneous ? { ...asset.miscellaneous } : {};
                 
-                const photos = asset.photos || [];
-                const firstPhoto = photos.length > 0 ? photos[0] : '';
-                const additionalPhotos = photos.slice(1);
-                
                 const rowData: { [key: string]: any } = {
                     'Name': asset.name,
                     'Serial Number': asset.serialNumber || '',
@@ -278,46 +274,46 @@ export default function AdminDashboardPage() {
                     ...miscellaneousData,
                 };
                 
-                // Add photo links
-                if (firstPhoto) {
-                    rowData['Photos'] = { t: 's', v: 'View Photo 1', l: { Target: firstPhoto, Tooltip: 'Click to view image' } };
-                } else {
-                    rowData['Photos'] = '';
-                }
-
-                if (additionalPhotos.length > 0) {
-                     rowData['Additional Photos'] = truncateCell(additionalPhotos.join(', '));
-                }
+                // Add each photo URL in its own column
+                (asset.photos || []).forEach((photoUrl, index) => {
+                    const photoColumnName = `Photo ${index + 1}`;
+                    rowData[photoColumnName] = { 
+                        t: 's', 
+                        v: `View Image ${index + 1}`, 
+                        l: { 
+                            Target: photoUrl, 
+                            Tooltip: `Click to view image ${index + 1} for asset ${asset.name}`
+                        } 
+                    };
+                });
 
                 return rowData;
             });
 
+            if (sheetData.length === 0) continue;
+
             const worksheet = XLSX.utils.json_to_sheet(sheetData);
             
-            // Add auto-filter
             worksheet['!autofilter'] = { ref: XLSX.utils.encode_range(XLSX.utils.decode_range(worksheet['!ref']!)) };
             
-            // Set column widths
-            const colWidths = [
+            const maxPhotos = Math.max(0, ...folderAssets.map(a => a.photos?.length || 0));
+            const baseColWidths = [
                 { wch: 30 }, // Name
                 { wch: 20 }, // Serial Number
                 { wch: 40 }, // Text Description
                 { wch: 40 }, // Voice Description
-                { wch: 20 }, // Photos
-                { wch: 40 }, // Additional Photos
                 { wch: 20 }, // Videos
                 { wch: 20 }, // Created At
             ];
-            // Add widths for miscellaneous columns
-            if (sheetData.length > 0) {
-                const miscKeys = Object.keys(sheetData[0]).filter(key => ![
-                    'Name', 'Serial Number', 'Text Description', 'Voice Description (Transcript)',
-                    'Photos', 'Additional Photos', 'Videos', 'Created At'
-                ].includes(key));
-                miscKeys.forEach(() => colWidths.push({ wch: 20 }));
-            }
-            worksheet['!cols'] = colWidths;
 
+            const miscKeys = Object.keys(sheetData[0]).filter(key => ![
+                'Name', 'Serial Number', 'Text Description', 'Voice Description (Transcript)', 'Videos', 'Created At'
+            ].includes(key) && !key.startsWith('Photo '));
+
+            const miscColWidths = miscKeys.map(() => ({ wch: 20 }));
+            const photoColWidths = Array.from({ length: maxPhotos }, () => ({ wch: 20 }));
+
+            worksheet['!cols'] = [...baseColWidths, ...miscColWidths, ...photoColWidths];
 
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Assets');
@@ -678,5 +674,7 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
 
     
