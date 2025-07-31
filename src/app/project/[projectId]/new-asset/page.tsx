@@ -549,8 +549,10 @@ export default function NewAssetPage() {
 
       try {
           const results = await Promise.all(processingPromises);
+          let addedCount = 0;
           results.forEach((resultUrl, index) => {
               if (resultUrl) {
+                  addedCount++;
                   if (newFiles[index].type.startsWith('video/')) {
                       uploadedVideoDataUris.push(resultUrl);
                   } else {
@@ -560,13 +562,15 @@ export default function NewAssetPage() {
           });
           setPhotoUrls(prev => [...prev, ...uploadedPhotoUrls]);
           setVideoUrls(prev => [...prev, ...uploadedVideoDataUris]);
-          if (!isMediaModalOpen) setIsMediaModalOpen(true);
+          if(addedCount > 0){
+             toast({ title: "Media added", description: `${addedCount} file(s) have been added to the current asset.`, variant: "success-yellow" });
+          }
       } catch (error: any) {
           toast({ title: "Error", description: error.message || "An error occurred processing gallery files.", variant: "destructive" });
       } finally {
           setIsProcessingMedia(false);
       }
-  }, [toast, isMediaModalOpen]);
+  }, [toast]);
 
   const handleMediaUploadFromGallery = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files) return;
