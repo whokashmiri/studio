@@ -1,6 +1,6 @@
 
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +15,7 @@ import type { Folder } from '@/data/mock-data';
 import { cn } from '@/lib/utils';
 import { useClipboard } from '@/contexts/clipboard-context';
 import { useAuth } from '@/contexts/auth-context';
+import { Input } from '@/components/ui/input';
 
 interface FolderGridCardProps {
   folder: Folder;
@@ -23,6 +24,7 @@ interface FolderGridCardProps {
   onEditFolder: (folder: Folder) => void;
   onActualDeleteFolder: (e: React.MouseEvent, folder: Folder) => void;
   onDownloadFolder: (folder: Folder) => void;
+  onRenameFolder: (folder: Folder, newName: string) => void;
   t: (key: string, defaultText: string, params?: Record<string, string | number>) => string;
   assetCount?: number;
   isOnline?: boolean;
@@ -37,6 +39,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   onEditFolder,
   onActualDeleteFolder,
   onDownloadFolder,
+  onRenameFolder,
   t,
   assetCount,
   isOnline = true,
@@ -48,6 +51,9 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   const { setClipboard, isItemCut } = useClipboard();
   const isAdmin = currentUser?.role === 'Admin';
   
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [currentName, setCurrentName] = useState(folder.name);
+
   const isOffline = !!folder.isOffline;
   const isOfflineUpdate = !!folder.isOfflineUpdate;
   const isCut = isItemCut(folder.id);
@@ -55,10 +61,39 @@ export const FolderGridCard = React.memo(function FolderGridCard({
 
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (cardIsDisabled) return;
+    if (cardIsDisabled || isEditingName) return;
     onSelectFolder(folder);
   };
   
+  const handleNameClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (cardIsDisabled) return;
+    setIsEditingName(true);
+  };
+  
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentName(e.target.value);
+  };
+  
+  const handleNameSave = () => {
+    if (currentName.trim() && currentName.trim() !== folder.name) {
+      onRenameFolder(folder, currentName.trim());
+    } else {
+      setCurrentName(folder.name);
+    }
+    setIsEditingName(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleNameSave();
+    } else if (e.key === 'Escape') {
+      setCurrentName(folder.name);
+      setIsEditingName(false);
+    }
+  };
+
+
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
     setClipboard({ itemId: folder.id, itemType: 'folder', operation: 'copy', sourceProjectId: folder.projectId });
@@ -157,11 +192,24 @@ export const FolderGridCard = React.memo(function FolderGridCard({
           <FolderIcon className="h-16 w-16 text-primary transition-transform group-hover:scale-110" />
         </div>
 
-        <div className="pt-0.5 text-center">
-          <CardTitle className="text-sm font-medium w-full break-words">
-              {folder.name}
-          </CardTitle>
-          {assetCount !== undefined && (
+        <div className="pt-0.5 text-center" onClick={handleNameClick}>
+          {isEditingName ? (
+            <Input
+                type="text"
+                value={currentName}
+                onChange={handleNameChange}
+                onBlur={handleNameSave}
+                onKeyDown={handleKeyDown}
+                autoFocus
+                className="h-7 w-full text-center text-sm"
+                onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <CardTitle className="text-sm font-medium w-full break-words p-1 rounded-md hover:bg-muted/70">
+                {folder.name}
+            </CardTitle>
+          )}
+          {assetCount !== undefined && !isEditingName && (
               <p className="text-xs text-muted-foreground">{t('totalAssets', '{count} Assets', { count: assetCount })}</p>
           )}
         </div>
@@ -169,5 +217,3 @@ export const FolderGridCard = React.memo(function FolderGridCard({
     </Card>
   )
 });
-
-    

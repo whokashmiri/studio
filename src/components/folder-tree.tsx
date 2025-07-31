@@ -34,6 +34,8 @@ interface FolderTreeDisplayProps {
   onDownloadAsset: (asset: Asset) => void;
   onDownloadFolder: (folder: Folder) => void;
   onDropOnAsset: (files: File[], asset: Asset) => void;
+  onRenameFolder: (folder: Folder, newName: string) => void;
+  onRenameAsset: (asset: Asset, newName: string) => void;
   currentSelectedFolderId: string | null;
   displayMode?: 'grid' | 'list';
   deletingItemId?: string | null;
@@ -58,6 +60,8 @@ export function FolderTreeDisplay({
   onDownloadAsset,
   onDownloadFolder,
   onDropOnAsset,
+  onRenameFolder,
+  onRenameAsset,
   displayMode = 'grid',
   deletingItemId,
   loadingAssetId,
@@ -105,6 +109,7 @@ export function FolderTreeDisplay({
                         onEditFolder={onEditFolder}
                         onActualDeleteFolder={handleDeleteFolderClick}
                         onDownloadFolder={onDownloadFolder}
+                        onRenameFolder={onRenameFolder}
                         t={t}
                         isOnline={isOnline}
                         isLoading={loadingFolderId === item.data.id}
@@ -122,6 +127,7 @@ export function FolderTreeDisplay({
                         onPreviewAsset={onPreviewAsset}
                         onDownloadAsset={onDownloadAsset}
                         onDropOnAsset={onDropOnAsset}
+                        onRenameAsset={onRenameAsset}
                         displayMode="grid"
                         isDeleting={deletingItemId === item.data.id}
                         isLoading={loadingAssetId === item.data.id}

@@ -467,6 +467,42 @@ export default function ProjectPage() {
     }
   }, [isOnline, t, toast]);
 
+  const handleRenameFolder = useCallback(async (folder: FolderType, newName: string) => {
+    setLoadingFolderId(folder.id);
+    try {
+        if (isOnline) {
+            await FirestoreService.updateFolder(folder.id, { name: newName });
+        } else {
+            OfflineService.queueOfflineAction('update-folder', { name: newName }, folder.projectId, folder.id);
+        }
+        await loadProjectData(); // Refresh data
+        toast({ title: "Folder Renamed", description: `Renamed to "${newName}"`, variant: "success-yellow" });
+    } catch (e) {
+        toast({ title: "Error", description: "Failed to rename folder.", variant: "destructive" });
+        await loadProjectData(); // Refresh to revert optimistic UI
+    } finally {
+        setLoadingFolderId(null);
+    }
+  }, [isOnline, loadProjectData, toast]);
+
+  const handleRenameAsset = useCallback(async (asset: Asset, newName: string) => {
+      setLoadingAssetId(asset.id);
+      try {
+          if (isOnline) {
+              await FirestoreService.updateAsset(asset.id, { name: newName });
+          } else {
+              OfflineService.queueOfflineAction('update-asset', { name: newName }, asset.projectId, asset.id);
+          }
+          await fetchInitialFolderContent(asset.folderId); // Refresh only current view
+          toast({ title: "Asset Renamed", description: `Renamed to "${newName}"`, variant: "success-yellow" });
+      } catch (e) {
+          toast({ title: "Error", description: "Failed to rename asset.", variant: "destructive" });
+          await fetchInitialFolderContent(asset.folderId);
+      } finally {
+          setLoadingAssetId(null);
+      }
+  }, [isOnline, fetchInitialFolderContent, toast]);
+
 
   const handleAssetCreatedInModal = useCallback(async (assetDataWithDataUris: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!project) return;
@@ -1143,6 +1179,8 @@ export default function ProjectPage() {
                 onDownloadAsset={handleDownloadAsset}
                 onDownloadFolder={handleDownloadFolder}
                 onDropOnAsset={handleDropOnAsset}
+                onRenameFolder={handleRenameFolder}
+                onRenameAsset={handleRenameAsset}
                 isAdmin={isAdmin}
                 isOnline={isOnline}
                 loadMoreAssetsRef={loadMoreAssetsRef}
@@ -1370,4 +1408,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-

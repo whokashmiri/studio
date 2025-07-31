@@ -17,6 +17,9 @@ import { useClipboard } from '@/contexts/clipboard-context';
 import Image from 'next/image'; 
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+
 
 interface AssetCardProps {
   asset: Asset;
@@ -25,6 +28,7 @@ interface AssetCardProps {
   onPreviewAsset: (asset: Asset) => void;
   onDownloadAsset: (asset: Asset) => void;
   onDropOnAsset: (files: File[], asset: Asset) => void;
+  onRenameAsset: (asset: Asset, newName: string) => void;
   displayMode?: 'grid' | 'list';
   isDeleting?: boolean;
   isLoading?: boolean;
@@ -39,6 +43,7 @@ export const AssetCard = React.memo(function AssetCard({
   onPreviewAsset, 
   onDownloadAsset,
   onDropOnAsset, 
+  onRenameAsset,
   displayMode = 'grid', 
   isDeleting = false, 
   isLoading = false,
@@ -49,6 +54,10 @@ export const AssetCard = React.memo(function AssetCard({
   const { currentUser } = useAuth();
   const { setClipboard, isItemCut } = useClipboard();
   const isAdmin = currentUser?.role === 'Admin';
+  const { toast } = useToast();
+  
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [currentName, setCurrentName] = useState(asset.name);
   const [isDragOver, setIsDragOver] = useState(false);
   
   const primaryPhoto = asset.photos && asset.photos.length > 0 ? asset.photos[0] : null;
@@ -61,9 +70,38 @@ export const AssetCard = React.memo(function AssetCard({
   const cardIsDisabled = isUploading || isDeleting || isLoading || isDownloading;
 
   const mainAction = () => {
-    if (cardIsDisabled) return;
+    if (cardIsDisabled || isEditingName) return;
     onEditAsset(asset);
   };
+  
+  const handleNameClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (cardIsDisabled) return;
+    setIsEditingName(true);
+  };
+  
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentName(e.target.value);
+  };
+
+  const handleNameSave = () => {
+    if (currentName.trim() && currentName.trim() !== asset.name) {
+      onRenameAsset(asset, currentName.trim());
+    } else {
+        setCurrentName(asset.name);
+    }
+    setIsEditingName(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleNameSave();
+    } else if (e.key === 'Escape') {
+      setCurrentName(asset.name);
+      setIsEditingName(false);
+    }
+  };
+
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -207,10 +245,23 @@ export const AssetCard = React.memo(function AssetCard({
                 </div>
               )}
             </div>
-            <div className="pt-0.5 text-center">
-                <CardTitle className="text-sm font-medium w-full break-words">
+            <div className="pt-0.5 text-center" onClick={handleNameClick}>
+              {isEditingName ? (
+                 <Input
+                    type="text"
+                    value={currentName}
+                    onChange={handleNameChange}
+                    onBlur={handleNameSave}
+                    onKeyDown={handleKeyDown}
+                    autoFocus
+                    className="h-7 w-full text-center text-sm"
+                    onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <CardTitle className="text-sm font-medium w-full break-words p-1 rounded-md hover:bg-muted/70">
                     {asset.name}
                 </CardTitle>
+              )}
             </div>
         </div>
       </Card>
@@ -260,10 +311,23 @@ export const AssetCard = React.memo(function AssetCard({
                 </div>
             )}
           </div>
-          <div className="flex-grow min-w-0">
-            <CardTitle className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
-              {asset.name}
-            </CardTitle>
+          <div className="flex-grow min-w-0" onClick={(e) => {e.stopPropagation(); setIsEditingName(true)}}>
+             {isEditingName ? (
+                 <Input
+                    type="text"
+                    value={currentName}
+                    onChange={handleNameChange}
+                    onBlur={handleNameSave}
+                    onKeyDown={handleKeyDown}
+                    autoFocus
+                    className="h-8 w-full"
+                    onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <CardTitle className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors p-1 rounded-md hover:bg-muted/70">
+                  {asset.name}
+                </CardTitle>
+              )}
           </div>
         </div>
 
