@@ -57,7 +57,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
   const isOffline = !!folder.isOffline;
   const isOfflineUpdate = !!folder.isOfflineUpdate;
   const isCut = isItemCut(folder.id);
-  const cardIsDisabled = isOffline || isLoading || isDownloading;
+  const cardIsDisabled = isLoading || isDownloading;
 
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -114,7 +114,8 @@ export const FolderGridCard = React.memo(function FolderGridCard({
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-lg hover:shadow-lg transition-shadow duration-200 bg-card/50 p-1",
         cardIsDisabled ? "cursor-wait" : "cursor-pointer",
-        isCut && "opacity-60"
+        isCut && "opacity-60",
+        isOffline && "border-dashed border-sky-500"
       )}
       onClick={handleCardClick}
       title={folder.name}
@@ -150,7 +151,7 @@ export const FolderGridCard = React.memo(function FolderGridCard({
                 <Eye className="mr-2 h-4 w-4" />
                 {t('openFolder', 'Open Folder')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onAddSubfolder(folder)}>
+              <DropdownMenuItem onClick={() => onAddSubfolder(folder)} disabled={!isOnline}>
                 <FolderPlus className="mr-2 h-4 w-4" />
                 {t('addSubfolderToCurrent', 'Add subfolder here')}
               </DropdownMenuItem>

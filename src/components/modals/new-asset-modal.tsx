@@ -560,6 +560,8 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     if (event.target) event.target.value = '';
   }, [toast]); 
 
+
+
   const handleCapturePhotoFromStream = useCallback(() => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream && mediaStream.active) {
       const video = videoRef.current;
@@ -578,6 +580,8 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
       toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('cameraNotReadyError', "Camera not ready or permission denied."), variant: "destructive" });
     }
   }, [hasCameraPermission, mediaStream, t, toast]);
+
+  
 
   const handleToggleVideoRecording = useCallback(() => {
     if (isRecording) {

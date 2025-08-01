@@ -1,6 +1,5 @@
 
 
-
 import { 
   addFolder as addFolderToDb, 
   addAsset as addAssetToDb, 
