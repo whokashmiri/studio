@@ -8,20 +8,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Project, ProjectStatus, UserRole } from '@/data/mock-data';
 import * as FirestoreService from '@/lib/firestore-service';
+import * as OfflineService from '@/lib/offline-service';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context'; 
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { v4 as uuidv4 } from 'uuid';
 
 interface NewProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProjectCreated: (project: Project) => void;
   companyId: string;
+  isOnline: boolean;
 }
 
-export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }: NewProjectModalProps) {
+export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId, isOnline }: NewProjectModalProps) {
   const [projectName, setProjectName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
@@ -49,9 +52,10 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
 
     setIsSaving(true);
     
-    const newProjectData: Omit<Project, 'id' | 'createdAt' | 'lastAccessed'> = {
+    const newProjectData: Omit<Project, 'id' | 'createdAt' | 'lastAccessed'> & {companyName: string} = {
       name: projectName,
       companyId: companyId,
+      companyName: currentUser.companyName, // Add companyName for offline use
       status: 'new' as ProjectStatus,
       description: '',
       isFavorite: false,
@@ -65,26 +69,50 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
       newProjectData.assignedInspectorIds = [currentUser.id];
     }
 
-    const createdProject = await FirestoreService.addProject(newProjectData);
-    
-    setIsSaving(false);
+    if (isOnline) {
+      const createdProject = await FirestoreService.addProject(newProjectData);
+      setIsSaving(false);
 
-    if (createdProject) {
-      onProjectCreated(createdProject); 
-      setProjectName('');
-      onClose(); 
-      
-      toast({
-        title: t('projectCreatedTitle', "Project Created"),
-        description: t('projectCreatedDesc', `Project "${createdProject.name}" has been successfully created.`, { projectName: createdProject.name }),
-      });
-      router.push(`/project/${createdProject.id}`);
+      if (createdProject) {
+        onProjectCreated(createdProject); 
+        setProjectName('');
+        onClose(); 
+        
+        toast({
+          title: t('projectCreatedTitle', "Project Created"),
+          description: t('projectCreatedDesc', `Project "${createdProject.name}" has been successfully created.`, { projectName: createdProject.name }),
+        });
+        router.push(`/project/${createdProject.id}`);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create project on the server.",
+          variant: "destructive",
+        });
+      }
     } else {
-      toast({
-        title: "Error",
-        description: "Failed to create project.",
-        variant: "destructive",
-      });
+        // Offline Mode
+        const localProjectId = `local_${uuidv4()}`;
+        const now = Date.now();
+        const offlineProject: Project = {
+            ...newProjectData,
+            id: localProjectId,
+            createdAt: now,
+            lastAccessed: now,
+        }
+        await OfflineService.addProjectOffline(offlineProject);
+        OfflineService.queueOfflineAction('add-project', newProjectData, newProjectData.companyId, localProjectId);
+        
+        setIsSaving(false);
+        onProjectCreated(offlineProject);
+        setProjectName('');
+        onClose();
+        
+        toast({
+          title: "Project Saved Locally",
+          description: `Project "${projectName}" is saved on your device and will sync when you are online.`,
+        });
+        router.push(`/project/${localProjectId}`);
     }
   };
 
@@ -107,7 +135,8 @@ export function NewProjectModal({ isOpen, onClose, onProjectCreated, companyId }
             {t('createNewProjectDesc', 'Enter a name for your new inspection project.')}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-2 items-center gap-2 flex-grow overflow-y-auto">
+        <div className="flex flex-col space-y-2 py-4">
+          <Label htmlFor="project-name">{t('projectName', 'Project Name')}</Label>
           <Input
             id="project-name"
             value={projectName}

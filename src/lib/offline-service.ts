@@ -8,14 +8,16 @@ import {
   updateFolder as updateFolderInDb,
   getProjectById,
   getAllAssetsForProject,
-  getFolders as getFoldersFromFirestore
+  getFolders as getFoldersFromFirestore,
+  deleteFolderCascade as deleteFolderInDb,
+  deleteAsset as deleteAssetInDb,
 } from './firestore-service';
 import { uploadMedia } from '@/actions/cloudinary-actions';
 import type { Folder, Asset, Project, ProjectStatus } from '@/data/mock-data';
 import { v4 as uuidv4 } from 'uuid';
 import Dexie, { type EntityTable } from 'dexie';
 
-const OFFLINE_QUEUE_KEY = 'offlineQueue-v2';
+const OFFLINE_QUEUE_KEY = 'offlineQueue-v3';
 
 // --- Dexie (IndexedDB) Setup ---
 interface OfflineProjectData extends Project {
@@ -25,23 +27,27 @@ interface OfflineProjectData extends Project {
 interface OfflineFolder extends Folder { isCached: true; }
 interface OfflineAsset extends Asset { isCached: true; }
 
-const db = new Dexie('AssetInspectorDB-v3') as Dexie & {
+const db = new Dexie('AssetInspectorDB-v4') as Dexie & {
   projects: EntityTable<OfflineProjectData, 'id'>;
   folders: EntityTable<OfflineFolder, 'id'>;
   assets: EntityTable<OfflineAsset, 'id'>;
 };
 
-db.version(3).stores({
-  projects: '&id, companyId, downloadedAt',
+// Added companyName to projects index for offline company listing
+db.version(4).stores({
+  projects: '&id, companyId, companyName, downloadedAt',
   folders: '&id, projectId, parentId',
   assets: '&id, projectId, folderId, name_lowercase, serialNumber'
 });
 
 export type OfflineAction = 
+  | { type: 'add-project'; payload: Omit<Project, 'id' | 'createdAt' | 'lastAccessed'>; localId: string; projectId: string; }
   | { type: 'add-folder'; payload: Omit<Folder, 'id' | 'isOffline'>; localId: string; projectId: string }
   | { type: 'add-asset'; payload: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'isOffline' | 'isUploading'>; localId: string; projectId: string }
   | { type: 'update-asset'; payload: Partial<Asset>; assetId: string; projectId: string }
-  | { type: 'update-folder'; payload: Partial<Folder>; folderId: string; projectId: string };
+  | { type: 'update-folder'; payload: Partial<Folder>; folderId: string; projectId: string }
+  | { type: 'delete-folder'; folderId: string; projectId: string; }
+  | { type: 'delete-asset'; assetId: string; projectId: string; };
 
 export function getOfflineQueue(): OfflineAction[] {
   if (typeof window === 'undefined') return [];
@@ -55,7 +61,7 @@ function saveOfflineQueue(queue: OfflineAction[]): void {
 }
 
 export function queueOfflineAction(
-  type: 'add-folder' | 'add-asset' | 'update-asset' | 'update-folder', 
+  type: OfflineAction['type'], 
   payload: any, 
   projectId: string,
   itemId?: string
@@ -68,17 +74,29 @@ export function queueOfflineAction(
   let action: OfflineAction;
   let returnVal: { localId?: string, itemId?: string } = {};
 
-  if (type === 'add-folder' || type === 'add-asset') {
-    const localId = uuidv4();
-    action = { type, payload: restPayload, localId, projectId };
-    returnVal.localId = localId;
-  } else if ((type === 'update-asset' || type === 'update-folder') && itemId) {
-    const key = type === 'update-asset' ? 'assetId' : 'folderId';
-    action = { type, payload: restPayload, [key]: itemId, projectId } as OfflineAction;
-    returnVal.itemId = itemId;
-  } else {
-    console.error("Invalid parameters for queueOfflineAction");
-    return {};
+  switch (type) {
+    case 'add-project':
+    case 'add-folder':
+    case 'add-asset':
+      const localId = `local_${uuidv4()}`;
+      action = { type, payload: restPayload, localId, projectId } as OfflineAction;
+      returnVal.localId = localId;
+      break;
+    case 'update-asset':
+    case 'update-folder':
+    case 'delete-asset':
+    case 'delete-folder':
+      if (!itemId) {
+        console.error(`ItemID is required for ${type} action.`);
+        return {};
+      }
+      const key = type.includes('asset') ? 'assetId' : 'folderId';
+      action = { type, payload: restPayload, [key]: itemId, projectId } as OfflineAction;
+      returnVal.itemId = itemId;
+      break;
+    default:
+      console.error(`Invalid action type for queueOfflineAction: ${type}`);
+      return {};
   }
   
   queue.push(action);
@@ -104,11 +122,14 @@ export async function syncOfflineActions(): Promise<{syncedCount: number, errorC
       let success = false;
       try {
         switch(action.type) {
+          case 'add-project':
+            // You will need a function to add a project from the queue
+            // success = await addProjectFromQueue(action.payload);
+            break;
           case 'add-folder':
             success = !!(await addFolderToDb(action.payload, action.localId));
             break;
           case 'add-asset': {
-            // Handle uploading any data URI photos before saving to DB
             const assetPayload = { ...action.payload };
             if (assetPayload.photos && assetPayload.photos.length > 0) {
                 const uploadPromises = assetPayload.photos.map(async (p: string) => {
@@ -124,7 +145,6 @@ export async function syncOfflineActions(): Promise<{syncedCount: number, errorC
             break;
           }
           case 'update-asset': {
-            // Also handle photo uploads on updates
             const assetPayload = { ...action.payload };
             if (assetPayload.photos && assetPayload.photos.length > 0) {
                 const uploadPromises = assetPayload.photos.map(async (p: string) => {
@@ -142,9 +162,15 @@ export async function syncOfflineActions(): Promise<{syncedCount: number, errorC
           case 'update-folder':
             success = await updateFolderInDb(action.folderId, action.payload);
             break;
+          case 'delete-folder':
+            success = await deleteFolderInDb(action.folderId);
+            break;
+          case 'delete-asset':
+            success = await deleteAssetInDb(action.assetId);
+            break;
         }
       } catch (error) {
-        console.error(`Failed to sync action for localId ${'localId' in action ? action.localId : 'assetId' in action ? action.assetId : ''}:`, error);
+        console.error(`Failed to sync action:`, action, 'Error:', error);
       }
       
       if (success) {
@@ -197,6 +223,12 @@ export async function saveProjectForOffline(projectId: string): Promise<void> {
   });
 }
 
+export async function addProjectOffline(project: Project): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const projectToCache: OfflineProjectData = { ...project, isCached: true, downloadedAt: Date.now() };
+  await db.projects.put(projectToCache);
+}
+
 export async function getProjectDataFromCache(projectId: string): Promise<{ project: Project | null; folders: Folder[]; assets: Asset[] }> {
   if (typeof window === 'undefined') return { project: null, folders: [], assets: [] };
   
@@ -211,7 +243,9 @@ export async function getProjectDataFromCache(projectId: string): Promise<{ proj
 
 export async function getDownloadedProjectsFromCache(): Promise<Project[]> {
   if (typeof window === 'undefined') return [];
-  return await db.projects.toArray();
+  const projects = await db.projects.toArray();
+  // Ensure every project has a companyName, which is crucial for the offline selector.
+  return projects.map(p => ({ ...p, companyName: p.companyName || 'Unknown Company' }));
 }
 
 export async function getAssetsFromCache(projectId: string): Promise<Asset[]> {

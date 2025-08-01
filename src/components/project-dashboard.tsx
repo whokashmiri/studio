@@ -25,7 +25,7 @@ interface ProjectDashboardProps {
 
 type ProjectWithAssetCount = Project & { assetCount: number };
 
-export function ProjectDashboard({ company, onLogout, onSwitchCompany }: ProjectDashboardProps) {
+export function ProjectDashboard({ company, onSwitchCompany }: ProjectDashboardProps) {
   const { currentUser } = useAuth();
   const isOnline = useOnlineStatus();
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -112,7 +112,6 @@ export function ProjectDashboard({ company, onLogout, onSwitchCompany }: Project
 
   const handleToggleFavorite = useCallback(async (projectToToggle: ProjectWithAssetCount) => {
     const newIsFavorite = !projectToToggle.isFavorite;
-    // Optimistic UI update
     const optimisticUpdatedProject = { ...projectToToggle, isFavorite: newIsFavorite, lastAccessed: Date.now() };
     setProjects(currentProjects =>
       currentProjects.map(p =>
@@ -120,28 +119,27 @@ export function ProjectDashboard({ company, onLogout, onSwitchCompany }: Project
       )
     );
 
-    const success = await FirestoreService.updateProject(projectToToggle.id, {
-      isFavorite: newIsFavorite,
-    }); // lastAccessed is handled by serverTimestamp in updateProject
+    if (isOnline) {
+        const success = await FirestoreService.updateProject(projectToToggle.id, {
+          isFavorite: newIsFavorite,
+        });
 
-    if (success) {
-      toast({
-        title: newIsFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
-        description: t('projectFavoriteStatusUpdatedDesc', `Project "${projectToToggle.name}" favorite status updated.`, { projectName: projectToToggle.name}),
-      });
-      // Optionally refetch to get exact server timestamp for lastAccessed if critical,
-      // but for favorite toggle, optimistic Date.now() is usually fine.
-      // await fetchProjectsAndCounts(); // Uncomment if precise server lastAccessed is needed immediately
+        if (success) {
+          toast({
+            title: newIsFavorite ? t('markedAsFavorite', 'Marked as Favorite') : t('unmarkedAsFavorite', 'Unmarked as Favorite'),
+            description: t('projectFavoriteStatusUpdatedDesc', `Project "${projectToToggle.name}" favorite status updated.`, { projectName: projectToToggle.name}),
+          });
+        } else {
+          setProjects(currentProjects => currentProjects.map(p => p.id === projectToToggle.id ? projectToToggle : p));
+          toast({ title: "Error", description: "Failed to update favorite status.", variant: "destructive" });
+        }
     } else {
-      // Revert optimistic update on failure
-      setProjects(currentProjects =>
-        currentProjects.map(p =>
-          p.id === projectToToggle.id ? projectToToggle : p // Revert to original projectToToggle
-        )
-      );
-      toast({ title: "Error", description: "Failed to update favorite status.", variant: "destructive" });
+        // Offline logic for favoriting would go here if needed, e.g., queueing an update.
+        // For now, we'll just optimistically update the UI.
+        toast({title: "Action Not Available", description: "Favoriting is not available offline."})
+        setProjects(currentProjects => currentProjects.map(p => p.id === projectToToggle.id ? projectToToggle : p));
     }
-  }, [t, toast]); // Removed fetchProjectsAndCounts from here to rely on optimistic update mostly
+  }, [t, toast, isOnline]);
 
   const tabItems: { value: ProjectStatus | 'favorite'; labelKey: string; defaultLabel: string; icon: React.ElementType }[] = [
     { value: 'recent', labelKey: 'recent', defaultLabel: 'Recent', icon: Clock },
@@ -225,6 +223,7 @@ export function ProjectDashboard({ company, onLogout, onSwitchCompany }: Project
         onClose={() => setIsNewModalOpen(false)}
         onProjectCreated={handleProjectCreated}
         companyId={company.id}
+        isOnline={isOnline}
       />
       {editingProject && (
         <EditProjectModal

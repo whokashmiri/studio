@@ -9,11 +9,12 @@ export type ProjectStatus = 'done' | 'recent' | 'new';
 export interface Project {
   id:string;
   name: string;
+  companyName: string; // Added to ensure it's available for offline projects
   status: ProjectStatus;
   companyId: string;
-  lastAccessed?: number; // Changed from string to number
+  lastAccessed?: number;
   isFavorite?: boolean;
-  createdAt: number; // Changed from string to number
+  createdAt: number;
   description?: string;
   assignedInspectorIds?: string[];
   assignedValuatorIds?: string[];
@@ -21,7 +22,6 @@ export interface Project {
   createdByUserRole?: UserRole;
 }
 
-// Added for explicit typing where asset count is included
 export type ProjectWithAssetCount = Project & { assetCount: number };
 
 
@@ -31,7 +31,7 @@ export interface Folder {
   projectId: string;
   parentId: string | null;
   isOffline?: boolean;
-  isOfflineUpdate?: boolean; // To mark pending updates
+  isOfflineUpdate?: boolean;
 }
 
 export interface Asset {
@@ -44,16 +44,16 @@ export interface Asset {
   serialNumber?: number;
   photos: string[];
   videos?: string[];
-  voiceDescription?: string; // Text transcript
-  recordedAudioDataUrl?: string; // Data URI of the actual recorded audio
+  voiceDescription?: string;
+  recordedAudioDataUrl?: string;
   textDescription?: string;
   miscellaneous?: Record<string, any>;
-  createdAt: number; // Changed from string to number
-  updatedAt?: number; // Changed from string to number
+  createdAt: number;
+  updatedAt?: number;
   userId?: string;
   isUploading?: boolean;
   isOffline?: boolean;
-  isOfflineUpdate?: boolean; // To mark pending updates
+  isOfflineUpdate?: boolean;
   isDone?: boolean;
 }
 
@@ -72,13 +72,11 @@ export interface MockStoredUser extends AuthenticatedUser {
 }
 
 export const mockCompanies: Company[] = [
-  { id: 'comp1', name: 'Innovatech Solutions' },
-  { id: 'comp2', name: 'FutureBuild Corp' },
-  { id: 'comp3', name: 'EcoConstruct Ltd.' },
+  { id: 'comp1', name: 'INNOVATECH SOLUTIONS' },
+  { id: 'comp2', name: 'FUTUREBUILD CORP' },
+  { id: 'comp3', name: 'ECOCONSTRUCT LTD.' },
 ];
 
 export const mockProjects: Project[] = [];
 export const mockFolders: Folder[] = [];
 export const mockAssets: Asset[] = [];
-
-    

@@ -39,19 +39,19 @@ export default function HomePage() {
       } else {
         // Offline: Try to load companies from cache based on offline projects
         const offlineProjects = await OfflineService.getDownloadedProjectsFromCache();
-        const offlineCompanyIds = new Set(offlineProjects.map(p => p.companyId));
-        if (currentUser.companyId) {
-            offlineCompanyIds.add(currentUser.companyId);
-        }
+        const offlineCompaniesMap = new Map<string, string>();
         
-        if (offlineCompanyIds.size > 0) {
-            // This is a simplification. In a real offline-first app, companies might be cached too.
-            // For now, we'll rely on the user's primary company info.
-            const primaryCompany = { id: currentUser.companyId, name: currentUser.companyName };
-            if (!companies.some(c => c.id === primaryCompany.id)) {
-                companies.push(primaryCompany);
+        offlineProjects.forEach(p => {
+            if (!offlineCompaniesMap.has(p.companyId)) {
+                offlineCompaniesMap.set(p.companyId, p.companyName);
             }
+        });
+        
+        if (currentUser.companyId && !offlineCompaniesMap.has(currentUser.companyId)) {
+            offlineCompaniesMap.set(currentUser.companyId, currentUser.companyName);
         }
+
+        companies = Array.from(offlineCompaniesMap.entries()).map(([id, name]) => ({ id, name }));
       }
 
       // Sort the companies to ensure the user's primary company is always first.
@@ -112,7 +112,7 @@ export default function HomePage() {
     setSelectedCompany(null);
   };
 
-  if (isLoading) {
+  if (isLoading || authIsLoading) {
     return (
       <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
