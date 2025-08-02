@@ -599,31 +599,32 @@ export default function NewAssetPage() {
   }, []);
 
   const handleCapturePhotoFromStream = useCallback(() => {
-    if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream && mediaStream.active) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d');
-        if (context) {
-            context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-            // Use toBlob for better quality control
-            canvas.toBlob((blob) => {
-                if (blob) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        setCapturedPhotosInSession(prev => [...prev, reader.result as string]);
-                    };
-                    reader.readAsDataURL(blob);
-                } else {
-                    toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: 'Could not create blob from canvas.', variant: "destructive" });
-                }
-            }, 'image/jpeg', 1.0); // 1.0 is maximum quality
-        } else {
-            toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
-        }
+    if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream?.active) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              if (reader.result) {
+                setCapturedPhotosInSession(prev => [...prev, reader.result as string]);
+              }
+            };
+            reader.readAsDataURL(blob);
+          } else {
+            toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: 'Could not create blob from canvas.', variant: "destructive" });
+          }
+        }, 'image/jpeg', 1.0);
+      } else {
+        toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('canvasContextError', "Could not get canvas context."), variant: "destructive" });
+      }
     } else {
-        toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('cameraNotReadyError', "Camera not ready or permission denied."), variant: "destructive" });
+      toast({ title: t('photoCaptureErrorTitle', "Photo Capture Error"), description: t('cameraNotReadyError', "Camera not ready or permission denied."), variant: "destructive" });
     }
   }, [hasCameraPermission, mediaStream, t, toast]);
   
@@ -727,15 +728,14 @@ export default function NewAssetPage() {
       setCapturedPhotosInSession([]);
       setCapturedVideosInSession([]);
       setIsCustomCameraOpen(false);
-      if (!isMediaModalOpen && (photoUrls.length + videoUrls.length + finalPhotoUrls.length + capturedVideosInSession.length > 0)) {
-        setIsMediaModalOpen(true);
-      }
+      toast({ title: "Media added", description: `${finalPhotoUrls.length + capturedVideosInSession.length} file(s) have been added to the current asset.`, variant: "success-yellow" });
+
     } catch (error: any) {
       toast({ title: "Upload Error", description: error.message || "Failed to process session media.", variant: "destructive" });
     } finally {
       setIsProcessingMedia(false);
     }
-  }, [capturedPhotosInSession, capturedVideosInSession, toast, isMediaModalOpen, photoUrls.length, videoUrls.length]);
+  }, [capturedPhotosInSession, capturedVideosInSession, toast]);
 
 
   const handleCancelCustomCamera = () => {
