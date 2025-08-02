@@ -184,19 +184,22 @@ export default function ProjectPage() {
         let foundProject: Project | null;
         let projectFolders: FolderType[];
         let allProjAssets: Asset[];
-
-        if (isOnline) {
+        
+        // **NEW LOGIC**: Prioritize cached data if the project is downloaded.
+        if (isProjectCached) {
+            const cachedData = await OfflineService.getProjectDataFromCache(projectId);
+            foundProject = cachedData.project;
+            projectFolders = cachedData.folders;
+            allProjAssets = cachedData.assets;
+        } else if (isOnline) {
+            // Only fetch from Firestore if not cached and online
             [foundProject, projectFolders, allProjAssets] = await Promise.all([
                 FirestoreService.getProjectById(projectId),
                 FirestoreService.getFolders(projectId),
                 FirestoreService.getAllAssetsForProject(projectId, 'all'),
             ]);
-        } else if (isProjectCached) {
-            const cachedData = await OfflineService.getProjectDataFromCache(projectId);
-            foundProject = cachedData.project;
-            projectFolders = cachedData.folders;
-            allProjAssets = cachedData.assets;
         } else {
+            // Not cached and offline, show error
             toast({ title: "Offline", description: "Project data not available offline.", variant: "destructive" });
             router.push('/');
             return;
