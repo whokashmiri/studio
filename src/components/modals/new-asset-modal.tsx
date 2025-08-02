@@ -562,6 +562,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
 
 
 
+  
   const handleCapturePhotoFromStream = useCallback(() => {
     if (videoRef.current && canvasRef.current && hasCameraPermission && mediaStream?.active) {
       const video = videoRef.current;
