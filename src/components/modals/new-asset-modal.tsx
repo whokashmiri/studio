@@ -210,12 +210,6 @@ const CustomCameraDialog: FC<any> = ({
         {zoomState.isSupported && (
             <div className="absolute bottom-40 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center gap-1 bg-black/40 p-1.5 rounded-full">
                 <Button
-                    onClick={() => handleZoomChange(0.5)}
-                    variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs data-[active=true]:bg-white/20 data-[supported=false]:text-neutral-500 data-[supported=false]:cursor-not-allowed"
-                    data-supported={zoomState.supportedLevels.includes(0.5)}
-                    data-active={zoomState.current === 0.5}
-                >0.5x</Button>
-                <Button
                     onClick={() => handleZoomChange(1)}
                     variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white text-xs data-[active=true]:bg-white/20 data-[supported=false]:text-neutral-500 data-[supported=false]:cursor-not-allowed"
                     data-supported={zoomState.supportedLevels.includes(1)}
@@ -412,7 +406,7 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
           const capabilities = videoTrack.getCapabilities();
           if ('zoom' in capabilities && capabilities.zoom) {
             const { min, max } = capabilities.zoom;
-            const supportedLevels = [0.5, 1, 2].filter(level => level >= min && level <= max);
+            const supportedLevels = [1, 2].filter(level => level >= min && level <= max);
             setZoomState({ isSupported: true, min, max, current: 1, supportedLevels });
           } else {
             setZoomState({ isSupported: false, min: 1, max: 1, current: 1, supportedLevels: [1] });
@@ -1150,3 +1144,5 @@ export function NewAssetModal({ isOpen, onClose, project, parentFolder, onAssetC
     </>
   );
 }
+
+    
