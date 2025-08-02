@@ -211,10 +211,10 @@ export const AssetCard = React.memo(function AssetCard({
                             <Scissors className="mr-2 h-4 w-4" />
                             {t('cut', 'Cut')}
                         </DropdownMenuItem>
-                        {/* <DropdownMenuItem onClick={handleDownload} disabled={!hasMedia}>
+                        <DropdownMenuItem onClick={handleDownload} disabled={!hasMedia}>
                             <HardDriveDownload className="mr-2 h-4 w-4" />
                             {t('downloadProject', 'Download')}
-                        </DropdownMenuItem> */}
+                        </DropdownMenuItem>
                      </>
                    )}
                   <DropdownMenuSeparator />
